@@ -1,0 +1,48 @@
+#spring:
+#    r2dbc:
+#        url: r2dbc:mysql://mysql:3306/wargame
+#        username: mysqluser
+#        password: mysqlpw
+#
+#    data:
+#        redis:
+#            host: 43.203.181.131
+#            port: 6379
+#            password: 1116
+#
+#    server:
+#        port: 8080
+#        tomcat:
+#            mbeanregistry:
+#                enabled: true
+#
+#    var:
+#        matchExpireTime: 3600
+#
+#
+#management:
+#    metrics:
+#      tags:
+#          application: wargame
+#    endpoints:
+#        web:
+#            exposure:
+#                include: prometheus
+#
+#
+#scheduler:
+#    enabled: true
+#
+#kafka:
+#    clusters:
+#        bootstrapservers: localhost:9092
+#
+#common:
+#    topic: common.topic
+#
+#matching:
+#    topic: matching.users
+#
+#game:
+#    result:
+#        topic: game.result.topic
