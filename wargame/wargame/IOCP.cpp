@@ -1,13 +1,15 @@
-﻿#include"IOCP.h"
-
-
-// minidump
-#include<Windows.h>
+﻿#include "base.h"
+#include "PacketManager.h"
+#include "GameManager.h"
+#include "kafkaIPC.h"
+#include "Resource.h"
+#include<Windows.h> // minidump
 #include<tchar.h>
-#include<DbgHelp.h>
+#include<DbgHelp.h> 
 
 SOCKET hServSock;
 HANDLE hComPort;
+
 
 VOID ShowDumpLastError(DWORD error = GetLastError()) {
 	TCHAR* lpOSMsg;
@@ -23,14 +25,13 @@ VOID ShowDumpLastError(DWORD error = GetLastError()) {
 	// const wchar_t* wideString = L"Hello";      L : wide 문자열임을 나타냅니다.
 
 
-	_tprintf(_T("[ERROR] [%D] %s\n"), error, lpOSMsg);
+	_tprintf(_T("[ERROR] [%lu] %s\n"), error, lpOSMsg);
 	LocalFree(lpOSMsg);
 	// 주로 LocalAlloc로 할당한 메모리를 해제할때 사용한다. 
 }
 
 LPTOP_LEVEL_EXCEPTION_FILTER PreviousExceptionFilter = NULL;
 
-//unhandled Exception 발생시 호출될 콜백 함수
 typedef BOOL(WINAPI* MINIDUMPWRITEDUMP) (
 	HANDLE hProcess,
 	DWORD dwPid,
@@ -44,7 +45,6 @@ typedef BOOL(WINAPI* MINIDUMPWRITEDUMP) (
 	CONST PMINIDUMP_USER_STREAM_INFORMATION UserStreamParam,
 	CONST PMINIDUMP_CALLBACK_INFORMATION CallbackParam
 	);
-// MINIDUMPWRITEDUMP 함수의 타입을 정의
 
 
 LONG WINAPI UnHandledExceptionFilter(_EXCEPTION_POINTERS* exceptionInfo) {
@@ -94,8 +94,6 @@ LONG WINAPI UnHandledExceptionFilter(_EXCEPTION_POINTERS* exceptionInfo) {
 	return EXCEPTION_CONTINUE_SEARCH;
 }
 
-
-//UnHandled Exception 발생시 덤프를 만들기 위해 사용자 정의한 UnHandledExceptionFilter()가 호출되도록 설정
 BOOL BeginDump(VOID) // Param VOID는 매개변수 없는거
 {
 	//잘못된 연산 메시지 창이 나오지 않도록 설정
@@ -108,8 +106,6 @@ BOOL BeginDump(VOID) // Param VOID는 매개변수 없는거
 	return TRUE;
 }
 
-
-//원래 설정으로 복구하여 덤프가 종료되도록 합니다.
 BOOL EndDump(VOID)
 {
 	//프로그램 종료 전에 원래 설정으로 복구
@@ -117,13 +113,208 @@ BOOL EndDump(VOID)
 	return TRUE;
 }
 
-void TimeOutCheckThread()
+void ErrorHandling(const char* message)
 {
+	perror(message);
+	exit(1);
+}
+unsigned WINAPI EchoThreadMain(LPVOID pComPort)
+{
+	HANDLE hComPort = (HANDLE)pComPort;
+	SOCKET sock;
+	DWORD bytesTrans;
+	LPPER_HANDLE_DATA handleInfo;
+	LPPER_IO_DATA ioInfo;
+	DWORD flags = 0;
+	void* data;
+
 	while (true)
 	{
-		GameManager::TimeOutCheck();
-		Sleep(1000);
+		BOOL result = GetQueuedCompletionStatus(hComPort, &bytesTrans, (PULONG_PTR)&handleInfo, (LPOVERLAPPED*)&ioInfo, INFINITE);
+		sock = handleInfo->hClntSock;
+
+		if (sock == INVALID_SOCKET)
+		{
+			cout << "Invalid socket" << endl;
+			delete handleInfo;
+			delete ioInfo;
+			continue;
+		}
+		if (ioInfo->rwMode == READ)
+		{
+			if (bytesTrans == 0)
+			{
+				Room::ClientClose(sock);
+				closesocket(sock);
+				delete handleInfo;
+				delete ioInfo;
+				continue;
+			}
+
+			int remain_byte = bytesTrans;
+			int bbb = 0;
+			while (remain_byte != 0)
+			{
+				if (ioInfo->header_recv == false)
+				{
+					if (remain_byte < 8)
+					{
+						cout << "헤더조각을 다 못모았을경우 " << remain_byte << endl;
+
+						memcpy(&ioInfo->broken_data[ioInfo->broken_data_size], ioInfo->wsaBuf.buf, remain_byte); //조각 채우기
+						ioInfo->broken_data_size += remain_byte;
+						ioInfo->header_broken = true;
+
+						if (ioInfo->broken_data_size < 8) //덜모음
+							break;
+						else
+							ioInfo->header_recv = true; //다 모음
+					}
+					else
+					{
+						ioInfo->header_broken = false;
+						ioInfo->header_recv = true;
+					}
+				}
+
+				int size;
+				int number;
+
+				if (ioInfo->header_broken)
+				{
+					memcpy(&size, ioInfo->broken_data, sizeof(int));
+					memcpy(&number, ioInfo->broken_data + sizeof(int), sizeof(int));
+				}
+				else
+				{
+					memcpy(&size, ioInfo->wsaBuf.buf + bbb, sizeof(int));
+					memcpy(&number, ioInfo->wsaBuf.buf + sizeof(int) + bbb, sizeof(int));
+				}
+
+				bbb += sizeof(nsHeader);
+
+
+				if (ioInfo->data_broken)
+				{
+					int a = remain_byte < size ? remain_byte : size; //남은게 size보다 적을경우
+					memcpy(&ioInfo->broken_data[ioInfo->broken_data_size], ioInfo->wsaBuf.buf + bbb, a);
+					ioInfo->broken_data_size += a;
+
+					cout << "Broken packet recv" << endl;
+					if (ioInfo->broken_data_size < size + sizeof(nsHeader))
+						break;
+				}
+				else
+				{
+					if (remain_byte < size + sizeof(nsHeader))
+					{
+						memcpy(&ioInfo->broken_data[ioInfo->broken_data_size], ioInfo->wsaBuf.buf + bbb, remain_byte);
+						ioInfo->broken_data_size += remain_byte;
+
+						ioInfo->data_broken = true;
+						cout << "Broken packet" << endl;
+						break;
+					}
+				}
+
+				remain_byte -= 8 + size;
+
+				if (ioInfo->data_broken)
+				{
+					cout << "Broken packet used" << endl;
+					data = ioInfo->broken_data + sizeof(nsHeader);
+				}
+				else
+				{
+					data = ioInfo->wsaBuf.buf + sizeof(nsHeader);
+				}
+
+
+				if (number == H_CHAT)
+				{
+					Room::ClientChat(sock, size, data);
+				}
+				else if (number == H_CHANNEL_MOVE)
+				{
+					GameManager::ClientChanMove(sock, data);
+				}
+				else if (number == H_MOVE)
+				{
+					Room::ClientMove(sock, data);
+				}
+				else if (number == H_MOVESTART)
+				{
+					Room::ClientMoveStart(sock, data);
+				}
+				else if (number == H_MOVESTOP)
+				{
+					Room::ClientMoveStop(sock, data);
+				}
+				//else if (number == H_AUTHORIZATION) {
+				//	GameManager::ClientAuth(sock, data);
+				//}
+				else if (number == H_TIMEOUT_SET)
+				{
+					GameManager::ClientTimeOutSet(sock);
+				}
+				else if (number == H_ROOM_MOVE) {
+					GameManager::ClientRoomMove(sock, data);
+				}
+				else if (number == H_IS_READY) {
+					GameManager::ClientReady(sock, size, data);
+				}
+				else if (number == H_CLIENT_STAT) {
+					Room::ClientStat(sock);
+				}
+				else if (number == H_ATTACK_TARGET) {
+					Room::MouseSearch(sock, data);
+				}
+				else if (number == H_ATTACK_CLIENT) {
+					Room::AttackClient(sock, data);
+				}
+				else if (number == H_ATTACK_STRUCT) {
+					Room::AttackStruct(sock, data);
+				}
+				else if (number == H_CLIENT_STAT) {
+					Room::ClientChampInit(sock);
+				}
+				else if (number == H_GOTO_LOBBY) {
+					Room::GotoLobby(sock);
+				}
+				else if (number == H_BUY_ITEM) {
+					Room::ItemStat(sock, data);
+				}
+				else if (number == H_WELL) {
+					Room::Well(sock, data);
+				}
+
+				ioInfo->header_broken = false;
+				ioInfo->data_broken = false;
+				ioInfo->header_recv = false;
+				ioInfo->broken_data_size = 0;
+
+				if (remain_byte != 0)
+				{
+					cout << "Broken packet " << remain_byte << " " << number << endl;
+					bbb += size;
+				}
+				if (remain_byte < 0)
+				{
+					cout << "remain_byte < 0" << endl;
+					break;
+				}
+			}
+			memset(&(ioInfo->overlapped), 0, sizeof(OVERLAPPED));
+
+			WSARecv(sock, &(ioInfo->wsaBuf), 1, NULL, &flags, &(ioInfo->overlapped), NULL);
+		}
+		else
+		{
+			delete[] ioInfo->wsaBuf.buf;
+			delete ioInfo;
+		}
 	}
+	return 0;
 }
 
 void IOCPInit()
@@ -140,7 +331,7 @@ void IOCPInit()
 
 	printf("PROCESSE %d \n", sysInfo.dwNumberOfProcessors);
 
-	for (int i = 0; i < sysInfo.dwNumberOfProcessors; i++)
+	for (size_t i = 0; i < sysInfo.dwNumberOfProcessors; i++)
 		_beginthreadex(NULL, 0, EchoThreadMain, (LPVOID)hComPort, 0, NULL);
 
 	hServSock = WSASocketW(AF_INET, SOCK_STREAM, 0, NULL, 0, WSA_FLAG_OVERLAPPED);
@@ -159,6 +350,48 @@ void IOCPInit()
 	if (listen(hServSock, 5) == SOCKET_ERROR)
 		ErrorHandling("listen error");
 }
+
+
+
+void TimeOutCheckThread()
+{
+	while (true)
+	{
+		GameManager::TimeOutCheck();
+		Sleep(1000);
+	}
+}
+
+void AcceptThread()
+{
+	LPPER_HANDLE_DATA handleInfo;
+
+	while (true)
+	{
+		handleInfo = new PER_HANDLE_DATA;
+		int addrlen = sizeof(SOCKADDR_IN);
+
+		SOCKET hClntSock = accept(hServSock, (SOCKADDR*)&handleInfo->clntAdr, &addrlen);
+		handleInfo->hClntSock = hClntSock;
+
+
+
+		CreateIoCompletionPort((HANDLE)hClntSock, hComPort, (SIZE_T)handleInfo, 0);
+		LPPER_IO_DATA ioInfo = new PER_IO_DATA;
+		memset(&(ioInfo->overlapped), 0, sizeof(OVERLAPPED));
+		ioInfo->wsaBuf.len = BUF_SIZE;
+		ioInfo->wsaBuf.buf = new CHAR[BUF_SIZE];
+		memset(ioInfo->wsaBuf.buf, 0, BUF_SIZE);
+		ioInfo->rwMode = READ;
+
+		DWORD recvBytes = 0, flags = 0;
+		WSARecv(handleInfo->hClntSock, &(ioInfo->wsaBuf), 1, &recvBytes, &flags, &(ioInfo->overlapped), NULL);
+
+		GameManager::NewClient(hClntSock, handleInfo, ioInfo);
+
+	}
+}
+
 
 void CommendInput()
 {
@@ -182,8 +415,8 @@ void CommendInput()
 		{
 			cout << endl;
 			cout << "client_list_all : " << GameManager::client_list_all.size() << endl;
-			cout << "client_match : " << GameManager::client_match.size() << endl;
-			cout << "auth_data : " << GameManager::auth_data.size() << endl;
+			//cout << "client_match : " << GameManager::client_match.size() << endl;
+			//cout << "auth_data : " << GameManager::auth_data.size() << endl;
 			cout << endl;
 			cout << "stop : Stop server" << endl;
 			cout << "clicount : Client count check" << endl;
@@ -199,7 +432,7 @@ void CommendInput()
 		m = "clicount";
 		if (!strcmp(val, m.c_str()))
 		{
-			printf("Client Count : %d \n", GameManager::client_list_all.size());
+			cout << "Client Count : " << GameManager::client_list_all.size() << endl;
 			what = true;
 		}
 
@@ -253,8 +486,8 @@ void CommendInput()
 					printf("       y %f \n", inst->y);
 					printf("       z %f \n", inst->z);
 					printf("       elo %d \n", inst->elo);
-					printf("       gold %d \n", inst->gold);
-					printf("       level %f \n", inst->level);
+					printf("       gold %f \n", inst->gold);
+					printf("       level %d \n", inst->level);
 					printf("       maxexp %d \n", inst->maxexp);
 					printf("       exp %d \n", inst->exp);
 					printf("\n");
@@ -263,8 +496,8 @@ void CommendInput()
 					printf("       curmana %d \n", inst->curmana);
 					printf("       maxmana %d \n", inst->maxmana);
 					printf("       attack %d \n", inst->attack);
-					printf("       critical %d \n", inst->critical);
-					printf("       criProbability %d \n", inst->criProbability);
+					printf("       critical %f \n", inst->critical);
+					printf("       criProbability %f \n", inst->criProbability);
 					printf("       maxdelay %f \n", inst->maxdelay);
 					printf("       curdelay %f \n", inst->curdelay);
 					printf("       attrange %d \n", inst->attrange);
@@ -319,7 +552,7 @@ void CommendInput()
 
 
 
-			for (auto& room : GameManager::auth_data) {
+			/*for (auto& room : GameManager::auth_data) {
 				if (room.channel == channelIndex && room.room == roomIndex) {
 					for (auto& user : room.user_data) {
 
@@ -333,7 +566,7 @@ void CommendInput()
 					cout << endl;
 				}
 			}
-
+			*/
 			what = true;
 		}
 
@@ -370,17 +603,17 @@ void CommendInput()
 			getline(cin, input);
 
 			BYTE* packet_data = new BYTE[input.size()];
-			int size = input.size();
+			size_t size = input.size();
 			memcpy(packet_data, input.c_str(), size);
 
-			for (auto cli : GameManager::client_channel[channelIndex].client_list_room[roomIndex])
+			for (auto cli : GameManager::client_channel[channelIndex].room_list[roomIndex].client_list_room)
 				PacketManger::Send(cli->socket, H_NOTICE, packet_data, size);
 
 			cout << "UTF-8 Encoded Notice ch." << channelIndex << " Room #" << roomIndex << " : " << input << endl;
 			what = true;
 		}
 
-		m = "auth";
+		/*m = "auth";
 		if (!strcmp(val, m.c_str())) {
 			for (auto& room : GameManager::auth_data) {
 
@@ -393,247 +626,12 @@ void CommendInput()
 				cout << endl;
 			}
 			what = true;
-		}
+		}*/
 
 
 		if (what == false)
 			cout << "You can enter help to know commands." << endl;
 	}
-}
-
-void AcceptThread()
-{
-	LPPER_HANDLE_DATA handleInfo;
-
-	while (true)
-	{
-		handleInfo = new PER_HANDLE_DATA;
-		int addrlen = sizeof(SOCKADDR_IN);
-
-		SOCKET hClntSock = accept(hServSock, (SOCKADDR*)&handleInfo->clntAdr, &addrlen);
-		handleInfo->hClntSock = hClntSock;
-
-
-
-		CreateIoCompletionPort((HANDLE)hClntSock, hComPort, (SIZE_T)handleInfo, 0);
-		LPPER_IO_DATA ioInfo = new PER_IO_DATA;
-		memset(&(ioInfo->overlapped), 0, sizeof(OVERLAPPED));
-		ioInfo->wsaBuf.len = BUF_SIZE;
-		ioInfo->wsaBuf.buf = new CHAR[BUF_SIZE];
-		memset(ioInfo->wsaBuf.buf, 0, BUF_SIZE);
-		ioInfo->rwMode = READ;
-
-		DWORD recvBytes = 0, flags = 0;
-		WSARecv(handleInfo->hClntSock, &(ioInfo->wsaBuf), 1, &recvBytes, &flags, &(ioInfo->overlapped), NULL);
-
-		GameManager::NewClient(hClntSock, handleInfo, ioInfo);
-
-	}
-}
-
-unsigned WINAPI EchoThreadMain(LPVOID pComPort)
-{
-	HANDLE hComPort = (HANDLE)pComPort;
-	SOCKET sock;
-	DWORD bytesTrans;
-	LPPER_HANDLE_DATA handleInfo;
-	LPPER_IO_DATA ioInfo;
-	DWORD flags = 0;
-	void* data;
-
-	while (true)
-	{
-		BOOL result = GetQueuedCompletionStatus(hComPort, &bytesTrans, (PULONG_PTR)&handleInfo, (LPOVERLAPPED*)&ioInfo, INFINITE);
-		sock = handleInfo->hClntSock;
-
-		if (sock == INVALID_SOCKET)
-		{
-			cout << "Invalid socket" << endl;
-			delete handleInfo;
-			delete ioInfo;
-			continue;
-		}
-		if (ioInfo->rwMode == READ)
-		{
-			if (bytesTrans == 0)
-			{
-				GameManager::ClientClose(sock);
-				closesocket(sock);
-				delete handleInfo;
-				delete ioInfo;
-				continue;
-			}
-
-			int remain_byte = bytesTrans;
-			int bbb = 0;
-			while (remain_byte != 0)
-			{
-				if (ioInfo->header_recv == false)
-				{
-					if (remain_byte < 8)
-					{
-						cout << "헤더조각을 다 못모았을경우 " << remain_byte << endl;
-
-						memcpy(&ioInfo->broken_data[ioInfo->broken_data_size], ioInfo->wsaBuf.buf, remain_byte); //조각 채우기
-						ioInfo->broken_data_size += remain_byte;
-						ioInfo->header_broken = true;
-
-						if (ioInfo->broken_data_size < 8) //덜모음
-							break;
-						else
-							ioInfo->header_recv = true; //다 모음
-					}
-					else
-					{
-						ioInfo->header_broken = false;
-						ioInfo->header_recv = true;
-					}
-				}
-
-				int size;
-				int number;
-
-				if (ioInfo->header_broken)
-				{
-					memcpy(&size, ioInfo->broken_data, sizeof(int));
-					memcpy(&number, ioInfo->broken_data + sizeof(int), sizeof(int));
-				}
-				else
-				{
-					memcpy(&size, ioInfo->wsaBuf.buf + bbb, sizeof(int));
-					memcpy(&number, ioInfo->wsaBuf.buf + sizeof(int) + bbb, sizeof(int));
-				}
-
-				bbb += sizeof(Header);
-
-
-				if (ioInfo->data_broken)
-				{
-					int a = remain_byte < size ? remain_byte : size; //남은게 size보다 적을경우
-					memcpy(&ioInfo->broken_data[ioInfo->broken_data_size], ioInfo->wsaBuf.buf + bbb, a);
-					ioInfo->broken_data_size += a;
-
-					cout << "Broken packet recv" << endl;
-					if (ioInfo->broken_data_size < size + sizeof(Header))
-						break;
-				}
-				else
-				{
-					if (remain_byte < size + sizeof(Header))
-					{
-						memcpy(&ioInfo->broken_data[ioInfo->broken_data_size], ioInfo->wsaBuf.buf + bbb, remain_byte);
-						ioInfo->broken_data_size += remain_byte;
-
-						ioInfo->data_broken = true;
-						cout << "Broken packet" << endl;
-						break;
-					}
-				}
-
-				remain_byte -= 8 + size;
-
-				if (ioInfo->data_broken)
-				{
-					cout << "Broken packet used" << endl;
-					data = ioInfo->broken_data + sizeof(Header);
-				}
-				else
-				{
-					data = ioInfo->wsaBuf.buf + sizeof(Header);
-				}
-
-
-				if (number == H_CHAT)
-				{
-					GameManager::ClientChat(sock, size, data);
-				}
-				else if (number == H_CHANNEL_MOVE)
-				{
-					GameManager::ClientChanMove(sock, data);
-				}
-				else if (number == H_MOVE)
-				{
-					GameManager::ClientMove(sock, data);
-				}
-				else if (number == H_MOVESTART)
-				{
-					GameManager::ClientMoveStart(sock, data);
-				}
-				else if (number == H_MOVESTOP)
-				{
-					GameManager::ClientMoveStop(sock, data);
-				}
-				else if (number == H_AUTHORIZATION) {
-					GameManager::ClientAuth(sock, data);
-				}
-				else if (number == H_TIMEOUT_SET)
-				{
-					GameManager::ClientTimeOutSet(sock);
-				}
-				else if (number == H_ROOM_MOVE) {
-					GameManager::ClientRoomMove(sock, data);
-				}
-				else if (number == H_IS_READY) {
-					GameManager::ClientReady(sock, size, data);
-				}
-				else if (number == H_CLIENT_STAT) {
-					GameManager::ClientStat(sock);
-				}
-				else if (number == H_ATTACK_TARGET) {
-					GameManager::MouseSearch(sock, data);
-				}
-				else if (number == H_ATTACK_CLIENT) {
-					GameManager::AttackClient(sock, data);
-				}
-				else if (number == H_ATTACK_STRUCT) {
-					GameManager::AttackStruct(sock, data);
-				}
-				else if (number == H_CLIENT_STAT) {
-					GameManager::ClientChampInit(sock);
-				}
-				else if (number == H_GOTO_LOBBY) {
-					GameManager::GotoLobby(sock);
-				}
-				else if (number == H_BUY_ITEM) {
-					GameManager::ItemStat(sock, data);
-				}
-				else if (number == H_WELL) {
-					GameManager::Well(sock, data);
-				}
-
-				ioInfo->header_broken = false;
-				ioInfo->data_broken = false;
-				ioInfo->header_recv = false;
-				ioInfo->broken_data_size = 0;
-
-				if (remain_byte != 0)
-				{
-					cout << "Broken packet " << remain_byte << " " << number << endl;
-					bbb += size;
-				}
-				if (remain_byte < 0)
-				{
-					cout << "remain_byte < 0" << endl;
-					break;
-				}
-			}
-			memset(&(ioInfo->overlapped), 0, sizeof(OVERLAPPED));
-
-			WSARecv(sock, &(ioInfo->wsaBuf), 1, NULL, &flags, &(ioInfo->overlapped), NULL);
-		}
-		else
-		{
-			delete[] ioInfo->wsaBuf.buf;
-			delete ioInfo;
-		}
-	}
-	return 0;
-}
-
-void ErrorHandling(const char* message)
-{
-	perror(message);
-	exit(1);
 }
 
 int main()
@@ -643,16 +641,19 @@ int main()
 	
 	IOCPInit();
 
-	GameManager::LoadChampions();
-	GameManager::ItemInit();
-
+	ChampionSystem::ChampionInit();
+	ItemSystem::ItemInit();
 
 	thread accept_thread(AcceptThread);
-
 	thread time_out_thread(TimeOutCheckThread);
+	thread kafka_consumer_thread(kafkaIPC::KafkaConsumerThread);
 
 	EndDump();
 	CommendInput();
+
+	accept_thread.join();
+	time_out_thread.join();
+	kafka_consumer_thread.join();
 
 	return 0;
 }

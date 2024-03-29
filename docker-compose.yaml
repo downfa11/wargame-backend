@@ -58,7 +58,7 @@ services:
       - TZ=Asia/Seoul
       - MYSQL_HOST=localhost
       - MYSQL_PORT=3306
-      - MYSQL_DATABASE=resistance
+      - MYSQL_DATABASE=wargame
       - MYSQL_ROOT_PASSWORD=rootpassword
       - MYSQL_USER=mysqluser
       - MYSQL_PASSWORD=mysqlpw

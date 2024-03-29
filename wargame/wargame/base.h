@@ -22,9 +22,12 @@
 #include <ctime>
 #include <stack>
 #include <iomanip>
-#include<mysql.h>
+#include<unordered_map>
+#include<sstream>
+
+
 #pragma comment(lib,"ws2_32.lib")
-#pragma comment(lib,"libmysql.lib")
+
 using namespace std;
 
 typedef unsigned int       UINT;
@@ -124,7 +127,7 @@ public:
 	float rotationY = 0;
 	float rotationZ = 0;
 
-	float level;
+	int level;
 	int maxexp=100;
 	int exp;
 
@@ -137,8 +140,8 @@ public:
 	int curmana;
 	int maxmana;
 	int attack;
-	int critical;
-	int criProbability;
+	float critical;
+	float criProbability;
 	float maxdelay;
 	float curdelay;
 	int attrange;
@@ -180,25 +183,29 @@ struct ClientInfo
 	int curmana;
 	int maxmana;
 	int attack;
-	int critical;
-	int criProbability;
+	float critical;
+	float criProbability;
 	float attspeed;
 	int attrange;
 	float movespeed;
 };
 #pragma pack(pop)
 
+#pragma pack(push,1)
 struct UserData {
 	string user_code;
 	string user_name;
 	Client* user_client;
 };
+#pragma pack(pop)
 
+#pragma pack(push,1)
 struct roomData {
 	vector<UserData> user_data;
 	int channel;
 	int room;
 };
+#pragma pack(pop)
 
 #pragma pack(push,1)
 struct ClientMovestart
@@ -211,34 +218,14 @@ struct ClientMovestart
 #pragma pack(pop)
 
 #pragma pack(push,1)
-struct Header
+struct nsHeader
 {
 	int size;
 	int number;
 };
 #pragma pack(pop)
 
-class ChampionStats {
-public:
-	int index;
-	string name;
-	int attack;
-	int maxhp;
-	int maxmana;
-	float movespeed;
-	float maxdelay;
-	float attspeed;
-	int attrange;
-	int critical;
-	int criProbability;
-
-	int growHp;
-	int growMana;
-	int growAtt;
-	int growCri;
-	int growCriPob;
-};
-
+#pragma pack(push,1)
 struct mouseInfo
 {
 	float x;
@@ -248,7 +235,7 @@ struct mouseInfo
 };
 #pragma pack(pop)
 
-
+#pragma pack(push,1)
 struct attinfo {
 	int attacker;
 	int attacked;
@@ -258,6 +245,7 @@ struct attinfo {
 	int assist4 = -1;
 
 };
+#pragma pack(pop)
 
 class structure
 {
@@ -271,11 +259,12 @@ public:
 	float maxdelay;
 	float curdelay;
 	int attrange;
-	float bulletdmg;
+	int bulletdmg;
 	float bulletspeed;
 	int team = -1; // 0 for blue team, 1 for red team
 };
 
+#pragma pack(push,1)
 struct structureInfo
 {
 	int index;
@@ -285,43 +274,41 @@ struct structureInfo
 	float y;
 	float z;
 	int attrange;
-	float bulletdmg;
+	int bulletdmg;
 	float bulletspeed;
 	int team;
 };
+#pragma pack(pop)
 
+#pragma pack(push,1)
 struct bullet {
-	float x;
-	float y;
-	float z;
+	double x;
+	double y;
+	double z;
 	int dmg;
 };
+#pragma pack(pop)
 
+#pragma pack(push,1)
 struct MatchResult {
 	string datetime;
 	int winTeam;
 	vector<Client> participants;
 	int gameDuration;
+
+	string toString() const {
+		stringstream ss;
+		ss << "datetime: " << datetime << ", "
+			<< "winTeam: " << winTeam << ", "
+			<< "gameDuration: " << gameDuration;
+
+		return ss.str();
+	}
 };
+#pragma pack(pop)
 
-struct Item {
-	int id;
-	bool isPerchase;
 
-};
-
-struct itemStats {
-	int id;
-	string name;
-	int gold;
-	int attack;
-	int maxhp;
-	float movespeed;
-	float maxdelay;
-	float attspeed;
-	int criProbability;
-};
-
+#pragma pack(push,1)
 struct itemSlots {
 	int socket;
 	int id_0;
@@ -331,3 +318,4 @@ struct itemSlots {
 	int id_4;
 	int id_5;
 };
+#pragma pack(pop)
