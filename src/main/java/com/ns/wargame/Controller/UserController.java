@@ -9,6 +9,8 @@ import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.util.stream.Collectors;
+
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/users")
@@ -19,40 +21,39 @@ public class UserController {
     @PostMapping("/register")
     public Mono<ResponseEntity<messageEntity>> createUser(@RequestBody UserCreateRequest request){
 
-        return Mono.just(ResponseEntity.ok()
-                        .body(new messageEntity("Success",userService.create(request)
-                                .map(UserResponse::of))))
-                .defaultIfEmpty(ResponseEntity.ok().body(new messageEntity("Fail","request is not correct.")));
-
+        return userService.create(request)
+                .map(user -> ResponseEntity.ok()
+                        .body(new messageEntity("Success", UserResponse.of(user))))
+                .defaultIfEmpty(ResponseEntity.ok().body(new messageEntity("Fail", "request is not correct.")));
     }
 
     @PostMapping("/login")
     public Mono<ResponseEntity<messageEntity>> loginUser(@RequestBody UserRequest request){
-        return Mono.just(ResponseEntity.ok()
-                        .body(new messageEntity("Success",userService.login(request)
-                                .map(UserResponse::of))))
-                .defaultIfEmpty(ResponseEntity.ok().body(new messageEntity("Fail","request is not correct.")));
-
+        return userService.login(request)
+                .map(user -> ResponseEntity.ok()
+                        .body(new messageEntity("Success", UserResponse.of(user))))
+                .defaultIfEmpty(ResponseEntity.ok().body(new messageEntity("Fail", "request is not correct.")));
     }
 
     @GetMapping("/memberList")
     public Mono<ResponseEntity<messageEntity>> findAllUsers(){
-
-        return Mono.just(ResponseEntity.ok()
-                        .body(new messageEntity("Success",userService.findAll()
-                                .map(UserResponse::of))))
-                .defaultIfEmpty(ResponseEntity.ok().body(new messageEntity("Fail","request is not correct.")));
-
+        return userService.findAll()
+                .collectList()
+                .map(users -> users.stream()
+                        .map(UserResponse::of)
+                        .collect(Collectors.toList()))
+                .map(userResponses -> ResponseEntity.ok()
+                        .body(new messageEntity("Success", userResponses)))
+                .defaultIfEmpty(ResponseEntity.ok().body(new messageEntity("Fail", "request is not correct.")));
     }
 
     @GetMapping("/{id}")
     public Mono<ResponseEntity<messageEntity>> findUser(@PathVariable Long id){
 
-        return Mono.just(ResponseEntity.ok()
-                        .body(new messageEntity("Success",userService.findById(id)
-                                .map(u -> ResponseEntity.ok(UserResponse.of(u))))))
-                .defaultIfEmpty(ResponseEntity.ok().body(new messageEntity("Fail","request is not correct.")));
-
+        return userService.findById(id)
+                .map(user -> ResponseEntity.ok()
+                        .body(new messageEntity("Success", UserResponse.of(user))))
+                .defaultIfEmpty(ResponseEntity.ok().body(new messageEntity("Fail", "request is not correct.")));
     }
 
     @DeleteMapping("/delete/{id}")
@@ -72,21 +73,21 @@ public class UserController {
     }
     @PutMapping("/update/{id}")
     public Mono<ResponseEntity<messageEntity>> updateUser(@PathVariable Long id, @RequestBody UserUpdateRequest request){
-
-        return Mono.just(ResponseEntity.ok()
-                        .body(new messageEntity("Success", userService.update(id, request.getName(), request.getEmail(),request.getPassword())
-                                .map(u -> ResponseEntity.ok(UserResponse.of(u))))))
-                .defaultIfEmpty(ResponseEntity.ok().body(new messageEntity("Fail","request is not correct.")));
-
+        return userService.update(id, request.getName(), request.getEmail(),request.getPassword())
+                .map(user -> ResponseEntity.ok()
+                        .body(new messageEntity("Success", UserResponse.of(user))))
+                .defaultIfEmpty(ResponseEntity.ok().body(new messageEntity("Fail", "request is not correct.")));
     }
 
     @GetMapping("/{id}/posts")
     public Mono<ResponseEntity<messageEntity>> getUserPosts(@PathVariable Long id){
-
-        return Mono.just(ResponseEntity.ok()
-                        .body(new messageEntity("Success",postService.findAllByuserId(id)
-                                .map(UserPostResponse::of))))
-                .defaultIfEmpty(ResponseEntity.ok().body(new messageEntity("Fail","id is not correct.")));
-
+        return postService.findAllByuserId(id)
+                .collectList()
+                .map(boards -> boards.stream()
+                        .map(UserPostResponse::of)
+                        .collect(Collectors.toList()))
+                .map(boardResponses -> ResponseEntity.ok()
+                        .body(new messageEntity("Success", boardResponses)))
+                .defaultIfEmpty(ResponseEntity.ok().body(new messageEntity("Fail", "request is not correct.")));
     }
 }

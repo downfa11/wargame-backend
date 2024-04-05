@@ -3,6 +3,7 @@ package com.ns.wargame.Service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ns.wargame.Domain.dto.MatchResponse;
+import com.ns.wargame.Repository.UserR2dbcRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -15,6 +16,8 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
+import reactor.util.function.Tuple2;
+import reactor.util.function.Tuples;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -28,11 +31,11 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class MatchQueueService {
     private final ReactiveRedisTemplate<String, String> reactiveRedisTemplate;
-    private final String MATCH_WAIT_KEY ="users:queue:%s:match:wait";
-    private final String MATCH_WAIT_KEY_FOR_SCAN ="users:queue:*:match:wait";
-    private final String MATCH_PROCEED_KEY ="users:queue:%s:match:proceed";
+    private final String MATCH_WAIT_KEY ="users:queue:%s:wait";
+    private final String MATCH_WAIT_KEY_FOR_SCAN ="users:queue:*:wait";
+    private final String MATCH_PROCEED_KEY ="users:queue:%s:proceed";
 
-    private static final Long MAX_ALLOW_USER_COUNT = 10L;
+    private static final Long MAX_ALLOW_USER_COUNT = 2L;
 
     @Value("${scheduler.enabled}")
     private Boolean scheduling = false;
@@ -41,21 +44,42 @@ public class MatchQueueService {
     private int exireTime;
 
     private final UserService userService;
+    private final UserR2dbcRepository userRepository;
 
     private final GameService gameService;
     private final ObjectMapper mapper = new ObjectMapper();
 
     public Mono<String> registerMatchQueue(final String queue,final Long userId){
-        //membership의 게임코드가 null이 아니라면?(매칭 성공 시나리오)
         return userService.findById(userId).flatMap(user -> {
+            if(user.getCurGameSpaceCode()!="")
+                return Mono.just("fail");
+
             Long elo = user.getElo();
             String name = user.getName();
             String member = userId+":"+name;
             return reactiveRedisTemplate.opsForZSet().add(MATCH_WAIT_KEY.formatted(queue), member, elo.doubleValue())
                     .flatMap(result -> reactiveRedisTemplate.expire(MATCH_WAIT_KEY.formatted(queue), Duration.ofSeconds(exireTime)))
                     .thenReturn("{\"userId\":\"" + userId + "\", \"name\":\"" + name + "\", \"elo\":\"" + elo + "\"}");
-        }); //  {"userId":"1", "name":"John", "elo":"2000"}
+        });
     }
+
+    public Mono<Void> cancelMatchQueue(Long userId) {
+        return userService.findById(userId).flatMap(user -> {
+
+            String name = user.getName();
+            String member = userId+":"+name;
+            return Flux.concat(
+                    reactiveRedisTemplate.keys(MATCH_WAIT_KEY.formatted("*"))
+                            .flatMap(key -> reactiveRedisTemplate.opsForZSet().remove(key, member)),
+                    reactiveRedisTemplate.keys(MATCH_WAIT_KEY_FOR_SCAN.formatted("*"))
+                            .flatMap(key -> reactiveRedisTemplate.opsForZSet().remove(key, member)),
+                    reactiveRedisTemplate.keys(MATCH_PROCEED_KEY.formatted("*"))
+                            .flatMap(key -> reactiveRedisTemplate.opsForZSet().remove(key, member))
+            ).then();
+        });
+
+    }
+
 
     //count만큼 의 사용자를 추출해서 PROCEED 큐로 이동시킵니다.
     public Mono<Long> allowUser(final String queue, final Long count) {
@@ -69,7 +93,6 @@ public class MatchQueueService {
     }
 
     private Long extractEloFromMember(ZSetOperations.TypedTuple<String> member) {
-        // member "userId:name:elo"
         String[] parts = member.getValue().split(":");
         return Long.parseLong(parts[2]);
     }
@@ -105,25 +128,43 @@ public class MatchQueueService {
                 .doOnSuccess(rank-> log.info("getRank : {}",rank));});
     }
 
-    public Mono<MatchResponse> getMatchResponse(Long memberId){
+    public enum MatchStatus {
+        MATCH_FOUND,
+        MATCHING,
+        NO_MATCH
+    }
+
+    public Mono<Tuple2<MatchStatus, MatchResponse>> getMatchResponse(Long memberId) {
         String key = "matchInfo:" + memberId;
         return reactiveRedisTemplate.opsForValue().get(key)
                 .flatMap(matchResponseStr -> {
-                    if(matchResponseStr==null) {
-                        log.info("No match response found for memberId: {}", memberId);
-                        return Mono.empty();
-                    }
-
                     try {
                         MatchResponse matchResponse = mapper.readValue(matchResponseStr, MatchResponse.class);
-                        return reactiveRedisTemplate.unlink(key)
-                                .then(Mono.just(matchResponse));
+                        return userService.findById(memberId)
+                                .flatMap(user -> {
+                                    user.setCurGameSpaceCode(matchResponse.getSpaceId());
+                                    return userRepository.save(user)
+                                            .thenReturn(Tuples.of(MatchStatus.MATCH_FOUND, matchResponse));
+                                })
+                                .doOnSuccess(result -> reactiveRedisTemplate.unlink(key).subscribe());
+
                     } catch (JsonProcessingException e) {
                         log.error("JsonProcessingException : ", e);
                         return Mono.error(e);
                     }
-                });
+                })
+                .switchIfEmpty(
+                        getRank("match", memberId)
+                                .flatMap(rank -> {
+                                    if (rank > -1)
+                                        return Mono.just(Tuples.of(MatchStatus.MATCHING, new MatchResponse()));
+                                    else
+                                        return Mono.just(Tuples.of(MatchStatus.NO_MATCH, new MatchResponse()));
+                                })
+                );
+
     }
+
 
     public Mono<String> generateToken(final String queue,final Long userId){
         MessageDigest digest;
@@ -165,10 +206,12 @@ public class MatchQueueService {
                             MatchResponse matchResponse = MatchResponse.fromMembers(spaceId, members);
 
                             members.forEach(memberId -> {
+                                //memberId =
                                 try {
+                                    String membershipId = memberId.split(":")[0];
                                     String json = mapper.writeValueAsString(matchResponse);
-                                    log.info(json);
-                                    reactiveRedisTemplate.opsForValue().set("matchInfo:" + memberId, json).subscribe();
+                                    log.info("matchInfo:"+membershipId+" : "+json);
+                                    reactiveRedisTemplate.opsForValue().set("matchInfo:" + membershipId, json).subscribe();
                                 } catch (JsonProcessingException e) {
                                     log.error("JsonProcessingException : ", e);
                                 }

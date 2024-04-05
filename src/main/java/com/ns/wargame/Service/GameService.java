@@ -48,8 +48,8 @@ public class GameService implements ApplicationRunner {
         return zSetOps.rangeWithScores("leaderboard", Range.closed(0L, 99L))
                 .flatMapSequential(typedTuple -> {
                     Map<String, Object> data = new HashMap<>();
-                    data.put("사용자 ID", typedTuple.getValue());
-                    data.put("점수", typedTuple.getScore());
+                    data.put("user ID", typedTuple.getValue());
+                    data.put("score", typedTuple.getScore());
                     return Flux.just(data);
                 });
     }

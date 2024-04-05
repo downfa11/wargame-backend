@@ -10,9 +10,6 @@ import org.springframework.data.r2dbc.repository.config.EnableR2dbcRepositories;
 import org.springframework.r2dbc.core.DatabaseClient;
 import org.springframework.stereotype.Component;
 
-import java.util.TimeZone;
-
-
 @Component
 @Slf4j
 @RequiredArgsConstructor

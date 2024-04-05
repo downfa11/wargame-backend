@@ -25,9 +25,12 @@ public class GameResultService {
                         Flux.fromIterable(result.getWinTeams()).concatWith(Flux.fromIterable(result.getLoseTeams()))
                                 .flatMap(userId -> userService.findById(Long.parseLong(userId))
                                 .map(user -> {
-                            String userTeam = result.getWinTeams().contains(userId) ? "win" : result.getLoseTeams().contains(userId) ? "lose" : "unknown";
-                            return new GameResultUpdate(userTeam,user);
-                        })).collectList()
+                                    user.setCurGameSpaceCode("");
+                                    userRepository.save(user);
+                                    String userTeam = result.getWinTeams().contains(userId) ? "win" : result.getLoseTeams().contains(userId) ? "lose" : "unknown";
+                                    return new GameResultUpdate(userTeam,user);
+                        })
+                                ).collectList()
                                 .flatMapMany(updates -> updateEloAndSaveUsers(updates, result.getWinTeamString()))).then();
     }
 

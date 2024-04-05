@@ -21,7 +21,7 @@ public class MatchResponse {
     private Map<String, List<String>> teams;
 
     public static MatchResponse fromMembers(String spaceId, List<String> members) {
-        if(members.size()!=10) return null;
+        if(members.size()!=2) return null;
 
         Collections.shuffle(members);
 

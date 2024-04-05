@@ -16,5 +16,4 @@ public interface UserR2dbcRepository extends ReactiveCrudRepository<User, Long> 
     @Modifying
     @Query("DELETE FROM users WHERE name = :name")
     Mono<Void> deleteByName(String name);
-
 }

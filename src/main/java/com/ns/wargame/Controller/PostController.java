@@ -1,5 +1,6 @@
 package com.ns.wargame.Controller;
 
+import com.ns.wargame.Domain.dto.UserResponse;
 import com.ns.wargame.Domain.dto.messageEntity;
 import com.ns.wargame.Service.PostService;
 import com.ns.wargame.Domain.dto.PostRequest;
@@ -8,6 +9,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
+
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/v1/posts")
@@ -18,18 +21,22 @@ public class PostController {
 
     @PostMapping("")
     public Mono<ResponseEntity<messageEntity>> createPost(@RequestBody PostRequest request){
-        return Mono.just(ResponseEntity.ok()
-                .body(new messageEntity("Success",postService.create(request.getUserId(), request.getTitle(), request.getContent())
-                        .map(PostResponse::of))))
-                .defaultIfEmpty(ResponseEntity.ok().body(new messageEntity("Fail","Post is empty.")));
+        return postService.create(request.getUserId(), request.getTitle(), request.getContent())
+                .map(board -> ResponseEntity.ok()
+                        .body(new messageEntity("Success", PostResponse.of(board))))
+                .defaultIfEmpty(ResponseEntity.ok().body(new messageEntity("Fail", "Post is empty.")));
     }
 
     @GetMapping("")
     public Mono<ResponseEntity<messageEntity>> findAllPost(){
-        return Mono.just(ResponseEntity.ok()
-                .body(new messageEntity("Success",postService.findAll()
-                        .map(PostResponse::of))))
-                .defaultIfEmpty(ResponseEntity.ok().body(new messageEntity("Fail","Post is empty.")));
+        return postService.findAll()
+                .collectList()
+                .map(boards -> boards.stream()
+                        .map(PostResponse::of)
+                        .collect(Collectors.toList()))
+                .map(boardResponses -> ResponseEntity.ok()
+                        .body(new messageEntity("Success", boardResponses)))
+                .defaultIfEmpty(ResponseEntity.ok().body(new messageEntity("Fail", "Post is empty.")));
     }
 
     @GetMapping("/{id}")

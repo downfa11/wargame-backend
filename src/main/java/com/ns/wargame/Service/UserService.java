@@ -5,6 +5,7 @@ import com.ns.wargame.Domain.dto.UserRequest;
 import com.ns.wargame.Repository.UserR2dbcRepository;
 import com.ns.wargame.Domain.dto.UserCreateRequest;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
@@ -16,7 +17,6 @@ import java.time.Duration;
 @RequiredArgsConstructor
 public class UserService {
 
-    //private final UserRepository;
     private final UserR2dbcRepository userRepository;
     private final ReactiveRedisTemplate<String, User> reactiveRedisTemplate;
     //private final VaultAdapter vaultAdapter;
@@ -41,7 +41,7 @@ public class UserService {
                                 .name(request.getName())
                                 .email(request.getEmail())
                                         .elo(2000L)
-                                        .curGameSpaceCode(null)
+                                        .curGameSpaceCode("")
                                 .build());
                     } else {
                         return Mono.error(new RuntimeException("Duplicated data."));
@@ -62,9 +62,12 @@ public class UserService {
         return reactiveRedisTemplate.opsForValue()
                 .get("users:%d".formatted(id))
                 .switchIfEmpty(userRepository.findById(id)
-                        .flatMap(u-> reactiveRedisTemplate.opsForValue()
+                        .flatMap(u-> {
+                           return reactiveRedisTemplate.opsForValue()
                                 .set("users:%d".formatted(id),u, Duration.ofSeconds(30))
-                                .then(Mono.just(u))).flatMap(this::decryptUserData));
+                                .then(Mono.just(u));
+                            }
+                        ).flatMap(this::decryptUserData));
         //return userRepository.findById(id);
     }
 
@@ -105,7 +108,6 @@ public class UserService {
         decryptedUser.setName(user.getName());
         decryptedUser.setElo(user.getElo());
         decryptedUser.setCurGameSpaceCode(user.getCurGameSpaceCode());
-
         return Mono.just(decryptedUser);
     }
 }
