@@ -12,7 +12,7 @@ void ChampionSystem::ChampionInit() {
 	MYSQL_ROW row;
 
 	mysql_init(&mysql);
-	if (mysql_real_connect(&mysql, "127.0.0.1", "root", "namsuck1!", "wargame", 3307, NULL, 0)) {
+	if (mysql_real_connect(&mysql, "127.0.0.1", "mysqluser", "mysqlpw", "wargame", 3306, NULL, 0)) {
 		const char* query = "SELECT * FROM champion_stats";
 		if (mysql_query(&mysql, query) == 0) {
 			result = mysql_store_result(&mysql);
@@ -39,6 +39,7 @@ void ChampionSystem::ChampionInit() {
 					champions.push_back(champion);
 				}
 				mysql_free_result(result);
+				cout << "Champs init." << endl;
 			}
 		}
 		else {
@@ -49,9 +50,6 @@ void ChampionSystem::ChampionInit() {
 	else {
 		cerr << "mysql error: " << mysql_error(&mysql) << endl;
 	}
-
-	cout << "Champs init." << endl;
-
 }
 
 
@@ -61,7 +59,7 @@ void ItemSystem::ItemInit() {
 	MYSQL_ROW row;
 
 	mysql_init(&mysql);
-	if (mysql_real_connect(&mysql, "127.0.0.1", "root", "namsuck1!", "wargame", 3307, NULL, 0)) {
+	if (mysql_real_connect(&mysql, "127.0.0.1", "mysqluser", "mysqlpw", "wargame", 3306, NULL, 0)) {
 		const char* query = "SELECT * FROM item_stats";
 		if (mysql_query(&mysql, query) == 0) {
 			result = mysql_store_result(&mysql);
@@ -83,6 +81,7 @@ void ItemSystem::ItemInit() {
 					items.push_back(item);
 				}
 				mysql_free_result(result);
+				cout << "item init." << endl;
 			}
 		}
 		else {
@@ -93,7 +92,4 @@ void ItemSystem::ItemInit() {
 	else {
 		cerr << "mysql error: " << mysql_error(&mysql) << endl;
 	}
-
-	cout << "item init." << endl;
-
 }

@@ -1,30 +1,22 @@
 #pragma once
-#include <iostream>
-#include <WinSock2.h>
-#include <Windows.h>
+
+#include <winsock2.h>
+#include <windows.h>
 #include <process.h>
 #include <ws2tcpip.h>
-#include <cstdio>
-#include <cstdlib>
-#include <string>
-#include <stdlib.h>
-#include <list>
-#include<mutex>
-#include <time.h>
-#include <queue>
-#include <string.h>
 #include <iostream>
-#include <locale>
-#include <random>
-#include <codecvt>
-#include<thread>
+#include <string>
+#include <list>
+#include <chrono>
+#include <unordered_map>
+#include <thread>
 #include <atomic>
-#include <ctime>
 #include <stack>
 #include <iomanip>
-#include<unordered_map>
-#include<sstream>
-
+#include <vector>
+#include<algorithm>
+#include <random>
+#include <sstream>
 
 #pragma comment(lib,"ws2_32.lib")
 
@@ -67,8 +59,6 @@ typedef unsigned char       BYTE;
 #define H_STRUCTURE_DIE 1925
 #define H_STRUCTURE_STAT 1926
 
-#define H_GOTO_LOBBY 1334
-
 #define H_CLIENT_DIE 1294
 #define H_CLIENT_RESPAWN 1592
 #define H_KILL_LOG 1818
@@ -82,7 +72,12 @@ typedef unsigned char       BYTE;
 #define H_WELL 8313
 #define H_NOTICE 4829
 
-#define H_AUTHORIZATION 1525
+#define H_RAUTHORIZATION 1525
+#define H_CAUTHORIZATION 1530
+#define H_PICK_TIME 1084
+
+#define MAILSLOT_RESULT_ADDRESS TEXT("\\\\.\\mailslot\\result")
+#define MAILSLOT_MATCH_ADDRESS TEXT("\\\\.\\mailslot\\match")
 
 typedef struct socketf
 {
@@ -110,18 +105,19 @@ public:
 	int socket = 0;
 	int champindex = -1;
 	string user_name = "";
-	string user_code = "";
 
 	time_t out_time = 0;
 	int channel = 0;
 	int room = 0;
+	string code = "";
+	int clientindex = -1;
+
 	int kill = 0;
 	int death = 0;
 	int assist = 0;
 	float x = 0;
 	float y = 0;
 	float z = 0;
-	int elo = 1200;
 	int gold = 1000;
 	float rotationX = 0;
 	float rotationY = 0;
@@ -131,7 +127,6 @@ public:
 	int maxexp=100;
 	int exp;
 
-	bool isGame=false;
 	bool stopped;
 	bool attacked;
 
@@ -188,22 +183,6 @@ struct ClientInfo
 	float attspeed;
 	int attrange;
 	float movespeed;
-};
-#pragma pack(pop)
-
-#pragma pack(push,1)
-struct UserData {
-	string user_code;
-	string user_name;
-	Client* user_client;
-};
-#pragma pack(pop)
-
-#pragma pack(push,1)
-struct roomData {
-	vector<UserData> user_data;
-	int channel;
-	int room;
 };
 #pragma pack(pop)
 
@@ -319,3 +298,20 @@ struct itemSlots {
 	int id_5;
 };
 #pragma pack(pop)
+
+struct UserData {
+	string user_index;
+	string user_name;
+};
+
+struct roomData {
+	string id;
+	string spaceId;
+
+	int channel;
+	int room;
+
+	vector<UserData> redTeam;
+	vector<UserData> blueTeam;
+
+};

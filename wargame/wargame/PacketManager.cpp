@@ -11,8 +11,6 @@ void PacketManger::Send(int cli_sock, int number,void* data, int size)
 	char* bt_result = new char[sizeof(nsHeader) + size];
 	char* bt_data = new char[size];
 
-	//printf("%d size �Ҵ�", sizeof(nsHeader) + size);
-
 	fill_n(bt_result, sizeof(nsHeader) + size, 0);
 
 	memcpy(&bt_header, &header, sizeof(nsHeader));
