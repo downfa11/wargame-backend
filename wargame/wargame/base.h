@@ -302,11 +302,13 @@ struct itemSlots {
 struct UserData {
 	string user_index;
 	string user_name;
+	Client* user;
 };
 
 struct roomData {
 	string id;
 	string spaceId;
+	int isGame=-1; // -1:empty room, 0:pick room, 1:game room
 
 	int channel;
 	int room;

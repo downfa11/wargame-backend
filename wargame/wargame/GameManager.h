@@ -30,7 +30,7 @@ class GameManager
 {
 public:
 	static list<Client*> client_list_all;
-	static vector< roomData> auth_data;
+	static vector<roomData> auth_data;
 	static ClientChannel client_channel[MAX_CHANNEL_COUNT];
 	static Client* clients_info[MAX_CLIENT];
 
@@ -76,6 +76,6 @@ public:
 	static void ClientAuth(int socket, void* data);
 	static void RoomAuth(int socket,int size, void* data);
 	static void ChampPickTimeOut(int channel, int room);
-	static void ReConnection(Client* client, int socket, int chan, int room);
+	static void ReConnection(int socket, int chan, int room);
 	static bool findEmptyRoom(roomData curRoom);
 };

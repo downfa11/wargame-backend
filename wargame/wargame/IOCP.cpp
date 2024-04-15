@@ -145,7 +145,6 @@ unsigned WINAPI EchoThreadMain(LPVOID pComPort)
 			if (bytesTrans == 0)
 			{
 				GameManager::ClientClose(sock);
-				closesocket(sock);
 				delete handleInfo;
 				delete ioInfo;
 				continue;
@@ -420,10 +419,10 @@ void CommendInput()
 			cout << "clicount : Client count check" << endl;
 			cout << "kick {n} : Kick {n}client" << endl;
 			cout << "detail {n} : {n}'s info" << endl;
-			cout << "roominfo{channel} {room}" << endl;
-			cout << "chatlog {channel} {room}" << endl;
+			cout << "alive : auth_room in alive" << endl;
+			cout << "roominfo {channel} {room} : space info" << endl;
+			cout << "chatlog {channel} {room} : space chat log" << endl;
 			cout << "say {channel} {room} {s} : Tell all clients" << endl;
-			cout << "auth : Show AuthList" << endl;
 			cout << endl;
 			what = true;
 		}
@@ -575,6 +574,12 @@ void CommendInput()
 			}
 
 			what = true;
+		}
+		m = "alive";
+		if (!strcmp(val, m.c_str())) {
+			// for(auto& inst : auth_data)에서 inst.isGame==1인 방만 출력하기(게임중)
+			// inst.isGame==0이면 픽중인 방만 출력
+			// inst.isGame==-1이면 빈 방이다.
 		}
 
 		m = "chatlog";
