@@ -76,10 +76,28 @@ void GameManager::NewClient(SOCKET client_socket, LPPER_HANDLE_DATA handle, LPPE
 	cout << "Connect " << client_socket << endl;
 }
 
+void GameManager::ClientDelete(int client_socket) {
+
+	int chan = clients_info[client_socket]->channel;
+	int room = clients_info[client_socket]->room;
+
+	// client_list_room랑 clients_info도 지워야한다. Todo
+
+}
+
 void GameManager::ClientClose(int client_socket)
 {
 
 	cout << "Disconnected " << client_socket << endl;
+
+
+	int chan = clients_info[client_socket]->channel;
+	int room = clients_info[client_socket]->room;
+
+	for (Client* inst : client_channel[chan].client_list_room[room])
+		PacketManger::Send(inst->socket, H_USER_DISCON, &client_socket, sizeof(int));
+
+	closesocket(client_socket);
 
 	Client* client = nullptr;
 	for (Client* inst : client_list_all) {
@@ -92,19 +110,11 @@ void GameManager::ClientClose(int client_socket)
 	if (client == nullptr)
 		return;
 
-	int chan = client->channel;
-	int room = client->room;
-
 	auto client_iter = find(client_list_all.begin(), client_list_all.end(), client);
 	if (client_iter != client_list_all.end()) {
 		client_list_all.erase(client_iter);
 		delete client;
 	}
-
-	for (Client* inst : client_channel[chan].client_list_room[room])
-		PacketManger::Send(inst->socket, H_USER_DISCON, &client_socket, sizeof(int));
-
-	closesocket(client_socket);
 }
 
 void GameManager::ClientChat(int client_socket, int size, void* data)
@@ -397,12 +407,8 @@ void GameManager::SendVictory(int client_socket, int winTeam, int channel, int r
 	cout << endl;
 	for (auto inst : client_channel[channel].client_list_room[room])
 	{
-
-
-
 		clientsToMove.push_back(*inst);
 		PacketManger::Send(inst->socket, H_VICTORY, packet_data, sizeof(int) + sizeof(int));
-
 
 		inst->champindex = -1;
 		inst->ready = false;
@@ -435,7 +441,11 @@ void GameManager::SendVictory(int client_socket, int winTeam, int channel, int r
 
 		if (!inst->assistList.empty())
 			cout << "assisList is not empty." << endl;
+
+		ClientDelete(client_socket);
+		ClientClose(client_socket);
 		// 이때 여기서 다시 로비로 돌아가기문에, 게임안의 정보들을 모두 초기화해줘야한다.
+
 	}
 	delete[] packet_data;
 
@@ -465,6 +475,8 @@ void GameManager::SendVictory(int client_socket, int winTeam, int channel, int r
 
 	startTime = chrono::time_point<chrono::system_clock>(); //init
 
+	client_channel[channel].client_list_room[room].clear();
+	client_channel[channel].structure_list_room[room].clear();
 }
 
 bool SendToMailslot(const string& message) {
@@ -489,32 +501,6 @@ void GameManager::SaveMatchResult(const MatchResult& result) {
 	if (!SendToMailslot(message))
 		cerr << "Failed to send message through mailslot" << endl;
 	else cout << "Send successfully." << endl;
-}
-
-void GameManager::GotoLobby(int client_socket) {
-
-	if (clients_info[client_socket] == nullptr)
-		return;
-
-	int chan = clients_info[client_socket]->channel;
-	int room = clients_info[client_socket]->room;
-
-	vector<int> clientsToMove;
-
-	for (auto inst : client_channel[chan].client_list_room[room])
-	{
-		//inst->isGame = false;
-		clientsToMove.push_back(inst->socket);
-	}
-
-	for (auto client_socket : clientsToMove) {
-		ClientClose(client_socket);
-		cout << "로비로 보내야죠. 그냥.. 접속 끊고 로비로 보내면 되는거 아니뇨?" << endl;
-
-	}
-
-	client_channel[chan].client_list_room[room].clear(); // 방 클리어
-	client_channel[chan].structure_list_room[room].clear();
 }
 
 void GameManager::ClientStat(int client_socket) {
@@ -806,7 +792,7 @@ void GameManager::AttackClient(int client_socket, void* data)
 				chrono::time_point<chrono::system_clock> currentTime = chrono::system_clock::now();
 				chrono::duration<double> newTime = currentTime - startTime;
 
-				while ((*attacked)->assistList.size() >= MAX_TEAM_PER_ROOM) {
+				while ((*attacked)->assistList.size() > MAX_TEAM_PER_ROOM-1) {
 					(*attacked)->assistList.pop();
 				}
 
@@ -1198,8 +1184,6 @@ void GameManager::TurretShot(int index, bullet* newBullet, int attacked_, int ch
 
 void GameManager::ClientDie(int client_socket, int killer) {
 
-
-
 	int chan = clients_info[client_socket]->channel;
 	int room = clients_info[client_socket]->room;
 
@@ -1233,13 +1217,13 @@ void GameManager::ClientDie(int client_socket, int killer) {
 
 	int secondValue = -1; // top 바로 아래 값 (default는 -1)
 
-	if (clients_info[client_socket]->assistList.size() >= MAX_TEAM_PER_ROOM)
+	if (clients_info[client_socket]->assistList.size() > MAX_TEAM_PER_ROOM-1)
 	{
 		stack<pair<int, float>> tempStack = clients_info[client_socket]->assistList;
 
 		// 스택이 MAX_TEAM_PER_ROOM 크기보다 크면 맨 아래 값을 제거
 		vector<int> assistTargets;
-		while (tempStack.size() > MAX_TEAM_PER_ROOM) {
+		while (tempStack.size() > MAX_TEAM_PER_ROOM-1) {
 			assistTargets.push_back(tempStack.top().first);
 			tempStack.pop();
 		}
@@ -1630,8 +1614,14 @@ void GameManager::ClientAuth(int socket, void* data) {
 			selected_clients.push_back(make_pair(stoi(inst.user_index), 1));
 		}
 
-		if (team == -1)
+		if (team == -1){
+			ClientDelete(socket);
 			ClientClose(socket); // 나가라 넌ㅋ
+		}
+
+		auto clientList = GameManager::GetClientListInRoom(chan, room);
+
+		
 
 		int client_count = selected_clients.size();
 		BYTE* packet_data = new BYTE[sizeof(int) * 3 * client_count];
@@ -1639,8 +1629,15 @@ void GameManager::ClientAuth(int socket, void* data) {
 
 		for (int i = 0; i < client_count; i++)
 		{
-			memcpy(packet_data + sizeof(int) * (3 * i), &socket, sizeof(int)); // user_name
-			memcpy(packet_data + sizeof(int) * (3 * i + 1), &selected_clients[i].first, sizeof(int)); // user_name
+			int client_socket = -1;
+			for (auto& inst : clientList) {
+				if (inst->clientindex == selected_clients[i].first) {
+					client_socket = inst->socket;
+					break;
+				}
+			}
+			memcpy(packet_data + sizeof(int) * (3 * i), &client_socket, sizeof(int));
+			memcpy(packet_data + sizeof(int) * (3 * i + 1), &selected_clients[i].first, sizeof(int)); // user_index
 			memcpy(packet_data + sizeof(int) * (3 * i + 2), &selected_clients[i].second, sizeof(int)); // user_team
 			cout << socket<<":"<<selected_clients[i].first << "의 팀은 " << selected_clients[i].second << endl;
 		}
@@ -1671,11 +1668,11 @@ void GameManager::ClientAuth(int socket, void* data) {
 			cout << "왜 없징.." << endl;
 			return;
 		}
-
+		cout<<user.user->socket<<endl;
 		clients_info[socket] = user.user;
 
 		clients_info[socket]->socket = socket;
-
+		cout << clients_info[socket]->user_name << endl;
 		ReConnection(socket, chan, room);
 	}
 }
@@ -1760,9 +1757,11 @@ void GameManager::ChampPickTimeOut(int channel, int room) {
 			if (client == nullptr)
 				continue;
 
+			
 			ClientClose(client->socket);
-
 		}
+		client_channel[channel].client_list_room[room].clear();
+		client_channel[channel].structure_list_room[room].clear();
 		cout << " 1분이 경과할 동안 전체 유저들의 픽이 이뤄지지 않았습니다. 종료합니다." << endl;
 
 		auto condition = [channel, room](roomData& roomInfo) {

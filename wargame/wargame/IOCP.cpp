@@ -417,9 +417,9 @@ void CommendInput()
 			cout << endl;
 			cout << "stop : Stop server" << endl;
 			cout << "clicount : Client count check" << endl;
+			cout << "alive : auth_room in alive" << endl;
 			cout << "kick {n} : Kick {n}client" << endl;
 			cout << "detail {n} : {n}'s info" << endl;
-			cout << "alive : auth_room in alive" << endl;
 			cout << "roominfo {channel} {room} : space info" << endl;
 			cout << "chatlog {channel} {room} : space chat log" << endl;
 			cout << "say {channel} {room} {s} : Tell all clients" << endl;
@@ -577,9 +577,45 @@ void CommendInput()
 		}
 		m = "alive";
 		if (!strcmp(val, m.c_str())) {
-			// for(auto& inst : auth_data)에서 inst.isGame==1인 방만 출력하기(게임중)
-			// inst.isGame==0이면 픽중인 방만 출력
-			// inst.isGame==-1이면 빈 방이다.
+
+			cout << endl;
+			int empty = MAX_CHANNEL_COUNT * MAX_ROOM_COUNT_PER_CHANNEL, pick = 0, inGame = 0;
+			for (auto& inst : GameManager::auth_data) {
+				if (inst.isGame != -1)
+					empty--;
+
+				if (inst.isGame == 0)
+					pick++;
+				else if(inst.isGame == 1)
+					inGame++;
+			}
+			
+			cout << "빈 게임 공간의 개수: "<< empty<<endl;
+			cout << "픽중인 게임 공간의 개수: "<< pick<<endl;
+			cout << "진행중인 게임 공간의 개수: "<< inGame<<endl;
+
+			cout << endl;
+			cout << "현재 진행중인 게임의 정보" << endl;
+			int index = -1;
+			for (auto& inst : GameManager::auth_data) {
+
+				int chan = inst.channel;
+				int room = inst.room;
+				cout << " - #" <<++index<< endl;
+				cout << "      " << chan << "번 채널 " << room << "번 게임 공간" << endl;
+				cout << "      게임 공간의 id : " << inst.spaceId << endl;
+				cout << "      게임 공간의 수용량 : " << GameManager::client_channel[chan].client_list_room[room].size() << endl;
+
+				chrono::time_point<chrono::system_clock> endTime = chrono::system_clock::now();
+				chrono::time_point<chrono::system_clock>& startTime = GameManager::client_channel[chan].startTime[room];
+
+				chrono::duration<double> elapsed_seconds = endTime - startTime;
+				int gameMinutes = static_cast<int>(elapsed_seconds.count());
+				cout << "      현재 진행 시간 : " << gameMinutes <<"sec" << endl;
+				cout << endl;
+			}
+
+			what = true;
 		}
 
 		m = "chatlog";

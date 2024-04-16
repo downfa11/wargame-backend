@@ -7,7 +7,7 @@
 #define MAX_CHANNEL_COUNT 2
 #define MAX_ROOM_COUNT_PER_CHANNEL 100
 #define MAX_CLIENT_PER_ROOM 1
-#define MAX_TEAM_PER_ROOM 2 // MAX_CLIENT_PER_ROOM/2
+#define MAX_TEAM_PER_ROOM 5 // MAX_CLIENT_PER_ROOM/2
 
 
 using ChatEntry = pair<string, pair<chrono::system_clock::time_point, string>>;
@@ -40,6 +40,7 @@ public:
 	static chrono::high_resolution_clock::time_point lastUpdateTime;
 	static void TimeOutCheck();
 	static void NewClient(SOCKET client_socket, LPPER_HANDLE_DATA handle, LPPER_IO_DATA ioinfo);
+	static void ClientDelete(int client_socket);
 	static void ClientClose(int client_socket);
 	static void ClientChat(int client_socket, int size, void* data);
 	static void ClientChanMove(int client_socket, void* data);
@@ -61,7 +62,6 @@ public:
 	static void NewStructure(int index, int chan, int room, int team, int x, int y, int z);
 	static void StructureDie(int index, int chan, int room);
 	static void StructureStat(int index, int chan, int room);
-	static void GotoLobby(int client_socket);
 	static void TurretSearch(int index, int chan, int room);
 	static void TurretShot(int index, bullet* newBullet, int attacked_, int chan, int room);
 	static void ClientDie(int client_socket, int killer);

@@ -158,6 +158,56 @@ public:
 	stack<pair<int, float>> assistList;
 	LPPER_HANDLE_DATA handle;
 	LPPER_IO_DATA ioinfo;
+
+	Client& operator=(const Client& other) {
+		if (this != &other) {
+			socket = other.socket;
+			champindex = other.champindex;
+			user_name = other.user_name;
+			out_time = other.out_time;
+			channel = other.channel;
+			room = other.room;
+			code = other.code;
+			clientindex = other.clientindex;
+			kill = other.kill;
+			death = other.death;
+			assist = other.assist;
+			x = other.x;
+			y = other.y;
+			z = other.z;
+			gold = other.gold;
+			rotationX = other.rotationX;
+			rotationY = other.rotationY;
+			rotationZ = other.rotationZ;
+			level = other.level;
+			maxexp = other.maxexp;
+			exp = other.exp;
+			stopped = other.stopped;
+			attacked = other.attacked;
+			curhp = other.curhp;
+			maxhp = other.maxhp;
+			curmana = other.curmana;
+			maxmana = other.maxmana;
+			attack = other.attack;
+			critical = other.critical;
+			criProbability = other.criProbability;
+			maxdelay = other.maxdelay;
+			curdelay = other.curdelay;
+			attrange = other.attrange;
+			attspeed = other.attspeed;
+			movespeed = other.movespeed;
+			growhp = other.growhp;
+			growmana = other.growmana;
+			growAtt = other.growAtt;
+			growCri = other.growCri;
+			growCriPro = other.growCriPro;
+			team = other.team;
+			ready = other.ready;
+			itemList = other.itemList;
+			assistList = other.assistList;
+		}
+		return *this;
+	}
 };
 
 #pragma pack(push,1)
