@@ -76,45 +76,22 @@ void GameManager::NewClient(SOCKET client_socket, LPPER_HANDLE_DATA handle, LPPE
 	cout << "Connect " << client_socket << endl;
 }
 
-void GameManager::ClientDelete(int client_socket) {
-
-	int chan = clients_info[client_socket]->channel;
-	int room = clients_info[client_socket]->room;
-
-	// client_list_room랑 clients_info도 지워야한다. Todo
-
-}
-
 void GameManager::ClientClose(int client_socket)
 {
 
-	cout << "Disconnected " << client_socket << endl;
-
-
-	int chan = clients_info[client_socket]->channel;
-	int room = clients_info[client_socket]->room;
+	int chan = clients_info[client_socket]->channel, room = clients_info[client_socket]->room;
 
 	for (Client* inst : client_channel[chan].client_list_room[room])
+	{
+		if(inst->socket==client_socket)
+			clients_info[client_socket]->socket = -1;
+
 		PacketManger::Send(inst->socket, H_USER_DISCON, &client_socket, sizeof(int));
+	}
+
 
 	closesocket(client_socket);
-
-	Client* client = nullptr;
-	for (Client* inst : client_list_all) {
-		if (inst->socket == client_socket) {
-			client = inst;
-			break;
-		}
-	}
-
-	if (client == nullptr)
-		return;
-
-	auto client_iter = find(client_list_all.begin(), client_list_all.end(), client);
-	if (client_iter != client_list_all.end()) {
-		client_list_all.erase(client_iter);
-		delete client;
-	}
+	cout << "Disconnected " << client_socket << endl;
 }
 
 void GameManager::ClientChat(int client_socket, int size, void* data)
@@ -387,81 +364,55 @@ bool GameManager::AllClientsReady(int channel, int room) {
 
 void GameManager::SendVictory(int client_socket, int winTeam, int channel, int room)
 {
-	auto list = client_channel[channel].structure_list_room[room];
-	for (auto inst : list)
-	{
-		StopTurretSearch(inst->index);
-		client_channel[channel].structure_list_room[room].remove(inst);
-	}
+	auto structurelist = client_channel[channel].structure_list_room[room];
+	auto clientist = client_channel[channel].client_list_room[room];
 
-	auto condition = [channel, room](roomData& roomInfo) {  //게임이 끝나면 auth_data 를 지웁니다.
+	for (auto inst : structurelist)
+		StopTurretSearch(inst->index);
+	structurelist.clear();
+
+	auto condition = [channel, room](roomData& roomInfo) { 
 		return roomInfo.channel == channel && roomInfo.room == room; };
 	auth_data.erase(std::remove_if(auth_data.begin(), auth_data.end(), condition), auth_data.end());
 
 	int win = (clients_info[client_socket]->team == winTeam) ? 1 : 0;
-	BYTE* packet_data = new BYTE[sizeof(int) + sizeof(int)];
+	BYTE packet_data[sizeof(int) + sizeof(int)];
 	memcpy(packet_data, &client_socket, sizeof(int));
 	memcpy(packet_data + sizeof(int), &win, sizeof(int));
 
-	vector<Client> clientsToMove;
-	cout << endl;
-	for (auto inst : client_channel[channel].client_list_room[room])
+	MatchResult result;
+	for (auto inst : clientist)
 	{
-		clientsToMove.push_back(*inst);
 		PacketManger::Send(inst->socket, H_VICTORY, packet_data, sizeof(int) + sizeof(int));
 
-		inst->champindex = -1;
-		inst->ready = false;
-		inst->curhp = inst->maxhp;
-		inst->team = -1;
-		inst->level = 1;
-		inst->exp = 0;
-		inst->maxexp = 100;
-
-		inst->curhp = 0;
-		inst->maxhp = 0;
-		inst->attack = 0;
-		inst->maxdelay = 0;
-		inst->curdelay = 0;
-		inst->attrange = 0;
-		inst->attspeed = 0;
-		inst->movespeed = 0;
-		inst->x = 0;
-		inst->y = 0;
-		inst->z = 0;
-		inst->gold = 0;
-		inst->kill = 0;
-		inst->assist = 0;
-		inst->death = 0;
-
-		inst->itemList.clear();
-
-		while (!inst->assistList.empty())
-			inst->assistList.pop();
-
-		if (!inst->assistList.empty())
-			cout << "assisList is not empty." << endl;
-
-		ClientDelete(client_socket);
-		ClientClose(client_socket);
-		// 이때 여기서 다시 로비로 돌아가기문에, 게임안의 정보들을 모두 초기화해줘야한다.
+		if (inst->team == winTeam)
+			result.winTeams.push_back(inst);
+		else
+			result.loseTeams.push_back(inst);
 
 	}
-	delete[] packet_data;
 
-	time_t now = time(nullptr);
-	tm currentTime;
-	localtime_s(&currentTime, &now);
 
 	char dateTimeFormat[] = "%Y-%m-%d %H:%M:%S";
-	char buffer[100];
-	strftime(buffer, sizeof(buffer), dateTimeFormat, &currentTime);
 
-	MatchResult result;
-	result.datetime = buffer;
-	result.winTeam = winTeam;
-	for (const Client& cli : clientsToMove)
-		result.participants.push_back(cli);
+	result.state = "success";
+
+	for (auto& inst : auth_data)
+		if (inst.channel == channel && inst.room == room)
+			result.spaceId = inst.spaceId;
+	
+	auto now = chrono::system_clock::now();
+	auto now_c = chrono::system_clock::to_time_t(now);
+	std::tm tm;
+	localtime_s(&tm, &now_c);
+
+	std::stringstream ss;
+	ss << std::put_time(&tm, "%Y-%m-%d %H:%M:%S");
+
+	result.dateTime = ss.str();
+	result.winTeamString = (winTeam == 0 ? "blue" : "red");
+	result.loseTeamString = (winTeam == 0 ? "red" : "blue");
+
 
 	chrono::time_point<chrono::system_clock> endTime = chrono::system_clock::now();
 	chrono::time_point<chrono::system_clock>& startTime = client_channel[channel].startTime[room];
@@ -472,6 +423,10 @@ void GameManager::SendVictory(int client_socket, int winTeam, int channel, int r
 	result.gameDuration = gameMinutes;
 
 	SaveMatchResult(result);
+
+
+	for (auto inst : clientist)
+		ClientClose(inst->socket);
 
 	startTime = chrono::time_point<chrono::system_clock>(); //init
 
@@ -496,9 +451,10 @@ bool SendToMailslot(const string& message) {
 }
 
 void GameManager::SaveMatchResult(const MatchResult& result) {
-	string message = result.toString();
-	//kafkaIPC::KafkaSend(kafkaIPC::resultTopic, message);
-	if (!SendToMailslot(message))
+	string json = matchResultToJson(result);
+	cout << "send kafka : " << json << endl;
+
+	if (!SendToMailslot(json))
 		cerr << "Failed to send message through mailslot" << endl;
 	else cout << "Send successfully." << endl;
 }
@@ -1614,14 +1570,11 @@ void GameManager::ClientAuth(int socket, void* data) {
 			selected_clients.push_back(make_pair(stoi(inst.user_index), 1));
 		}
 
-		if (team == -1){
-			ClientDelete(socket);
+		if (team == -1)
 			ClientClose(socket); // 나가라 넌ㅋ
-		}
+		
 
 		auto clientList = GameManager::GetClientListInRoom(chan, room);
-
-		
 
 		int client_count = selected_clients.size();
 		BYTE* packet_data = new BYTE[sizeof(int) * 3 * client_count];
@@ -1752,16 +1705,32 @@ void GameManager::ChampPickTimeOut(int channel, int room) {
 	}
 	else {
 
-		for (auto& client : client_channel[channel].client_list_room[room])
+		list<Client*> dodgeList = client_channel[channel].client_list_room[room];
+
+		MatchResult result;
+		result.state = "dodge";
+
+		for (auto& inst : auth_data)
+			if (inst.channel == channel && inst.room == room)
+				result.spaceId = inst.spaceId;
+
+		for (auto& client : dodgeList)
 		{
 			if (client == nullptr)
 				continue;
 
-			
+			result.loseTeams.push_back(client);
+		}
+		string json = matchResultToJson(result);
+
+		for (auto& client : dodgeList)
+		{
+			if (client == nullptr)
+				continue;
+
 			ClientClose(client->socket);
 		}
-		client_channel[channel].client_list_room[room].clear();
-		client_channel[channel].structure_list_room[room].clear();
+		
 		cout << " 1분이 경과할 동안 전체 유저들의 픽이 이뤄지지 않았습니다. 종료합니다." << endl;
 
 		auto condition = [channel, room](roomData& roomInfo) {
@@ -1769,10 +1738,12 @@ void GameManager::ChampPickTimeOut(int channel, int room) {
 		auth_data.erase(remove_if(auth_data.begin(), auth_data.end(), condition), auth_data.end());
 
 		client_channel[channel].startTime[room] = chrono::time_point<chrono::system_clock>();
-		client_channel[channel].client_list_room[room].clear();
 
-		string message = "kafka message: {channel}, {room} is closed.";
-		SendToMailslot(message);
+		cout << "'쏜다 : " << json << endl;
+		SendToMailslot(json);
+
+		client_channel[channel].client_list_room[room].clear();
+		client_channel[channel].structure_list_room[room].clear();
 	}
 
 	return;
@@ -1892,8 +1863,93 @@ bool GameManager::findEmptyRoom(roomData curRoom) {
 	return true;
 }
 
+string GameManager::matchResultToJson(const MatchResult& result) {
+	ostringstream oss;
+	oss << "{";
+	oss << "\"spaceId\": \"" << result.spaceId << "\",";
+	oss << "\"state\": \"" << result.state << "\",";
+	oss << "\"winTeamString\": \"" << result.winTeamString << "\",";
+	oss << "\"loseTeamString\": \"" << result.loseTeamString << "\",";
 
+	oss << "\"winTeams\": [";
+	for (size_t i = 0; i < result.winTeams.size(); ++i) {
+		oss << clientToJson(result.winTeams[i]);
+		if (i < result.winTeams.size() - 1)
+			oss << ",";
+	}
+	oss << "],";
 
+	oss << "\"loseTeams\": [";
+	for (size_t i = 0; i < result.loseTeams.size(); ++i) {
+		oss << clientToJson(result.loseTeams[i]);
+		if (i < result.loseTeams.size() - 1)
+			oss << ",";
+	}
+	oss << "],";
 
+	oss << "\"dateTime\": \"" << result.dateTime << "\",";
+	oss << "\"gameDuration\": " << result.gameDuration;
+	oss << "}";
+	return oss.str();
 
+}
+
+string GameManager::clientToJson(const Client* client) {
+	ostringstream oss;
+
+	oss << "{";
+	oss << "\"socket\": " << client->socket << ",";
+	oss << "\"champindex\": " << client->champindex << ",";
+	oss << "\"user_name\": \"" << client->user_name << "\",";
+	oss << "\"out_time\": " << client->out_time << ",";
+	oss << "\"channel\": " << client->channel << ",";
+	oss << "\"room\": " << client->room << ",";
+	oss << "\"code\": \"" << client->code << "\",";
+	oss << "\"clientindex\": " << client->clientindex << ",";
+	oss << "\"kill\": " << client->kill << ",";
+	oss << "\"death\": " << client->death << ",";
+	oss << "\"assist\": " << client->assist << ",";
+	oss << "\"x\": " << client->x << ",";
+	oss << "\"y\": " << client->y << ",";
+	oss << "\"z\": " << client->z << ",";
+	oss << "\"gold\": " << client->gold << ",";
+	oss << "\"rotationX\": " << client->rotationX << ",";
+	oss << "\"rotationY\": " << client->rotationY << ",";
+	oss << "\"rotationZ\": " << client->rotationZ << ",";
+	oss << "\"level\": " << client->level << ",";
+	oss << "\"maxexp\": " << client->maxexp << ",";
+	oss << "\"exp\": " << client->exp << ",";
+	oss << "\"stopped\": " << (client->stopped ? "true" : "false") << ",";
+	oss << "\"attacked\": " << (client->attacked ? "true" : "false") << ",";
+	oss << "\"curhp\": " << client->curhp << ",";
+	oss << "\"maxhp\": " << client->maxhp << ",";
+	oss << "\"curmana\": " << client->curmana << ",";
+	oss << "\"maxmana\": " << client->maxmana << ",";
+	oss << "\"attack\": " << client->attack << ",";
+	oss << "\"critical\": " << client->critical << ",";
+	oss << "\"criProbability\": " << client->criProbability << ",";
+	oss << "\"maxdelay\": " << client->maxdelay << ",";
+	oss << "\"curdelay\": " << client->curdelay << ",";
+	oss << "\"attrange\": " << client->attrange << ",";
+	oss << "\"attspeed\": " << client->attspeed << ",";
+	oss << "\"movespeed\": " << client->movespeed << ",";
+	oss << "\"growhp\": " << client->growhp << ",";
+	oss << "\"growmana\": " << client->growmana << ",";
+	oss << "\"growAtt\": " << client->growAtt << ",";
+	oss << "\"growCri\": " << client->growCri << ",";
+	oss << "\"growCriPro\": " << client->growCriPro << ",";
+	oss << "\"team\": " << client->team << ",";
+	oss << "\"ready\": " << (client->ready ? "true" : "false") << ",";
+
+	oss << "\"itemList\": [";
+	for (size_t i = 0; i < client->itemList.size(); ++i) {
+		oss << client->itemList[i];
+		if (i < client->itemList.size() - 1)
+			oss << ",";
+	}
+	oss << "]";
+
+	oss << "}";
+	return oss.str();
+}
 

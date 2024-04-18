@@ -105,7 +105,7 @@ public class MatchQueueService {
             String name = user.getName();
             String member = userId+":"+name;
             return reactiveRedisTemplate.opsForZSet().rank(MATCH_PROCEED_KEY.formatted(queue),member)
-                .defaultIfEmpty(-1L).map(rank -> rank >=0);});
+                    .defaultIfEmpty(-1L).map(rank -> rank >=0);});
         // empty이면 -1, rank가 -1보다 작으면 false
     }
 
@@ -123,9 +123,9 @@ public class MatchQueueService {
             String name = user.getName();
             String member = userId+":"+name;
             return reactiveRedisTemplate.opsForZSet().rank(MATCH_WAIT_KEY.formatted(queue), member)
-                .defaultIfEmpty(-1L)
-                .map(rank -> rank >= 0 ? rank + 1 : rank)
-                .doOnSuccess(rank-> log.info("getRank : {}",rank));});
+                    .defaultIfEmpty(-1L)
+                    .map(rank -> rank >= 0 ? rank + 1 : rank)
+                    .doOnSuccess(rank-> log.info("getRank : {}",rank));});
     }
 
     public enum MatchStatus {
@@ -149,7 +149,7 @@ public class MatchQueueService {
                                 .doOnSuccess(result -> reactiveRedisTemplate.unlink(key).subscribe());
 
                     } catch (JsonProcessingException e) {
-                        log.error("JsonProcessingException : ", e);
+                        log.error("getMatchResponse JsonProcessingException : ", e);
                         return Mono.error(e);
                     }
                 })
@@ -186,7 +186,7 @@ public class MatchQueueService {
         }
     }
 
-    @Scheduled(initialDelay = 5000, fixedDelay = 10000)
+    @Scheduled(initialDelay = 5000, fixedDelay = 3000)
     public void scheduleMatchUser() {
         if (!scheduling) {
             log.info("passed scheduling..");
@@ -202,33 +202,40 @@ public class MatchQueueService {
                         .collectList()
                         .flatMap(members -> {
                             if (members.size() == MAX_ALLOW_USER_COUNT) {
-                            String spaceId = UUID.randomUUID().toString();
-                            MatchResponse matchResponse = MatchResponse.fromMembers(spaceId, members);
+                                String spaceId = UUID.randomUUID().toString();
+                                MatchResponse matchResponse = MatchResponse.fromMembers(spaceId, members);
+                                String MatchResponseJson=createMatchResponseJson(matchResponse);
+                                members.forEach(memberId -> {
+                                    //memberId =
+                                    try {
+                                        String membershipId = memberId.split(":")[0];
+                                        String json = mapper.writeValueAsString(matchResponse);
+                                        reactiveRedisTemplate.opsForValue().set("matchInfo:" + membershipId, json).subscribe();
+                                    } catch (JsonProcessingException e) {
+                                        log.error("scheduleMatchUser JsonProcessingException : ", e);
+                                    }
+                                });
 
-                            members.forEach(memberId -> {
-                                //memberId =
-                                try {
-                                    String membershipId = memberId.split(":")[0];
-                                    String json = mapper.writeValueAsString(matchResponse);
-                                    log.info("matchInfo:"+membershipId+" : "+json);
-                                    reactiveRedisTemplate.opsForValue().set("matchInfo:" + membershipId, json).subscribe();
-                                } catch (JsonProcessingException e) {
-                                    log.error("JsonProcessingException : ", e);
-                                }
-                            });
 
-
-                            return gameService.MatchSendMessage("match", "key", matchResponse.toString())
-                                    .then(RemoveMembersFromQueue(queue,members))
-                                    .doOnSuccess(result -> log.info("Kafka message sent and members removed from Redis successfully."))
-                                    .doOnError(error -> log.error("Error during Kafka send or Redis operation: " + error.getMessage()))
-                                    .subscribeOn(Schedulers.boundedElastic());
-                        } else {
-            return Mono.empty();
+                                return gameService.MatchSendMessage("match", "key", matchResponse.toString())
+                                        .then(RemoveMembersFromQueue(queue,members))
+                                        .doOnSuccess(result -> log.info("Kafka message sent and members removed from Redis successfully."))
+                                        .doOnError(error -> log.error("Error during Kafka send or Redis operation: " + error.getMessage()))
+                                        .subscribeOn(Schedulers.boundedElastic());
+                            } else {
+                                return Mono.empty();
+                            }
+                        }))
+                .subscribe();
+    }
+    private String createMatchResponseJson(MatchResponse response) {
+        try {
+            return mapper.writeValueAsString(response);
+        } catch (JsonProcessingException e) {
+            log.error("createMatchResponseJson JsonProcessingException : ", e);
+            return "";
         }
-    }))
-            .subscribe();
-}
+    }
 
 
     private Mono<Void> RemoveMembersFromQueue(String queue,List<String> members) {
@@ -238,4 +245,3 @@ public class MatchQueueService {
     }
 
 }
-

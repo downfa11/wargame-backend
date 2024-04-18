@@ -20,12 +20,13 @@ public class GameResult {
     @Id
     private Long id;
     private String GameSpaceCode;
-
     private String winTeamString;
     private String loseTeamString;
     private List<String> winTeams;
     private List<String> loseTeams;
 
+    private String dateTime;
+    private int gameDuration;
 
     @JsonFormat(pattern = "yyyy-MM-dd", timezone = "Asia/Seoul")
     private Timestamp createdAt;

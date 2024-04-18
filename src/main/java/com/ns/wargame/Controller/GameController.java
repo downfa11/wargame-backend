@@ -75,7 +75,6 @@ public class GameController {
     public Mono<ResponseEntity<messageEntity>> getRank(@PathVariable Long memberId){
         return matchQueueService.getMatchResponse(memberId)
                 .map(matchStatus -> {
-                    log.info(matchStatus.getT1().toString());
                     if (matchStatus.getT1() == MatchQueueService.MatchStatus.MATCH_FOUND)
                         return ResponseEntity.ok().body(new messageEntity("Success", matchStatus.getT2()));
                     else if (matchStatus.getT1() == MatchQueueService.MatchStatus.MATCHING)

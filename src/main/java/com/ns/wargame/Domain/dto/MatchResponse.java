@@ -15,8 +15,6 @@ import java.util.Map;
 @AllArgsConstructor
 @NoArgsConstructor
 public class MatchResponse {
-
-    private String id;
     private String spaceId;
     private Map<String, List<String>> teams;
 

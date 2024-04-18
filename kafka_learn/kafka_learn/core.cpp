@@ -96,7 +96,7 @@ void KafkaConsumerThread() {
 void MailslotServerThread() {
     HANDLE hMailslot;
     DWORD bytesRead;
-    char buffer[256];
+    char buffer[1024];
 
     hMailslot = CreateMailslot(MAILSLOT_RESULT_ADDRESS, 0, MAILSLOT_WAIT_FOREVER, NULL);
     if (hMailslot == INVALID_HANDLE_VALUE) {

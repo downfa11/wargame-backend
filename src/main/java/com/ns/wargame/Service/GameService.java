@@ -4,6 +4,7 @@ package com.ns.wargame.Service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ns.wargame.Domain.GameResult;
+import com.ns.wargame.Domain.dto.GameResultRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.producer.RecordMetadata;
@@ -63,8 +64,7 @@ public class GameService implements ApplicationRunner {
                     log.info("kafka send success : topic {} / {}", meta.topic(), meta.offset());
                 })
                 .doOnError(error -> {
-                    log.info("kafka send error");
-                    log.info(error.toString());
+                    log.info("kafka send error : {}",error.toString());
                 }).then();
     }
 
@@ -84,17 +84,23 @@ public class GameService implements ApplicationRunner {
         this.reactiveResultConsumerTemplate
                 .receiveAutoAck()
                 .doOnNext(r -> {
-
                     ObjectMapper mapper = new ObjectMapper();
-                    GameResult result;
+                    GameResultRequest result;
                     try {
-                        result = mapper.readValue(r.value(), GameResult.class);
+                        result = mapper.readValue(r.value(), GameResultRequest.class);
                     } catch (JsonProcessingException e) {
                         throw new RuntimeException(e);
                     }
-                    gameResultService.enroll(result);
 
-                    log.info("Result test success : {} {} {} {}",r.key(),r.value(),r.topic(),r.offset());})
+                    String state = result.getState();
+
+                    if(state.equals("success"))
+                        gameResultService.enroll(result).subscribe();
+
+                    else if(state.equals("dodge"))
+                        gameResultService.dodge(result).subscribe();
+
+                })
                 .doOnError(e -> {System.out.println("Error receiving: " + e);})
                 .subscribe();
     }

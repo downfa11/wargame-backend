@@ -444,7 +444,7 @@ void CommendInput()
 				if (inst->socket == kill_number)
 				{
 					cout << "kick " << kill_number << " (" << inst->user_name << ")" << endl;
-					closesocket(inst->socket);
+					GameManager::ClientClose(inst->socket);
 					break;
 				}
 
@@ -694,7 +694,6 @@ vector<UserData> parseTeamData(const string& teamData) {
 	return team;
 }
 
-
 roomData matchParsing(const string& request) {
 	size_t jsonStart = request.find("(");
 	size_t jsonEnd = request.find_last_of(")");
@@ -703,10 +702,6 @@ roomData matchParsing(const string& request) {
 		string jsonData = request.substr(jsonStart + 1, jsonEnd - jsonStart - 1);
 
 		try {
-			size_t idStart = jsonData.find("id=") + 3;
-			size_t idEnd = jsonData.find(", ", idStart);
-			string id = jsonData.substr(idStart, idEnd - idStart);
-			if (id == "null") id = ""; // id가 null인 경우 빈 문자열로 처리
 
 			size_t spaceIdStart = jsonData.find("spaceId=") + 8;
 			size_t spaceIdEnd = jsonData.find(", ", spaceIdStart);
@@ -718,19 +713,18 @@ roomData matchParsing(const string& request) {
 
 			size_t redTeamStart = teamsData.find("red=[") + 5;
 			size_t redTeamEnd = teamsData.find("],", redTeamStart);
-			string redTeamData = teamsData.substr(redTeamStart-1, redTeamEnd - redTeamStart+2);
+			string redTeamData = teamsData.substr(redTeamStart - 1, redTeamEnd - redTeamStart + 2);
 
 			size_t blueTeamStart = teamsData.find("blue=[", redTeamEnd) + 6;
 			size_t blueTeamEnd = teamsData.find("]", blueTeamStart);
-			string blueTeamData = teamsData.substr(blueTeamStart-1, blueTeamEnd - blueTeamStart+2);
+			string blueTeamData = teamsData.substr(blueTeamStart - 1, blueTeamEnd - blueTeamStart + 2);
 
 			roomData curRoom;
-			curRoom.id = id == "null" ? "" : id; // id가 "null" 문자열인 경우 빈 문자열로 처리
 			curRoom.spaceId = spaceId;
 			curRoom.redTeam = parseTeamData(redTeamData);
-			cout << redTeamData<<" parsing red team : " << (curRoom.redTeam.size()) << endl;
+			cout << redTeamData << " parsing red team : " << (curRoom.redTeam.size()) << endl;
 			curRoom.blueTeam = parseTeamData(blueTeamData);
-			cout << blueTeamData<<" parsing blue team : " << (curRoom.blueTeam.size()) << endl;
+			cout << blueTeamData << " parsing blue team : " << (curRoom.blueTeam.size()) << endl;
 
 			return curRoom;
 		}

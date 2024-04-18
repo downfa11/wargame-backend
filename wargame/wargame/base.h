@@ -320,19 +320,16 @@ struct bullet {
 
 #pragma pack(push,1)
 struct MatchResult {
-	string datetime;
-	int winTeam;
-	vector<Client> participants;
+	string spaceId;
+	string state; // dodge: 비정상적인 상황, success: 정상적인 상황
+	string winTeamString;
+	string loseTeamString;
+
+	vector<Client*> winTeams;
+	vector<Client*> loseTeams;
+
+	string dateTime;
 	int gameDuration;
-
-	string toString() const {
-		stringstream ss;
-		ss << "datetime: " << datetime << ", "
-			<< "winTeam: " << winTeam << ", "
-			<< "gameDuration: " << gameDuration;
-
-		return ss.str();
-	}
 };
 #pragma pack(pop)
 
@@ -356,7 +353,6 @@ struct UserData {
 };
 
 struct roomData {
-	string id;
 	string spaceId;
 	int isGame=-1; // -1:empty room, 0:pick room, 1:game room
 

@@ -3,6 +3,7 @@
 #include "PacketManager.h"
 #include "Resource.h"
 
+
 #define MAX_CLIENT 5000
 #define MAX_CHANNEL_COUNT 2
 #define MAX_ROOM_COUNT_PER_CHANNEL 100
@@ -40,7 +41,6 @@ public:
 	static chrono::high_resolution_clock::time_point lastUpdateTime;
 	static void TimeOutCheck();
 	static void NewClient(SOCKET client_socket, LPPER_HANDLE_DATA handle, LPPER_IO_DATA ioinfo);
-	static void ClientDelete(int client_socket);
 	static void ClientClose(int client_socket);
 	static void ClientChat(int client_socket, int size, void* data);
 	static void ClientChanMove(int client_socket, void* data);
@@ -78,4 +78,6 @@ public:
 	static void ChampPickTimeOut(int channel, int room);
 	static void ReConnection(int socket, int chan, int room);
 	static bool findEmptyRoom(roomData curRoom);
+	static string clientToJson(const Client* client);
+	static string matchResultToJson(const MatchResult& result);
 };
