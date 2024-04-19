@@ -43,11 +43,8 @@ void GameManager::TimeOutCheck()
 		}
 		for (auto inst : des_cli)
 		{
-			//if (!inst->isGame) 
-			{
-				printf("Time out %d \n", inst->socket);
-				ClientClose(inst->socket);
-			}
+			printf("Time out %d \n", inst->socket);
+			ClientClose(inst->socket);
 		}
 		timeout_check_time = time(NULL) + 10;
 	}
@@ -80,15 +77,28 @@ void GameManager::ClientClose(int client_socket)
 {
 
 	int chan = clients_info[client_socket]->channel, room = clients_info[client_socket]->room;
+	
+	clients_info[client_socket] = nullptr;
 
-	for (Client* inst : client_channel[chan].client_list_room[room])
+
+	for (auto it = client_list_all.begin(); it != client_list_all.end(); ++it)
 	{
-		if(inst->socket==client_socket)
-			clients_info[client_socket]->socket = -1;
+		cout << (*it)->socket << " >> 허허허" << endl;
+		if ((*it)->socket == client_socket)
+		{
+			it = client_list_all.erase(it);
+			cout << client_socket<<"의 client_list_all 삭제" << endl;
+			break;
+		}
+	}
+
+	for (Client* inst : client_channel[chan].client_list_room[room]) {
+
+		if (inst->socket == client_socket)
+			inst->socket = -1;
 
 		PacketManger::Send(inst->socket, H_USER_DISCON, &client_socket, sizeof(int));
 	}
-
 
 	closesocket(client_socket);
 	cout << "Disconnected " << client_socket << endl;
@@ -1515,7 +1525,7 @@ void GameManager::ClientAuth(int socket, void* data) {
 	int chan = -1, room = -1;
 	roomData curRoom;
 	for (auto roomData : auth_data) {
-		cout << roomData.spaceId << " == " << clients_info[socket]->code << endl;
+		//cout << roomData.spaceId << " == " << clients_info[socket]->code << endl;
 		if (roomData.spaceId == clients_info[socket]->code) {
 			curRoom = roomData;
 
@@ -1532,10 +1542,17 @@ void GameManager::ClientAuth(int socket, void* data) {
 		}
 	}
 
+	if (curRoom.spaceId == "") {
+		cout << "clients_info[socket]->code가 잘못되었슴" << endl;
+		return;
+	}
+
 	clients_info[socket]->clientindex = index;
-	cout <<"isGame : "<< curRoom.isGame << endl;
+	// cout <<"isGame : "<< curRoom.isGame << endl;
+	
 	// 처음 게임 접속
 	if (curRoom.isGame==-1) {
+		cout << "code : " << curRoom.isGame << "  최초 접속 시도중" << endl;
 		int team = -1;
 		vector<pair<int, int>> selected_clients;
 		cout << "curRoom size : " << curRoom.blueTeam.size() << " " << curRoom.redTeam.size() << endl;
@@ -1551,7 +1568,6 @@ void GameManager::ClientAuth(int socket, void* data) {
 		for (auto inst : curRoom.blueTeam) {
 			cout << "blue : " << stoi(inst.user_index) << endl;
 			if (stoi(inst.user_index) == index) {
-				inst.user = clients_info[socket];
 				clients_info[socket]->user_name = inst.user_name;
 				clients_info[socket]->team = 0;
 				team = 0;
@@ -1562,7 +1578,6 @@ void GameManager::ClientAuth(int socket, void* data) {
 		for (auto inst : curRoom.redTeam) {
 			cout << "red : " << inst.user_index << endl;
 			if (stoi(inst.user_index) == index) {
-				inst.user = clients_info[socket];
 				clients_info[socket]->user_name = inst.user_name;
 				clients_info[socket]->team = 1;
 				team = 1;
@@ -1596,36 +1611,38 @@ void GameManager::ClientAuth(int socket, void* data) {
 		}
 		PacketManger::Send(socket, H_TEAM, packet_data, packet_size);
 		cout << socket << "님(" << index << ")은 " << (team == 0 ? "blue" : "red") << "팀입니다." << endl;
+
 	}
+
 	// 픽창 재접속
 	else if(curRoom.isGame==0){
-		cout << "픽창 재접속을 시도합니다." << endl;
+		cout<<"code : "<< curRoom.isGame << "  픽창 재접속을 시도합니다." << endl;
 		// todo.
+		cout << endl;
+		cout << " ... 엥 근데 어차피 1분 지나면 나가질텐데 로직 짜야해?" << endl;
 	}
+
 	// 게임공간 재접속
 	else {
-		cout << "게임 공간 재접속을 시도합니다." << endl;
-		UserData user;
+		cout << "code : " << curRoom.isGame << "  게임 공간 재접속을 시도합니다." << endl;
 
-		for (auto inst : curRoom.blueTeam) {
-			if (stoi(inst.user_index) == index)
-				user = inst;
+
+		
+		auto it = client_channel[chan].client_list_room[room].begin();
+		while (it != client_channel[chan].client_list_room[room].end()) {
+			auto inst = *it;
+			if (inst->clientindex == index && inst->socket==-1) {
+
+				clients_info[socket] = inst;
+				clients_info[socket]->socket = socket;
+
+				it = client_channel[chan].client_list_room[room].erase(it);
+
+				cout << "clients_info["<<socket<<"] : " << clients_info[socket]->champindex<<endl;
+			}
+			else ++it;
 		}
 
-		for (auto inst : curRoom.redTeam) {
-			if (stoi(inst.user_index) == index)
-				user = inst;
-		}
-
-		if (user.user == nullptr) {
-			cout << "왜 없징.." << endl;
-			return;
-		}
-		cout<<user.user->socket<<endl;
-		clients_info[socket] = user.user;
-
-		clients_info[socket]->socket = socket;
-		cout << clients_info[socket]->user_name << endl;
 		ReConnection(socket, chan, room);
 	}
 }

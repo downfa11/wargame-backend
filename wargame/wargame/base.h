@@ -20,7 +20,9 @@
 
 #pragma comment(lib,"ws2_32.lib")
 
+
 using namespace std;
+
 
 typedef unsigned int       UINT;
 typedef unsigned long       DWORD;
@@ -349,7 +351,6 @@ struct itemSlots {
 struct UserData {
 	string user_index;
 	string user_name;
-	Client* user;
 };
 
 struct roomData {
