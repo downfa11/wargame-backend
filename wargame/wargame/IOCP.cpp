@@ -471,6 +471,7 @@ void CommendInput()
 
 					printf("CLIENT socket %d \n", inst->socket);
 					printf("       champindex %d \n", inst->champindex);
+					printf("       clientindex %d \n", inst->clientindex);
 					printf("       name %s \n", inst->user_name.c_str());
 					printf("       channel %d \n", inst->channel);
 					printf("       room %d \n", inst->room);

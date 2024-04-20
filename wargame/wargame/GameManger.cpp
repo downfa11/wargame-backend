@@ -481,12 +481,11 @@ void GameManager::ClientStat(int client_socket) {
 	info.socket = client_socket;
 	info.champindex = clients_info[client_socket]->champindex;
 	info.gold = clients_info[client_socket]->gold;
-	info.x = clients_info[client_socket]->x;
-	info.y = clients_info[client_socket]->y;
-	info.z = clients_info[client_socket]->z;
+
 	info.kill = clients_info[client_socket]->kill;
 	info.death = clients_info[client_socket]->death;
 	info.assist = clients_info[client_socket]->assist;
+
 	info.level = clients_info[client_socket]->level;
 	info.curhp = clients_info[client_socket]->curhp;
 	info.maxhp = clients_info[client_socket]->maxhp;
@@ -571,6 +570,10 @@ void GameManager::ClientChampInit(int client_socket) {
 	clients_info[client_socket]->growCriPro = (*champ).growCriPob;
 
 	info.socket = client_socket;
+	info.x = clients_info[client_socket]->x;
+	info.y = clients_info[client_socket]->y;
+	info.z = clients_info[client_socket]->z;
+
 	info.champindex = clients_info[client_socket]->champindex;
 	info.gold = clients_info[client_socket]->gold;
 	info.level = clients_info[client_socket]->level;
@@ -587,13 +590,72 @@ void GameManager::ClientChampInit(int client_socket) {
 
 	itemSlots slots;
 
-
+	slots.socket = client_socket;
 	slots.id_0 = clients_info[client_socket]->itemList[0];
 	slots.id_1 = clients_info[client_socket]->itemList[1];
 	slots.id_2 = clients_info[client_socket]->itemList[2];
 	slots.id_3 = clients_info[client_socket]->itemList[3];
 	slots.id_4 = clients_info[client_socket]->itemList[4];
 	slots.id_5 = clients_info[client_socket]->itemList[5];
+
+	for (auto inst : client_channel[chan].client_list_room[room])
+	{
+		PacketManger::Send(inst->socket, H_CHAMPION_INIT, &info, sizeof(ClientInfo));
+		PacketManger::Send(inst->socket, H_ITEM_STAT, &slots, sizeof(itemSlots));
+	}
+}
+
+void GameManager::ClientChampReconnectInit(int client_socket) {
+	ClientInfo info;
+
+	int chan = clients_info[client_socket]->channel;
+	int room = clients_info[client_socket]->room;
+
+	
+	info.socket = client_socket;
+
+	info.x = clients_info[client_socket]->x;
+	info.y = clients_info[client_socket]->y;
+	info.z = clients_info[client_socket]->z;
+
+	info.kill = clients_info[client_socket]->kill;
+	info.death = clients_info[client_socket]->death;
+	info.assist = clients_info[client_socket]->assist;
+
+	info.champindex = clients_info[client_socket]->champindex;
+	info.gold = clients_info[client_socket]->gold;
+	info.level = clients_info[client_socket]->level;
+	info.curhp = clients_info[client_socket]->curhp;
+	info.maxhp = clients_info[client_socket]->maxhp;
+	info.curmana = clients_info[client_socket]->curmana;
+	info.maxmana = clients_info[client_socket]->maxmana;
+	info.attack = clients_info[client_socket]->attack;
+	info.critical = clients_info[client_socket]->critical;
+	info.criProbability = clients_info[client_socket]->criProbability;
+	info.attspeed = clients_info[client_socket]->attspeed;
+	info.attrange = clients_info[client_socket]->attrange;
+	info.movespeed = clients_info[client_socket]->movespeed;
+
+	itemSlots slots;
+	slots.socket = client_socket;
+	size_t itemCount = clients_info[client_socket]->itemList.size();
+	size_t maxItemCount = min(itemCount, size_t(6));
+	for (size_t i = 0; i < maxItemCount; ++i) {
+		if (i == 0) slots.id_0 = clients_info[client_socket]->itemList[i];
+		if (i == 1) slots.id_1 = clients_info[client_socket]->itemList[i];
+		if (i == 2) slots.id_2 = clients_info[client_socket]->itemList[i];
+		if (i == 3) slots.id_3 = clients_info[client_socket]->itemList[i];
+		if (i == 4) slots.id_4 = clients_info[client_socket]->itemList[i];
+		if (i == 5) slots.id_5 = clients_info[client_socket]->itemList[i];
+	}
+	for (size_t i = maxItemCount; i < 6; ++i) {
+		if (i == 0) slots.id_0 = 0;
+		if (i == 1) slots.id_1 = 0;
+		if (i == 2) slots.id_2 = 0;
+		if (i == 3) slots.id_3 = 0;
+		if (i == 4) slots.id_4 = 0;
+		if (i == 5) slots.id_5 = 0;
+	}
 
 	for (auto inst : client_channel[chan].client_list_room[room])
 	{
@@ -1187,7 +1249,7 @@ void GameManager::ClientDie(int client_socket, int killer) {
 
 	if (clients_info[client_socket]->assistList.size() > MAX_TEAM_PER_ROOM-1)
 	{
-		stack<pair<int, float>> tempStack = clients_info[client_socket]->assistList;
+		stack<pair<int, int>> tempStack = clients_info[client_socket]->assistList;
 
 		// 스택이 MAX_TEAM_PER_ROOM 크기보다 크면 맨 아래 값을 제거
 		vector<int> assistTargets;
@@ -1557,7 +1619,7 @@ void GameManager::ClientAuth(int socket, void* data) {
 		cout << "최초 접속 시도중 " << "code : " << curRoom.isGame << endl;
 		int team = -1;
 		vector<pair<int, int>> selected_clients;
-		cout << "curRoom size : " << curRoom.blueTeam.size() << " " << curRoom.redTeam.size() << endl;
+		cout << "curRoom size - blue : " << curRoom.blueTeam.size() << ", red : " << curRoom.redTeam.size() << endl;
 		
 		for (auto& inst : auth_data) {
 			if (inst.channel == chan && inst.room == room) {
@@ -1632,22 +1694,23 @@ void GameManager::ClientAuth(int socket, void* data) {
 		
 		auto it = client_channel[chan].client_list_room[room].begin();
 		while (it != client_channel[chan].client_list_room[room].end()) {
-			auto inst = *it;
-			if (inst->clientindex == index && inst->socket==-1) {
+			if ((*it)->clientindex == index && (*it)->socket==-1) {
 
-				clients_info[socket] = inst;
+				clients_info[socket] = (*it);
 				clients_info[socket]->socket = socket;
 				it = client_channel[chan].client_list_room[room].erase(it);
 			}
-			else if (inst->clientindex == index) {
+			else if ((*it)->clientindex == index) {
 
-				inst = clients_info[socket];
+				(*it) = clients_info[socket];
+
 				for (auto& instance : client_list_all) {
 					if (instance->clientindex == index) {
-						instance = inst;
+						instance = clients_info[socket];
+						break;
 					}
 				}
-				
+
 				++it;
 			}
 			else ++it;
@@ -1684,12 +1747,13 @@ void GameManager::ChampPickTimeOut(int channel, int room) {
 		for (auto inst : client_channel[channel].client_list_room[room])
 		{
 			int client_count = client_channel[channel].client_list_room[room].size();
-			BYTE* packet_data = new BYTE[sizeof(int) * 2 * client_count];
-			int packet_size = sizeof(int) * 2 * client_count;
+			BYTE* packet_data = new BYTE[sizeof(int) * 3 * client_count];
+			int packet_size = sizeof(int) * 3 * client_count;
 			for (int i = 0; i < client_count; i++)
 			{
-				memcpy(packet_data + sizeof(int) * (2 * i), &inst->socket, sizeof(int));
-				memcpy(packet_data + sizeof(int) * (2 * i + 1), &inst->team, sizeof(int));
+			memcpy(packet_data + sizeof(int) * (3 * i), &inst->socket, sizeof(int));
+			memcpy(packet_data + sizeof(int) * (3 * i + 1), &inst->clientindex, sizeof(int)); // user_index
+			memcpy(packet_data + sizeof(int) * (3 * i + 2), &inst->team, sizeof(int)); // user_team
 			}
 			PacketManger::Send(inst->socket, H_BATTLE_START, packet_data, packet_size);
 			std::cout << "전투가 시작됩니다" << endl;
@@ -1766,7 +1830,6 @@ void GameManager::ChampPickTimeOut(int channel, int room) {
 
 		client_channel[channel].startTime[room] = chrono::time_point<chrono::system_clock>();
 
-		cout << "'쏜다 : " << json << endl;
 		SendToMailslot(json);
 
 		client_channel[channel].client_list_room[room].clear();
@@ -1805,14 +1868,16 @@ void GameManager::ReConnection(int socket, int chan, int room) {
 
 	list<Client*> selected_clients = client_channel[chan].client_list_room[room];
 	int client_count = selected_clients.size();
-	BYTE* packet_data = new BYTE[sizeof(int) * 2 * client_count];
-	int packet_size = sizeof(int) * 2 * client_count;
+	BYTE* packet_data = new BYTE[sizeof(int) * 3 * client_count];
+	int packet_size = sizeof(int) * 3 * client_count;
 	int index = 0;
+
 	for (auto& client : selected_clients)
 	{
 		memcpy(packet_data + sizeof(int) * index, &(client->socket), sizeof(int));
 		index++;
-
+		memcpy(packet_data + sizeof(int) * index, &(client->clientindex), sizeof(int));
+		index++;
 		memcpy(packet_data + sizeof(int) * index, &(client->team), sizeof(int));
 		index++;
 	}
@@ -1820,8 +1885,7 @@ void GameManager::ReConnection(int socket, int chan, int room) {
 	for (auto& inst : selected_clients)
 	{
 		PacketManger::Send(inst->socket, H_BATTLE_START, packet_data, packet_size);
-		ClientChampInit(inst->socket);
-		ClientStat(inst->socket);
+		ClientChampReconnectInit(inst->socket);
 	}
 	for (auto& inst : client_channel[chan].structure_list_room[room])
 	{

@@ -56,6 +56,7 @@ public:
 	static void SendVictory(int client_socket, int winTeam, int channel, int room);
 	static void ClientStat(int client_socket);
 	static void ClientChampInit(int client_socket);
+	static void ClientChampReconnectInit(int client_socket);
 	static void MouseSearch(int client_socket, void* data);
 	static void AttackClient(int client_socket, void* data);
 	static void AttackStruct(int index, void* data);

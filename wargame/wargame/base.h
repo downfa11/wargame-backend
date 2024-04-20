@@ -137,10 +137,10 @@ public:
 	int curmana;
 	int maxmana;
 	int attack;
-	float critical;
-	float criProbability;
-	float maxdelay;
-	float curdelay;
+	int critical;
+	int criProbability;
+	int maxdelay;
+	int curdelay;
 	int attrange;
 	float attspeed;
 	float movespeed;
@@ -157,7 +157,7 @@ public:
 	vector<int> itemList{ 0,0,0,0,0,0 };
 
 
-	stack<pair<int, float>> assistList;
+	stack<pair<int, int>> assistList;
 	LPPER_HANDLE_DATA handle;
 	LPPER_IO_DATA ioinfo;
 
@@ -229,8 +229,8 @@ struct ClientInfo
 	int curmana;
 	int maxmana;
 	int attack;
-	float critical;
-	float criProbability;
+	int critical;
+	int criProbability;
 	float attspeed;
 	int attrange;
 	float movespeed;
