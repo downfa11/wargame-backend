@@ -75,15 +75,17 @@ void GameManager::NewClient(SOCKET client_socket, LPPER_HANDLE_DATA handle, LPPE
 
 void GameManager::ClientClose(int client_socket)
 {
+	if (clients_info[client_socket] == nullptr) {
+		cout << "웅!" << endl;
+		return;
+	}
 
 	int chan = clients_info[client_socket]->channel, room = clients_info[client_socket]->room;
-	
 	clients_info[client_socket] = nullptr;
 
 
 	for (auto it = client_list_all.begin(); it != client_list_all.end(); ++it)
 	{
-		cout << (*it)->socket << " >> 허허허" << endl;
 		if ((*it)->socket == client_socket)
 		{
 			it = client_list_all.erase(it);
@@ -1552,7 +1554,7 @@ void GameManager::ClientAuth(int socket, void* data) {
 	
 	// 처음 게임 접속
 	if (curRoom.isGame==-1) {
-		cout << "code : " << curRoom.isGame << "  최초 접속 시도중" << endl;
+		cout << "최초 접속 시도중 " << "code : " << curRoom.isGame << endl;
 		int team = -1;
 		vector<pair<int, int>> selected_clients;
 		cout << "curRoom size : " << curRoom.blueTeam.size() << " " << curRoom.redTeam.size() << endl;
@@ -1616,7 +1618,7 @@ void GameManager::ClientAuth(int socket, void* data) {
 
 	// 픽창 재접속
 	else if(curRoom.isGame==0){
-		cout<<"code : "<< curRoom.isGame << "  픽창 재접속을 시도합니다." << endl;
+		cout<< "픽창 재접속을 시도합니다. " << "code : "<< curRoom.isGame << endl;
 		// todo.
 		cout << endl;
 		cout << " ... 엥 근데 어차피 1분 지나면 나가질텐데 로직 짜야해?" << endl;
@@ -1624,7 +1626,7 @@ void GameManager::ClientAuth(int socket, void* data) {
 
 	// 게임공간 재접속
 	else {
-		cout << "code : " << curRoom.isGame << "  게임 공간 재접속을 시도합니다." << endl;
+		cout << "게임 공간 재접속을 시도합니다. " << "code : " << curRoom.isGame <<endl;
 
 
 		
@@ -1635,10 +1637,18 @@ void GameManager::ClientAuth(int socket, void* data) {
 
 				clients_info[socket] = inst;
 				clients_info[socket]->socket = socket;
-
 				it = client_channel[chan].client_list_room[room].erase(it);
+			}
+			else if (inst->clientindex == index) {
 
-				cout << "clients_info["<<socket<<"] : " << clients_info[socket]->champindex<<endl;
+				inst = clients_info[socket];
+				for (auto& instance : client_list_all) {
+					if (instance->clientindex == index) {
+						instance = inst;
+					}
+				}
+				
+				++it;
 			}
 			else ++it;
 		}

@@ -429,7 +429,7 @@ void CommendInput()
 		m = "clicount";
 		if (!strcmp(val, m.c_str()))
 		{
-			printf("Client Count : %d \n", GameManager::client_list_all.size());
+			printf("client_list_all Count : %d \n", GameManager::client_list_all.size());
 			what = true;
 		}
 

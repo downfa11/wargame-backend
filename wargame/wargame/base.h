@@ -166,7 +166,6 @@ public:
 			socket = other.socket;
 			champindex = other.champindex;
 			user_name = other.user_name;
-			out_time = other.out_time;
 			channel = other.channel;
 			room = other.room;
 			code = other.code;
