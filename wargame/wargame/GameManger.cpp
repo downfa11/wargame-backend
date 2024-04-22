@@ -76,7 +76,7 @@ void GameManager::NewClient(SOCKET client_socket, LPPER_HANDLE_DATA handle, LPPE
 void GameManager::ClientClose(int client_socket)
 {
 	if (clients_info[client_socket] == nullptr) {
-		cout << "웅!" << endl;
+		cout << client_socket <<"은 nullptr이야." << endl;
 		return;
 	}
 
@@ -530,6 +530,12 @@ void GameManager::ClientStat(int client_socket) {
 }
 
 void GameManager::ClientChampInit(int client_socket) {
+
+	if (clients_info[client_socket] == nullptr) {
+		cout << client_socket << " 소켓의 사용자는 픽 전에 종료하셨습니다." << endl;
+		return;
+	}
+
 	ClientInfo info;
 
 	int chan = clients_info[client_socket]->channel;
@@ -604,6 +610,54 @@ void GameManager::ClientChampInit(int client_socket) {
 		PacketManger::Send(inst->socket, H_ITEM_STAT, &slots, sizeof(itemSlots));
 	}
 }
+
+void GameManager::ClientChampInit(Client* client) {
+
+	if (client == nullptr) {
+		cout << client->clientindex << " 인덱스의 사용자는 픽 전에 종료하셨습니다." << endl;
+		return;
+	}
+
+	int chan = client->channel;
+	int room = client->room;
+
+	int champIndex = client->champindex;
+	ChampionStats* champ = nullptr;
+	cout << "사용자의 챔피언은 " << champIndex << endl;
+	for (auto& champion : ChampionSystem::champions) {
+		if (champion.index == champIndex) {
+			champ = &champion;
+			break;
+		}
+	}
+
+	if (champ == nullptr) {
+		cout << "champ를 찾을 수 없엉" << endl;
+		return;
+	}
+
+	client->level = 1;
+	client->curhp = (*champ).maxhp;
+	client->maxhp = (*champ).maxhp;
+	client->curmana = (*champ).maxmana;
+	client->maxmana = (*champ).maxmana;
+	client->attack = (*champ).attack;
+	client->maxdelay = (*champ).maxdelay;
+	client->attrange = (*champ).attrange;
+	client->attspeed = (*champ).attspeed;
+	client->movespeed = (*champ).movespeed;
+	client->critical = (*champ).critical;
+	client->criProbability = (*champ).criProbability;
+
+	client->growhp = (*champ).growHp;
+	client->growmana = (*champ).growMana;
+	client->growAtt = (*champ).growAtt;
+	client->growCri = (*champ).growCri;
+	client->growCriPro = (*champ).growCriPob;
+
+	cout << "clients maxhp : " << client->maxhp << endl;
+}
+
 
 void GameManager::ClientChampReconnectInit(int client_socket) {
 	ClientInfo info;
@@ -1608,6 +1662,7 @@ void GameManager::ClientAuth(int socket, void* data) {
 
 	if (curRoom.spaceId == "") {
 		cout << "clients_info[socket]->code가 잘못되었슴" << endl;
+		ClientClose(socket);
 		return;
 	}
 
@@ -1695,6 +1750,8 @@ void GameManager::ClientAuth(int socket, void* data) {
 		auto it = client_channel[chan].client_list_room[room].begin();
 		while (it != client_channel[chan].client_list_room[room].end()) {
 			if ((*it)->clientindex == index && (*it)->socket==-1) {
+				if ((*it)->maxhp == 0 && (*it)->maxmana == 0)
+					ClientChampInit((*it));
 
 				clients_info[socket] = (*it);
 				clients_info[socket]->socket = socket;
@@ -1741,7 +1798,7 @@ void GameManager::ChampPickTimeOut(int channel, int room) {
 	}
 
 	if (AllClientsReady(channel, room)) {
-		cout << "모든 사용자들이 Ready 상태입니다. 전투를 시작합니다." << endl;
+		cout << "모든 사용자들이 Ready 상태입니다." << endl;
 		// 전투 룸으로 넘어갑니다
 
 		for (auto inst : client_channel[channel].client_list_room[room])
@@ -1756,7 +1813,7 @@ void GameManager::ChampPickTimeOut(int channel, int room) {
 			memcpy(packet_data + sizeof(int) * (3 * i + 2), &inst->team, sizeof(int)); // user_team
 			}
 			PacketManger::Send(inst->socket, H_BATTLE_START, packet_data, packet_size);
-			std::cout << "전투가 시작됩니다" << endl;
+
 			
 			for (auto& inst : auth_data) {
 				if (inst.channel == channel && inst.room == room) {
@@ -1884,7 +1941,7 @@ void GameManager::ReConnection(int socket, int chan, int room) {
 
 	for (auto& inst : selected_clients)
 	{
-		PacketManger::Send(inst->socket, H_BATTLE_START, packet_data, packet_size);
+     	PacketManger::Send(inst->socket, H_BATTLE_START, packet_data, packet_size);
 		ClientChampReconnectInit(inst->socket);
 	}
 	for (auto& inst : client_channel[chan].structure_list_room[room])
