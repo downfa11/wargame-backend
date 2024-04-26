@@ -58,7 +58,7 @@ void KafkaConsumerThread() {
 	consumer.subscribe({ matchTopic });
 
 	while (1) {
-		auto records = consumer.poll(chrono::milliseconds(2000));
+		auto records = consumer.poll(chrono::milliseconds(3000));
 		for (const auto& record : records) {
 			if (!record.error()) {
 				cout << endl;
@@ -96,7 +96,7 @@ void KafkaConsumerThread() {
 void MailslotServerThread() {
     HANDLE hMailslot;
     DWORD bytesRead;
-    char buffer[1024];
+	vector<char> buffer(8192);
 
     hMailslot = CreateMailslot(MAILSLOT_RESULT_ADDRESS, 0, MAILSLOT_WAIT_FOREVER, NULL);
     if (hMailslot == INVALID_HANDLE_VALUE) {
@@ -105,13 +105,19 @@ void MailslotServerThread() {
     }
 
     while (true) {
-        BOOL result = ReadFile(hMailslot, buffer, sizeof(buffer), &bytesRead, NULL);
+        BOOL result = ReadFile(hMailslot, buffer.data(), buffer.size(), &bytesRead, NULL);
         if (!result || bytesRead == 0) {
-            cerr << "Failed to read from mailslot" << endl;
+            cerr << "Failed to read from mailslot " <<result<<" or "<<bytesRead << endl;
             continue;
         }
 
-        string message(buffer, bytesRead);
+		if (bytesRead == buffer.size()) {
+			cout << "size double." << endl;
+			buffer.resize(buffer.size() * 2);
+		}
+
+		string message(buffer.begin(), buffer.begin() + bytesRead);
+		cout << "received data : " << message << endl;
 		KafkaSend(resultTopic, message);
     }
 
@@ -122,7 +128,8 @@ int main()
 {
     thread mailslotServer(MailslotServerThread);
 	thread kafka_consumer_thread(KafkaConsumerThread);
-	
+	cout << "ver 1.2" << endl;
+	cout << endl;
 	while (1) {
 		string line;
 		std::getline(std::cin, line);

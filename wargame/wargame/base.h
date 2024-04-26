@@ -129,8 +129,7 @@ public:
 	int maxexp=100;
 	int exp;
 
-	bool stopped;
-	bool attacked;
+	chrono::high_resolution_clock::time_point lastUpdateTime;
 
 	int curhp;
 	int maxhp;
@@ -139,8 +138,8 @@ public:
 	int attack;
 	int critical;
 	int criProbability;
-	int maxdelay;
-	int curdelay;
+	float maxdelay;
+	float curdelay;
 	int attrange;
 	float attspeed;
 	float movespeed;
@@ -183,8 +182,6 @@ public:
 			level = other.level;
 			maxexp = other.maxexp;
 			exp = other.exp;
-			stopped = other.stopped;
-			attacked = other.attacked;
 			curhp = other.curhp;
 			maxhp = other.maxhp;
 			curmana = other.curmana;
@@ -292,6 +289,7 @@ public:
 	int bulletdmg;
 	float bulletspeed;
 	int team = -1; // 0 for blue team, 1 for red team
+	chrono::high_resolution_clock::time_point lastUpdateTime;
 };
 
 #pragma pack(push,1)

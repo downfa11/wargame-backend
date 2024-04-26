@@ -124,8 +124,8 @@ public class MatchQueueService {
             String member = userId+":"+name;
             return reactiveRedisTemplate.opsForZSet().rank(MATCH_WAIT_KEY.formatted(queue), member)
                     .defaultIfEmpty(-1L)
-                    .map(rank -> rank >= 0 ? rank + 1 : rank)
-                    .doOnSuccess(rank-> log.info("getRank : {}",rank));});
+                    .map(rank -> rank >= 0 ? rank + 1 : rank);});
+                    //.doOnSuccess(rank-> log.info("getRank : {}",rank));});
     }
 
     public enum MatchStatus {
@@ -186,7 +186,7 @@ public class MatchQueueService {
         }
     }
 
-    @Scheduled(initialDelay = 5000, fixedDelay = 3000)
+    @Scheduled(initialDelay = 5000, fixedDelay = 1000)
     public void scheduleMatchUser() {
         if (!scheduling) {
             log.info("passed scheduling..");

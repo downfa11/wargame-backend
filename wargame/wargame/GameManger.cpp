@@ -965,8 +965,9 @@ void GameManager::ClientDie(int client_socket, int killer) {
 		auto attacker = find_if(structures_in_room.begin(), structures_in_room.end(), [killer](structure* struc) {
 			return struc->index == killer;
 			});
-		cout << (*attacker)->index << "의 킬 : " << clients_info[killer]->kill << endl;
+		cout << (*attacker)->index << "의 킬 : 포탑의 킬 수는 카운트하지 않습니다."  << endl;
 	}
+
 	cout << clients_info[client_socket]->socket << "의 데스 : " << clients_info[client_socket]->death << endl;
 
 	if (clients_info[killer]->kill >= 2)
@@ -1081,6 +1082,7 @@ void GameManager::WaitAndRespawn(int client_socket, int respawnTime, const chron
 		if (clients_info[client_socket] == nullptr)
 			return;
 
+		this_thread::sleep_for(chrono::milliseconds(1000));
 		currentTime = chrono::system_clock::now();
 		elapsed_seconds = currentTime - diedtTime;
 	}
@@ -1352,6 +1354,8 @@ void GameManager::ItemStat(int client_socket, void* data)
 	int id = info.id;
 	bool isPerchase = info.isPerchase;
 
+
+	// 인벤토리의 i번 위치임을 받아서 서버의 해당 위치 아이템의 index를 읽어야함. todo
 	itemStats* curItem = nullptr;
 
 	for (auto& item : ItemSystem::items) {
@@ -1391,12 +1395,6 @@ void GameManager::ItemStat(int client_socket, void* data)
 			cout << client_socket << "님이 " << (*curItem).name << " 를 " << NeedGold << "에 구매하는데 성공했습니다." << endl;
 
 			clients_info[client_socket]->itemList[index] = ((*curItem).id); // 아이템 추가
-			/*
-			for (const int& itemID : clients_info[client_socket]->itemList)
-			{
-				cout << itemID << endl;
-			}
-			*/
 
 			ClientStat(client_socket);
 		}
@@ -1422,10 +1420,6 @@ void GameManager::ItemStat(int client_socket, void* data)
 				cout << client_socket << "님이 " << (*curItem).name << " 를 " << NeedGold * 0.8f << "에 판매하는데 성공했습니다." << endl;
 
 				clients_info[client_socket]->itemList[i] = 0; // 아이템 삭제
-				/*for (const int& itemID : clients_info[client_socket]->itemList)
-				{
-					cout << itemID << endl;
-				}*/
 
 				ClientStat(client_socket);
 				break;
@@ -1526,6 +1520,8 @@ void GameManager::ClientAuth(int socket, void* data) {
 	memcpy(&index, data, sizeof(int));
 
 
+	clients_info[socket]->clientindex = index;
+
 	int chan = -1, room = -1;
 	roomData curRoom;
 	for (auto roomData : auth_data) {
@@ -1551,8 +1547,6 @@ void GameManager::ClientAuth(int socket, void* data) {
 		}
 	}
 
-	clients_info[socket]->clientindex = index;
-
 	for (auto inst : curRoom.blueTeam) {
 		if (stoi(inst.user_index) == index) {
 			clients_info[socket]->user_name = inst.user_name;
@@ -1571,11 +1565,35 @@ void GameManager::ClientAuth(int socket, void* data) {
 		}
 	}
 
-
-	if (curRoom.isGame == 0)
+	if (curRoom.isGame == 0) {
 		cout << "픽창 재접속을 시도합니다. " << "code : " << curRoom.isGame << endl;
 
-	else 
+		for (auto inst : client_channel[chan].client_list_room[room])
+		{
+			if (inst->socket == socket)
+				return;
+
+			ClientInfo info;
+			info.socket = inst->socket;
+			info.champindex = inst->champindex;
+			PacketManger::Send(socket, H_NEWBI, &info, sizeof(ClientInfo));
+		}
+
+		for (auto inst : client_channel[chan].client_list_room[room])
+		{
+				if (inst->socket == socket)
+					continue;
+
+				ClientInfo info;
+				info.socket = inst->socket;
+				info.champindex = inst->champindex;
+				PacketManger::Send(socket, H_NEWBI, &info, sizeof(ClientInfo));
+		}
+
+		sendTeamPackets(socket);
+	}
+
+	else if(curRoom.isGame==1)
 		reconnectClient(socket, index, chan, room);
 }
 
@@ -1610,11 +1628,11 @@ void GameManager::reconnectClient(int socket, int index, int channel, int room) 
 }
 
 void GameManager::ChampPickTimeOut(int channel, int room) {
-	chrono::time_point<chrono::system_clock> fTime = chrono::system_clock::now(),cTime;
+	chrono::time_point<chrono::system_clock> fTime = chrono::system_clock::now(), cTime;
 	chrono::duration<double> delay;
 
 
-	while (delay.count() < 4) {
+while (delay.count() < 1) {
 		this_thread::sleep_for(chrono::milliseconds(1000));
 		cTime = chrono::system_clock::now();
 		delay = cTime - fTime;
@@ -1689,9 +1707,29 @@ void GameManager::sendTeamPackets(int channel, int room) {
 		cout << clientList[i]->clientindex << "님(" << clientList[i]->socket << ")은 " << (clientList[i]->team == 0 ? "blue" : "red") << "팀입니다." << endl;
 	}
 
-	for (auto currentClient : clientList) {
+	for (auto currentClient : clientList) 
 		PacketManger::Send(currentClient->socket, H_TEAM, packetData, packetSize);
+
+	delete[] packetData;
+}
+
+void GameManager::sendTeamPackets(int client_socket) {
+
+	int channel = clients_info[client_socket]->channel;
+	int room = clients_info[client_socket]->room;
+
+	vector<Client*> clientList(client_channel[channel].client_list_room[room].begin(), client_channel[channel].client_list_room[room].end());
+	BYTE* packetData = new BYTE[sizeof(int) * 3 * clientList.size()];
+	int packetSize = sizeof(int) * 3 * clientList.size();
+
+	for (int i = 0; i < clientList.size(); i++) {
+		memcpy(packetData + sizeof(int) * (3 * i), &clientList[i]->socket, sizeof(int));
+		memcpy(packetData + sizeof(int) * (3 * i + 1), &clientList[i]->clientindex, sizeof(int)); // user_index
+		memcpy(packetData + sizeof(int) * (3 * i + 2), &clientList[i]->team, sizeof(int)); // user_team
+		cout << clientList[i]->clientindex << "님(" << clientList[i]->socket << ")은 " << (clientList[i]->team == 0 ? "blue" : "red") << "팀입니다." << endl;
 	}
+
+	PacketManger::Send(client_socket, H_TEAM, packetData, packetSize);
 
 	delete[] packetData;
 }
