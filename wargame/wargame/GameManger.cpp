@@ -11,14 +11,15 @@ int GameManager::timeout_check_time = 0;
 
 unordered_map<int, atomic<bool>> turretSearchStopMap;
 
+shared_mutex client_list_mutex;
+shared_mutex clients_info_mutex;
+shared_mutex room_mutex[MAX_CHANNEL_COUNT][MAX_ROOM_COUNT_PER_CHANNEL];
 
 //  level 마다 지정된 maxexp (전체 공통)
 //  성장 능력치 상승치 grow* (챔프 개인)
 
 
 #define PICK_TIME 60
-
-using namespace std;
 
 
 float DistancePosition(float x1, float y1, float z1, float x2, float y2, float z2)
@@ -59,47 +60,79 @@ void GameManager::NewClient(SOCKET client_socket, LPPER_HANDLE_DATA handle, LPPE
 	temp_cli->handle = handle;
 	temp_cli->ioinfo = ioinfo;
 
-	clients_info[client_socket] = temp_cli;
+	int chan = -1, room = -1;
+	{
+		unique_lock<shared_mutex> lock(clients_info_mutex);
+		clients_info[client_socket] = temp_cli;
+		chan = clients_info[client_socket]->channel;
+		room = clients_info[client_socket]->room;
+	}
+
+	if (chan == -1 || room == -1) {
+		cout << "lock error" << endl;
+		return;
+	}
 
 	PacketManger::Send(client_socket, H_START, &temp_cli->socket, sizeof(int));
 
-	int chan = clients_info[client_socket]->channel;
-	int room = clients_info[client_socket]->room;
+	{
+		unique_lock<shared_mutex> lock(client_list_mutex);
+		client_list_all.push_back(temp_cli);
+	}
 
-	client_channel[chan].client_list_room[room].push_back(temp_cli);
-	client_list_all.push_back(temp_cli);
+	{
+		unique_lock<shared_mutex> lock(room_mutex[chan][room]);
+		client_channel[chan].client_list_room[room].push_back(temp_cli);
+	}
+
+
 
 	cout << "Connect " << client_socket << endl;
 }
 
 void GameManager::ClientClose(int client_socket)
 {
-	if (clients_info[client_socket] == nullptr) {
-		cout << client_socket << " nullptr" << endl;
+	int chan = -1, room = -1;
+	{
+		unique_lock<shared_mutex> lock(clients_info_mutex);
+		if (clients_info[client_socket] == nullptr) {
+			cout << client_socket << " nullptr" << endl;
+			return;
+		}
+
+		chan = clients_info[client_socket]->channel;
+		room = clients_info[client_socket]->room;
+		clients_info[client_socket] = nullptr;
+	}
+
+	if (chan == -1 || room == -1) {
+		cout << "lock error" << endl;
 		return;
 	}
 
-	int chan = clients_info[client_socket]->channel, room = clients_info[client_socket]->room;
-	clients_info[client_socket] = nullptr;
-
-
-	for (auto it = client_list_all.begin(); it != client_list_all.end(); ++it)
 	{
-		if ((*it)->socket == client_socket)
+		unique_lock<shared_mutex> lock(client_list_mutex);
+		for (auto it = client_list_all.begin(); it != client_list_all.end(); ++it)
 		{
-			it = client_list_all.erase(it);
-			break;
+			if ((*it)->socket == client_socket)
+			{
+				it = client_list_all.erase(it);
+				break;
+			}
 		}
 	}
 
-	for (Client* inst : client_channel[chan].client_list_room[room]) {
+	{
+		unique_lock<shared_mutex> lock(room_mutex[chan][room]);
+		for (Client* inst : client_channel[chan].client_list_room[room]) {
 
-		if (inst->socket == client_socket) {
-			inst->socket = -1;
-			inst->ready = false;
+			if (inst->socket == client_socket) {
+				inst->socket = -1;
+				inst->ready = false;
+			}
+
+			PacketManger::Send(inst->socket, H_USER_DISCON, &client_socket, sizeof(int));
 		}
-
-		PacketManger::Send(inst->socket, H_USER_DISCON, &client_socket, sizeof(int));
 	}
 
 	closesocket(client_socket);
@@ -112,15 +145,28 @@ void GameManager::ClientChat(int client_socket, int size, void* data)
 	memcpy(packet_data, &client_socket, sizeof(int));
 	memcpy(&packet_data[sizeof(int)], data, size);
 
-	Client* sender = clients_info[client_socket];
-	int chan = sender->channel;
-	int room = sender->room;
+	int chan = -1, room = -1;
+	string name = "";
+	{
+		shared_lock<shared_mutex> lock(clients_info_mutex);
+		Client* sender = clients_info[client_socket];
+		chan = sender->channel;
+		room = sender->room;
+		name = sender->user_name;
+	}
+
+	if (chan == -1 || room == -1 || name == "") {
+		cout << "lock error" << endl;
+		return;
+	}
+
 
 	if (chan < 0 || chan >= 100 || room < 0 || room >= client_channel[chan].chat_log.size()) {
 		cout << "Invalid channel or room index." << endl;
 		delete[] packet_data;
 		return;
 	}
+
 	vector<ChatEntry> chatLog = client_channel[chan].chat_log[room];
 
 	auto curtime = chrono::system_clock::now();
@@ -129,13 +175,16 @@ void GameManager::ClientChat(int client_socket, int size, void* data)
 
 	string chat(reinterpret_cast<char*>(&packet_data[sizeof(int)]), size);
 
-	chatLog.push_back({ sender->user_name, {curtime, chat} });
+	chatLog.push_back({ name, {curtime, chat} });
 	client_channel[chan].chat_log[room] = chatLog;
 
-	for (auto cli : client_channel[chan].client_list_room[room])
+
 	{
-		PacketManger::Send(cli->socket, H_CHAT, packet_data, size + sizeof(int));
+		shared_lock<shared_mutex> lock(room_mutex[chan][room]);
+		for (auto cli : client_channel[chan].client_list_room[room])
+			PacketManger::Send(cli->socket, H_CHAT, packet_data, size + sizeof(int));
 	}
+
 	delete[] packet_data;
 }
 
@@ -144,45 +193,64 @@ void GameManager::ClientChanMove(int client_socket, void* data)
 	int move_chan;
 	memcpy(&move_chan, data, sizeof(int));
 
-	int chan = clients_info[client_socket]->channel;;
-	int room = clients_info[client_socket]->room;
-
-	clients_info[client_socket]->channel = move_chan;
-
-	for (auto inst : client_channel[chan].client_list_room[room])
+	int chan = -1, room = -1;
 	{
-		if (inst->socket == client_socket)
+		unique_lock<shared_mutex> lock_info(clients_info_mutex);
+		chan = clients_info[client_socket]->channel;;
+		room = clients_info[client_socket]->room;
+		clients_info[client_socket]->channel = move_chan;
+	}
+
+	if (chan == -1 || room == -1) {
+		cout << "lock error" << endl;
+		return;
+	}
+
+	unique_lock<shared_mutex> lock_room_src(room_mutex[chan][room], defer_lock);
+	unique_lock<shared_mutex> lock_room_dest(room_mutex[move_chan][room], defer_lock);
+	lock(lock_room_src, lock_room_dest);
+	{
+		for (auto inst : client_channel[chan].client_list_room[room])
 		{
-			client_channel[chan].client_list_room[room].remove(inst);
-			client_channel[move_chan].client_list_room[room].push_back(inst);
-			break;
+			if (inst->socket == client_socket)
+			{
+				client_channel[chan].client_list_room[room].remove(inst);
+				client_channel[move_chan].client_list_room[room].push_back(inst);
+				break;
+			}
 		}
 	}
 
-	for (auto inst : client_channel[chan].client_list_room[room])
-		PacketManger::Send(inst->socket, H_USER_DISCON, &client_socket, sizeof(client_socket));
+		for (auto inst : client_channel[chan].client_list_room[room])
+			PacketManger::Send(inst->socket, H_USER_DISCON, &client_socket, sizeof(client_socket));
+	
 
 	ClientInfo newbi_info;
-	newbi_info.socket = clients_info[client_socket]->socket;
-	newbi_info.x = clients_info[client_socket]->x;
-	newbi_info.y = clients_info[client_socket]->y;
-
-	for (auto inst : client_channel[move_chan].client_list_room[room])
 	{
-		if (inst->socket != client_socket)
-		{
-			//새로운 룸안의 유저들에게 뉴비소켓 알려주기
-			PacketManger::Send(inst->socket, H_NEWBI, &newbi_info, sizeof(ClientInfo));
-
-			ClientInfo info;
-			info.socket = inst->socket;
-			info.x = inst->x;
-			info.y = inst->y;
-			PacketManger::Send(client_socket, H_NEWBI, &info, sizeof(ClientInfo));
-		}
+		shared_lock<shared_mutex> lock(clients_info_mutex);
+		newbi_info.socket = clients_info[client_socket]->socket;
+		newbi_info.x = clients_info[client_socket]->x;
+		newbi_info.y = clients_info[client_socket]->y;
 	}
-}
 
+
+		for (auto inst : client_channel[move_chan].client_list_room[room])
+		{
+			if (inst->socket != client_socket)
+			{
+				//새로운 룸안의 유저들에게 뉴비소켓 알려주기
+				PacketManger::Send(inst->socket, H_NEWBI, &newbi_info, sizeof(ClientInfo));
+
+				ClientInfo info;
+				info.socket = inst->socket;
+				info.x = inst->x;
+				info.y = inst->y;
+				PacketManger::Send(client_socket, H_NEWBI, &info, sizeof(ClientInfo));
+			}
+		}
+	
+}
+//===================================================================================================================
 void GameManager::ClientRoomMove(int client_socket, void* data)
 {
 	int move_room;
@@ -445,30 +513,9 @@ void GameManager::SendVictory(int client_socket, int winTeam, int channel, int r
 	client_channel[channel].structure_list_room[room].clear();
 }
 
-bool SendToMailslot(const string& message) {
-	HANDLE hMailslot;
-	DWORD bytesWritten;
-
-	hMailslot = CreateFile(MAILSLOT_RESULT_ADDRESS, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-	if (hMailslot == INVALID_HANDLE_VALUE) {
-		cerr << "Failed to open mailslot" << endl;
-		return false;
-	}
-
-	BOOL result = WriteFile(hMailslot, message.c_str(), message.length(), &bytesWritten, NULL);
-	cout << "success send message (" << message.length() << ") :" << message.c_str() << endl;
-	CloseHandle(hMailslot);
-
-	return result != 0;
-}
-
 void GameManager::SaveMatchResult(const MatchResult& result) {
 	string json = matchResultToJson(result);
-	cout << "send kafka : " << json << endl;
-
-	if (!SendToMailslot(json))
-		cerr << "Failed to send message through mailslot" << endl;
-	else cout << "Send successfully." << endl;
+	kafkaMessage::KafkaSend(kafkaMessage::resultTopic, json);
 }
 
 void GameManager::ClientStat(int client_socket) {
@@ -543,7 +590,7 @@ void GameManager::ClientChampInit(int client_socket) {
 
 	int champIndex = clients_info[client_socket]->champindex;
 	ChampionStats* champ = nullptr;
-	cout << client_socket<< " 사용자의 챔피언은 " << champIndex <<"입니다."<<endl;
+	cout << client_socket << " 사용자의 챔피언은 " << champIndex << "입니다." << endl;
 	for (auto& champion : ChampionSystem::champions) {
 		if (champion.index == champIndex) {
 			champ = &champion;
@@ -965,7 +1012,7 @@ void GameManager::ClientDie(int client_socket, int killer) {
 		auto attacker = find_if(structures_in_room.begin(), structures_in_room.end(), [killer](structure* struc) {
 			return struc->index == killer;
 			});
-		cout << (*attacker)->index << "의 킬 : 포탑의 킬 수는 카운트하지 않습니다."  << endl;
+		cout << (*attacker)->index << "의 킬 : 포탑의 킬 수는 카운트하지 않습니다." << endl;
 	}
 
 	cout << clients_info[client_socket]->socket << "의 데스 : " << clients_info[client_socket]->death << endl;
@@ -1038,7 +1085,7 @@ void GameManager::ClientDie(int client_socket, int killer) {
 		//cout << "어시스트 대상자 소켓: " << info.assist1 << endl;
 	}
 
-	else 
+	else
 		cout << "어시스트가 없거나 assistList에 요소가 부족합니다." << endl;
 
 
@@ -1067,26 +1114,21 @@ void GameManager::ClientDie(int client_socket, int killer) {
 
 	cout << client_socket << " 님이 사망 대기 시간은 " << respawnTime << "초입니다." << endl;
 
-	WaitAndRespawn(client_socket, respawnTime, currentTime);
+	WaitAndRespawn(client_socket, respawnTime);
 }
 
-void GameManager::WaitAndRespawn(int client_socket, int respawnTime, const chrono::time_point<chrono::system_clock>& diedtTime) {
-	chrono::time_point<chrono::system_clock> currentTime = chrono::system_clock::now();
-	chrono::duration<double> elapsed_seconds = currentTime - diedtTime;
+void GameManager::WaitAndRespawn(int client_socket, int respawnTime) {
 
 	int chan = clients_info[client_socket]->channel;
 	int room = clients_info[client_socket]->room;
 
-	while (elapsed_seconds.count() < respawnTime) {
 
-		if (clients_info[client_socket] == nullptr)
-			return;
+	Timer timer;
+	timer.StartTimer(respawnTime, [client_socket]() {
+		if (clients_info[client_socket] != nullptr)
+			ClientRespawn(client_socket);
 
-		this_thread::sleep_for(chrono::milliseconds(1000));
-		currentTime = chrono::system_clock::now();
-		elapsed_seconds = currentTime - diedtTime;
-	}
-	ClientRespawn(client_socket);
+		});
 }
 
 void GameManager::ClientRespawn(int client_socket) {
@@ -1223,7 +1265,7 @@ void GameManager::StructureStat(int index, int chan, int room) {
 
 	for (Client* inst : client_channel[chan].client_list_room[room])
 		PacketManger::Send(inst->socket, H_STRUCTURE_STAT, &info, sizeof(structureInfo));
-	
+
 }
 
 void GameManager::TurretSearch(int index, int chan, int room) {
@@ -1554,7 +1596,7 @@ void GameManager::ClientAuth(int socket, void* data) {
 			break;
 		}
 	}
-	
+
 	if (clients_info[socket]->team == -1) {
 		for (auto inst : curRoom.redTeam) {
 			if (stoi(inst.user_index) == index) {
@@ -1581,19 +1623,19 @@ void GameManager::ClientAuth(int socket, void* data) {
 
 		for (auto inst : client_channel[chan].client_list_room[room])
 		{
-				if (inst->socket == socket)
-					continue;
+			if (inst->socket == socket)
+				continue;
 
-				ClientInfo info;
-				info.socket = inst->socket;
-				info.champindex = inst->champindex;
-				PacketManger::Send(socket, H_NEWBI, &info, sizeof(ClientInfo));
+			ClientInfo info;
+			info.socket = inst->socket;
+			info.champindex = inst->champindex;
+			PacketManger::Send(socket, H_NEWBI, &info, sizeof(ClientInfo));
 		}
 
 		sendTeamPackets(socket);
 	}
 
-	else if(curRoom.isGame==1)
+	else if (curRoom.isGame == 1)
 		reconnectClient(socket, index, chan, room);
 }
 
@@ -1604,7 +1646,7 @@ void GameManager::reconnectClient(int socket, int index, int channel, int room) 
 
 			if ((*it)->maxhp == 0 && (*it)->maxmana == 0)
 				ClientChampInit((*it));
-			
+
 			clients_info[socket] = (*it);
 			clients_info[socket]->socket = socket;
 			it = client_channel[channel].client_list_room[room].erase(it);
@@ -1621,50 +1663,47 @@ void GameManager::reconnectClient(int socket, int index, int channel, int room) 
 			++it;
 		}
 		else ++it;
-		
+
 	}
 
 	ReConnection(socket, channel, room);
 }
 
 void GameManager::ChampPickTimeOut(int channel, int room) {
-	chrono::time_point<chrono::system_clock> fTime = chrono::system_clock::now(), cTime;
-	chrono::duration<double> delay;
 
+	cout << "timer start" << endl;
+	Timer timer;
+	timer.StartTimer(3000, [channel, room]() {
+		cout << "d?" << endl;
 
-while (delay.count() < 1) {
-		this_thread::sleep_for(chrono::milliseconds(1000));
-		cTime = chrono::system_clock::now();
-		delay = cTime - fTime;
-	}
+		RoomStateUpdate(channel, room, -1);
 
-	RoomStateUpdate(channel, room,-1);
+		cout << "set game space." << endl;
 
-	cout << "set game space." << endl;
-
-	for (auto inst : client_channel[channel].client_list_room[room])
-	{
-		for (auto inst2 : client_channel[channel].client_list_room[room])
+		for (auto inst : client_channel[channel].client_list_room[room])
 		{
-			if (inst->socket == inst2->socket)
-				continue;
+			for (auto inst2 : client_channel[channel].client_list_room[room])
+			{
+				if (inst->socket == inst2->socket)
+					continue;
 
-			ClientInfo info;
-			info.socket = inst->socket;
-			info.champindex = inst->champindex;
-			PacketManger::Send(inst2->socket, H_NEWBI, &info, sizeof(ClientInfo));
+				ClientInfo info;
+				info.socket = inst->socket;
+				info.champindex = inst->champindex;
+				PacketManger::Send(inst2->socket, H_NEWBI, &info, sizeof(ClientInfo));
+			}
 		}
-	}
 
 
-	sendTeamPackets(channel, room);
-	waitForPickTime(channel, room);
+		sendTeamPackets(channel, room);
+		waitForPickTime(channel, room);
 
-	if (AllClientsReady(channel, room))
-		handleBattleStart(channel, room);
-	else 
-		handleDodgeResult(channel, room);
+		if (AllClientsReady(channel, room))
+			handleBattleStart(channel, room);
+		else
+			handleDodgeResult(channel, room);
 
+		});
 }
 
 void GameManager::RoomStateUpdate(int channel, int room, int curState) {
@@ -1679,6 +1718,7 @@ void GameManager::RoomStateUpdate(int channel, int room, int curState) {
 }
 
 void GameManager::waitForPickTime(int channel, int room) {
+
 	chrono::time_point<chrono::system_clock> startTime = chrono::system_clock::now();
 	chrono::time_point<chrono::system_clock> currentTime;
 	chrono::duration<double> elapsedTime;
@@ -1691,7 +1731,7 @@ void GameManager::waitForPickTime(int channel, int room) {
 		int remainingTime = PICK_TIME - elapsedTime.count();
 		for (auto currentClient : client_channel[channel].client_list_room[room])
 			PacketManger::Send(currentClient->socket, H_PICK_TIME, &remainingTime, sizeof(int));
-		
+
 	}
 }
 
@@ -1707,7 +1747,7 @@ void GameManager::sendTeamPackets(int channel, int room) {
 		cout << clientList[i]->clientindex << "님(" << clientList[i]->socket << ")은 " << (clientList[i]->team == 0 ? "blue" : "red") << "팀입니다." << endl;
 	}
 
-	for (auto currentClient : clientList) 
+	for (auto currentClient : clientList)
 		PacketManger::Send(currentClient->socket, H_TEAM, packetData, packetSize);
 
 	delete[] packetData;
@@ -1770,7 +1810,7 @@ void GameManager::handleBattleStart(int channel, int room) {
 }
 
 void GameManager::handleDodgeResult(int channel, int room) {
-	
+
 	cout << " 1분이 경과할 동안 전체 유저들의 픽이 이뤄지지 않았습니다. 종료합니다." << endl;
 
 
@@ -1779,17 +1819,27 @@ void GameManager::handleDodgeResult(int channel, int room) {
 	MatchResult result;
 	result.state = "dodge";
 
-	for (auto& inst : auth_data)
-		if (inst.channel == channel && inst.room == room)
+	for (auto& inst : auth_data) {
+		if (inst.channel == channel && inst.room == room) {
 			result.spaceId = inst.spaceId;
 
-	for (auto& client : dodgeList)
-	{
-		if (client == nullptr)
-			continue;
-
-		result.loseTeams.push_back(client);
+			for (auto& user : inst.blueTeam) {
+				Client* dummy = new Client();
+				dummy->clientindex = stoi(user.user_index);
+				dummy->user_name = user.user_name;
+				result.loseTeams.push_back(dummy);
+				delete dummy;
+			}
+			for (auto& user : inst.redTeam) {
+				Client* dummy = new Client();
+				dummy->clientindex = stoi(user.user_index);
+				dummy->user_name = user.user_name;
+				result.winTeams.push_back(dummy);
+				delete dummy;
+			}
+		}
 	}
+
 	string json = matchResultToJson(result);
 
 	for (auto& client : dodgeList)
@@ -1806,11 +1856,12 @@ void GameManager::handleDodgeResult(int channel, int room) {
 
 	client_channel[channel].startTime[room] = chrono::time_point<chrono::system_clock>();
 
-	SendToMailslot(json);
+	kafkaMessage::KafkaSend(kafkaMessage::resultTopic, json);
+
 
 	client_channel[channel].client_list_room[room].clear();
 	client_channel[channel].structure_list_room[room].clear();
-	
+
 }
 
 void GameManager::ReConnection(int socket, int chan, int room) {

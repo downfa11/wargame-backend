@@ -2,7 +2,8 @@
 #include "base.h"
 #include "PacketManager.h"
 #include "Resource.h"
-
+#include "Timer.h"
+#include "kafka.h"
 
 #define MAX_CLIENT 5000
 #define MAX_CHANNEL_COUNT 2
@@ -69,7 +70,7 @@ public:
 	static void TurretSearch(int index, int chan, int room);
 	static void TurretShot(int index, bullet* newBullet, int attacked_, int chan, int room);
 	static void ClientDie(int client_socket, int killer);
-	static void WaitAndRespawn(int client_socket, int respawnTime, const chrono::time_point<chrono::system_clock>& diedtTime);
+	static void WaitAndRespawn(int client_socket, int respawnTime);
 	static void TurretSearchWorker(int index, int chan, int room);
 	static void StopTurretSearch(int index);
 	static void SaveMatchResult(const MatchResult& result);
@@ -85,6 +86,7 @@ public:
 	static void RoomAuth(int socket,int size, void* data);
 
 	static void ChampPickTimeOut(int channel, int room);
+
 	static void RoomStateUpdate(int channel, int room, int curState);
 	static void waitForPickTime(int channel, int room);
 	static void sendTeamPackets(int channel, int room);

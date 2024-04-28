@@ -17,6 +17,7 @@
 #include<algorithm>
 #include <random>
 #include <sstream>
+#include<shared_mutex>
 
 #pragma comment(lib,"ws2_32.lib")
 
@@ -77,9 +78,6 @@ typedef unsigned char       BYTE;
 #define H_RAUTHORIZATION 1525
 #define H_CAUTHORIZATION 1530
 #define H_PICK_TIME 1084
-
-#define MAILSLOT_RESULT_ADDRESS TEXT("\\\\.\\mailslot\\result")
-#define MAILSLOT_MATCH_ADDRESS TEXT("\\\\.\\mailslot\\match")
 
 typedef struct socketf
 {

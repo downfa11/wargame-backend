@@ -33,7 +33,7 @@ public class GameResultService {
             winTeamsAsString.add(client.toString());
 
         List<String> loseTeamsAsString = new ArrayList<>();
-        for (Client client : request.getLoseTeams()) // 수정된 부분
+        for (Client client : request.getLoseTeams())
             loseTeamsAsString.add(client.toString());
 
         GameResult result = GameResult.builder()

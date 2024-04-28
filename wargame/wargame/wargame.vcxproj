@@ -134,12 +134,15 @@
     <ClInclude Include="base.h" />
     <ClInclude Include="Collection.h" />
     <ClInclude Include="GameManager.h" />
+    <ClInclude Include="kafka.h" />
     <ClInclude Include="PacketManager.h" />
     <ClInclude Include="Resource.h" />
+    <ClInclude Include="Timer.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="GameManger.cpp" />
     <ClCompile Include="IOCP.cpp" />
+    <ClCompile Include="kafka.cpp" />
     <ClCompile Include="PacketManager.cpp" />
     <ClCompile Include="Resource.cpp" />
   </ItemGroup>

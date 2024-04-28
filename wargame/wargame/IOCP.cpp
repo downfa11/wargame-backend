@@ -3,12 +3,17 @@
 #include "GameManager.h"
 #include "Resource.h"
 
+#include <kafka/KafkaConsumer.h>
+
 #include <tchar.h>
 #include <DbgHelp.h> 
 
+using namespace kafka;
+using namespace kafka::clients::consumer;
 
 SOCKET hServSock;
 HANDLE hComPort;
+
 
 VOID ShowDumpLastError(DWORD error = GetLastError()) {
 	TCHAR* lpOSMsg;
@@ -345,7 +350,7 @@ void IOCPInit()
 	servAdr.sin_addr.S_un.S_addr = htonl(INADDR_ANY);
 	servAdr.sin_port = htons(25565);
 
-	bind(hServSock, (SOCKADDR*)&servAdr, sizeof(servAdr));
+	::bind(hServSock, (SOCKADDR*)&servAdr, sizeof(servAdr));
 
 	if (listen(hServSock, 5) == SOCKET_ERROR)
 		ErrorHandling("listen error");
@@ -738,41 +743,38 @@ roomData matchParsing(const string& request) {
 	return roomData(); // 파싱 실패 시 빈 객체 반환
 }
 
-void MailslotServerThread() {
-	HANDLE hMailslot;
-	DWORD bytesRead;
-	char buffer[256];
 
-	hMailslot = CreateMailslot(MAILSLOT_MATCH_ADDRESS, 0, MAILSLOT_WAIT_FOREVER, NULL);
-	if (hMailslot == INVALID_HANDLE_VALUE) {
-		cerr << "Failed to create mailslot : " << GetLastError() << endl;
-		return;
+void KafkaConsumerThread() {
+	Properties props({ {"bootstrap.servers", kafkaMessage::brokers} });
+	KafkaConsumer consumer(props);
+	consumer.subscribe({ kafkaMessage::matchTopic });
+
+	while (1) {
+		auto records = consumer.poll(chrono::milliseconds(500));
+		for (const auto& record : records) {
+			if (!record.error()) {
+				cout << endl;
+				string message = record.value().toString();
+
+				cout << "kafka message : " << message << endl;
+				roomData curRoom = matchParsing(message);
+				if (curRoom.spaceId.empty()) {
+					cout << "room create fail." << endl;
+				}
+				else {
+					GameManager::auth_data.push_back(curRoom);
+					cout << "room create success." << endl;
+
+					if (!GameManager::findEmptyRoom(curRoom))
+						cout << "channel and Room is full." << endl;
+				}
+;
+			}
+			else cerr << record.toString() << endl;
+
+		}
 	}
-
-	while (true) {
-		BOOL result = ReadFile(hMailslot, buffer, sizeof(buffer), &bytesRead, NULL);
-		if (!result || bytesRead == 0) {
-			cerr << "Failed to read from mailslot" << endl;
-			continue;
-		}
-
-		string message(buffer, bytesRead);
-		cout <<"kafka mailslot : "<<message <<endl;
-		roomData curRoom = matchParsing(message);
-		if (curRoom.spaceId.empty()) {
-			cout << "room create fail." << endl;
-		}
-		else {
-			GameManager::auth_data.push_back(curRoom);
-			cout << "room create success." << endl;
-
-			if (!GameManager::findEmptyRoom(curRoom))
-				cout << "channel and Room is full." << endl;
-		}
-
-	}
-
-	CloseHandle(hMailslot);
+	consumer.close();
 }
 
 int main()
@@ -785,7 +787,7 @@ int main()
 	ChampionSystem::ChampionInit();
 	ItemSystem::ItemInit();
 
-	thread mailslot_thread(MailslotServerThread);
+	thread kafka_consumer_thread(KafkaConsumerThread);
 	thread accept_thread(AcceptThread);
 	thread time_out_thread(TimeOutCheckThread);
 
