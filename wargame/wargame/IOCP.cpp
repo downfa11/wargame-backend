@@ -743,7 +743,6 @@ roomData matchParsing(const string& request) {
 	return roomData(); // 파싱 실패 시 빈 객체 반환
 }
 
-
 void KafkaConsumerThread() {
 	Properties props({ {"bootstrap.servers", kafkaMessage::brokers} });
 	KafkaConsumer consumer(props);

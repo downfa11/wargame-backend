@@ -123,30 +123,30 @@ public:
 	float rotationY = 0;
 	float rotationZ = 0;
 
-	int level;
+	int level=0;
 	int maxexp=100;
-	int exp;
+	int exp=0;
 
 	chrono::high_resolution_clock::time_point lastUpdateTime;
 
-	int curhp;
-	int maxhp;
-	int curmana;
-	int maxmana;
-	int attack;
-	int critical;
-	int criProbability;
-	float maxdelay;
-	float curdelay;
-	int attrange;
-	float attspeed;
-	float movespeed;
+	int curhp=0;
+	int maxhp=0;
+	int curmana=0;
+	int maxmana=0;
+	int attack=0;
+	int critical=0;
+	int criProbability=0;
+	float maxdelay=0;
+	float curdelay=0;
+	int attrange=0;
+	float attspeed=0;
+	float movespeed=0;
 
-	int growhp;
-	int growmana;
-	int growAtt;
-	int growCri;
-	int growCriPro;
+	int growhp=0;
+	int growmana=0;
+	int growAtt=0;
+	int growCri=0;
+	int growCriPro=0;
 
 	int team = -1; // 0 for blue team, 1 for red team
 	bool ready;
@@ -276,6 +276,7 @@ class structure
 {
 public:
 	int index = 0;
+	int kind = -1; // nexus:0, turret:1, gate:2
 	float x = 0;
 	float y = 0;
 	float z = 0;
@@ -294,6 +295,7 @@ public:
 struct structureInfo
 {
 	int index;
+	int kind;
 	int curhp;
 	int maxhp;
 	float x;
@@ -319,11 +321,13 @@ struct bullet {
 struct MatchResult {
 	string spaceId;
 	string state; // dodge: 비정상적인 상황, success: 정상적인 상황
-	string winTeamString;
-	string loseTeamString;
+	int channel;
+	int room;
+	string winTeam;
+	string loseTeam;
 
-	vector<Client*> winTeams;
-	vector<Client*> loseTeams;
+	vector<Client*> blueTeams;
+	vector<Client*> redTeams;
 
 	string dateTime;
 	int gameDuration;

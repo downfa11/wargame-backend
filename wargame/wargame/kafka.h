@@ -18,11 +18,9 @@ public:
 	const static Topic matchTopic;
 
 	static Properties props;
-	static KafkaProducer producer;
 
-
-	~kafkaMessage() {
-		producer.close();
+	kafkaMessage() {
+		kafkaMessage::props.put("message.max.bytes", to_string(8192));
 	}
 	static void KafkaSend(const Topic& topic, const string& message);
 };

@@ -7,17 +7,20 @@ const Topic kafkaMessage::resultTopic = "result";
 const Topic kafkaMessage::matchTopic = "match";
 
 Properties kafkaMessage::props({ {"bootstrap.servers", kafkaMessage::brokers} });
-KafkaProducer kafkaMessage::producer(kafkaMessage::props);
 
 void kafkaMessage::KafkaSend(const Topic& topic, const string& message) {
-	ProducerRecord record(topic, NullKey, Value(message.c_str(), message.size()));
 
+	KafkaProducer producer(kafkaMessage::props);
+
+	ProducerRecord record(topic, NullKey, Value(message.c_str(), message.size()));
+	cout << "Message (size:"<< message.size()<<")  : " << message.c_str() << endl;
 	auto deliveryCb = [](const RecordMetadata& metadata, const Error& error) {
 		if (!error)
-			std::cout << "Message delivered: " << metadata.toString() << std::endl;
+			cout << "Message delivered" << endl;
 		else
-			std::cerr << "Message failed to be delivered: " << error.message() << std::endl;
+			cerr << "Message failed to be delivered: "<<error.value()<<" " << error.message() << endl;
 		};
 
 	producer.send(record, deliveryCb);
+	producer.close();
 }

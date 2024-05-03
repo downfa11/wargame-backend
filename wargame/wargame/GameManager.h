@@ -5,12 +5,15 @@
 #include "Timer.h"
 #include "kafka.h"
 
+//#include <nlohmann/json.hpp>
+
 #define MAX_CLIENT 5000
 #define MAX_CHANNEL_COUNT 2
 #define MAX_ROOM_COUNT_PER_CHANNEL 100
 #define MAX_CLIENT_PER_ROOM 2
 #define MAX_TEAM_PER_ROOM 5 // MAX_CLIENT_PER_ROOM/2
 
+//using json = nlohmann::json;
 
 using ChatEntry = pair<string, pair<chrono::system_clock::time_point, string>>;
 using ChatLog = vector<vector<ChatEntry>>;
@@ -52,8 +55,8 @@ public:
 	static vector<Client*> GetClientListInRoom(int channelIndex, int roomIndex);
 	static vector<ChatEntry> GetChatLog(int channelIndex, int roomIndex);
 	static void ClientReady(int client_socket, int size, void* data);
-	static bool AllClientsReady(int channel, int room);
-	static void SendVictory(int client_socket, int winTeam, int channel, int room);
+	static bool AllClientsReady(int chan, int room);
+	static void SendVictory(int winTeam, int channel, int room);
 	static void ClientStat(int client_socket);
 	static void ClientChampInit(int client_socket);
 	static void ClientChampInit(Client* client);
@@ -64,12 +67,12 @@ public:
 	static void UpdateClientDelay(int client_socket);
 	static int CalculateDamage(Client* attacker);
 	static void NotifyAttackResult(int client_socket, int chan, int room, int attackerSocket, int attackedIndex);
-	static void NewStructure(int index, int chan, int room, int team, int x, int y, int z);
-	static void StructureDie(int index, int chan, int room);
+	static void NewStructure(int index,int kind, int chan, int room, int team, int x, int y, int z);
+	static void StructureDie(int index, int kind, int chan, int room);
 	static void StructureStat(int index, int chan, int room);
 	static void TurretSearch(int index, int chan, int room);
 	static void TurretShot(int index, bullet* newBullet, int attacked_, int chan, int room);
-	static void ClientDie(int client_socket, int killer);
+	static void ClientDie(int client_socket, int killer, int kind);
 	static void WaitAndRespawn(int client_socket, int respawnTime);
 	static void TurretSearchWorker(int index, int chan, int room);
 	static void StopTurretSearch(int index);
