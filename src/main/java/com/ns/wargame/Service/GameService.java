@@ -3,7 +3,6 @@ package com.ns.wargame.Service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ns.wargame.Domain.GameResult;
 import com.ns.wargame.Domain.dto.GameResultRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,31 +28,11 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class GameService implements ApplicationRunner {
 
-    private final ReactiveRedisTemplate<String, Long> reactiveRedisTemplate;
-    private final UserService userService;
     private final GameResultService gameResultService;
     private final ReactiveKafkaProducerTemplate<String, String> reactiveCommonProducerTemplate;
     private final ReactiveKafkaProducerTemplate<String, String> reactiveMatchProducerTemplate;
     private final ReactiveKafkaConsumerTemplate<String, String> reactiveCommonConsumerTemplate;
     private final ReactiveKafkaConsumerTemplate<String, String> reactiveResultConsumerTemplate;
-
-    public Mono<Void> updateRanking(Long user_id) {
-        return userService.findById(user_id)
-                .flatMap(user -> reactiveRedisTemplate.opsForZSet().remove("leaderboard", user_id)
-                        .then(reactiveRedisTemplate.opsForZSet().add("leaderboard", user_id, user.getElo())))
-                .then();
-    }
-
-    public Flux<Map<String, Object>> getLeaderboard() {
-        ReactiveZSetOperations<String, Long> zSetOps = reactiveRedisTemplate.opsForZSet();
-        return zSetOps.rangeWithScores("leaderboard", Range.closed(0L, 99L))
-                .flatMapSequential(typedTuple -> {
-                    Map<String, Object> data = new HashMap<>();
-                    data.put("user ID", typedTuple.getValue());
-                    data.put("score", typedTuple.getScore());
-                    return Flux.just(data);
-                });
-    }
 
 
     public Mono<Void> CommonSendMessage(String topic,String key, String message){
@@ -84,6 +63,8 @@ public class GameService implements ApplicationRunner {
         this.reactiveResultConsumerTemplate
                 .receiveAutoAck()
                 .doOnNext(r -> {
+                    log.info("received message : "+r.value());
+
                     ObjectMapper mapper = new ObjectMapper();
                     GameResultRequest result;
                     try {
@@ -94,11 +75,13 @@ public class GameService implements ApplicationRunner {
 
                     String state = result.getState();
 
-                    if(state.equals("success"))
-                        gameResultService.enroll(result).subscribe();
+                    if(state.equals("success")){
+                        log.info("enroll result!");
+                        gameResultService.enroll(result).subscribe();}
 
-                    else if(state.equals("dodge"))
-                        gameResultService.dodge(result).subscribe();
+                    else if(state.equals("dodge")){
+                        log.info("dodge start!");
+                        gameResultService.dodge(result).subscribe();}
 
                 })
                 .doOnError(e -> {System.out.println("Error receiving: " + e);})

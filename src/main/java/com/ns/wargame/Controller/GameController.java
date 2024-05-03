@@ -3,6 +3,7 @@ package com.ns.wargame.Controller;
 
 import com.ns.wargame.Domain.dto.MatchRequest;
 import com.ns.wargame.Domain.dto.messageEntity;
+import com.ns.wargame.Service.GameResultService;
 import com.ns.wargame.Service.GameService;
 import com.ns.wargame.Service.MatchQueueService;
 import lombok.RequiredArgsConstructor;
@@ -21,12 +22,13 @@ import java.util.stream.Collectors;
 public class GameController {
 
     private final GameService gameService;
+    private final GameResultService gameResultService;
     private final MatchQueueService matchQueueService;
 
 
     @GetMapping(value = "/rank", produces = MediaType.APPLICATION_JSON_VALUE)
     public Mono<ResponseEntity<messageEntity>> rankUsers() {
-        return gameService.getLeaderboard()
+        return gameResultService.getLeaderboard()
                 .collectList()
                 .map(users -> ResponseEntity.ok()
                         .body(new messageEntity("Success", users.stream()

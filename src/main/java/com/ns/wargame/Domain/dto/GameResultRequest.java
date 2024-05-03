@@ -15,11 +15,13 @@ public class GameResultRequest {
     private String spaceId;
     private String state; // dodge: 비정상적인 상황, success:정상적인 상황
 
-    private String winTeamString;
-    private String loseTeamString;
+    private int channel;
+    private int room;
+    private String winTeam;
+    private String loseTeam;
 
-    private List<Client> winTeams;
-    private List<Client> loseTeams;
+    private List<ClientRequest> blueTeams;
+    private List<ClientRequest> redTeams;
 
     private String dateTime;
     private int gameDuration;
