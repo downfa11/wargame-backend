@@ -60,14 +60,16 @@ public:
 	static void ClientStat(int client_socket);
 	static void ClientChampInit(int client_socket);
 	static void ClientChampInit(Client* client);
-	static void ClientChampReconnectInit(int client_socket);
 	static void MouseSearch(int client_socket, void* data);
 	static void AttackClient(int client_socket, void* data);
 	static void AttackStructure(int index, void* data);
-	static void UpdateClientDelay(int client_socket);
+	static void UpdateClientDelay(Client* client);
 	static int CalculateDamage(Client* attacker);
-	static void NotifyAttackResult(int client_socket, int chan, int room, int attackerSocket, int attackedIndex);
-	static void NewStructure(int index,int kind, int chan, int room, int team, int x, int y, int z);
+
+	static void NotifyAttackResulttoClient(int client_socket, int chan, int room, int attacked_socket);
+	static void NotifyAttackResulttoStructure(int client_socket, int chan, int room, int attacked_index);
+
+	static void NewStructure(int index, int kind, int chan, int room, int team, int x, int y, int z);
 	static void StructureDie(int index, int kind, int chan, int room);
 	static void StructureStat(int index, int chan, int room);
 	static void TurretSearch(int index, int chan, int room);
@@ -86,7 +88,7 @@ public:
 	static void reconnectClient(int socket, int index, int channel, int room);
 	static void ReConnection(int socket, int chan, int room);
 
-	static void RoomAuth(int socket,int size, void* data);
+	static void RoomAuth(int socket, int size, void* data);
 
 	static void ChampPickTimeOut(int channel, int room);
 
