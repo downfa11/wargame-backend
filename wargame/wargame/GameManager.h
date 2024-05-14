@@ -69,9 +69,9 @@ public:
 	static void NotifyAttackResulttoClient(int client_socket, int chan, int room, int attacked_socket);
 	static void NotifyAttackResulttoStructure(int client_socket, int chan, int room, int attacked_index);
 
-	static void NewStructure(int index, int kind, int chan, int room, int team, int x, int y, int z);
-	static void StructureDie(int index, int kind, int chan, int room);
-	static void StructureStat(int index, int chan, int room);
+	static void NewStructure(int index, int team, int kind, int chan, int room,int x, int y, int z);
+	static void StructureDie(int index, int team, int kind, int chan, int room);
+	static void StructureStat(int index, int team, int kind, int chan, int room);
 	static void TurretSearch(int index, int chan, int room);
 	static void TurretShot(int index, bullet* newBullet, int attacked_, int chan, int room);
 	static void ClientDie(int client_socket, int killer, int kind);

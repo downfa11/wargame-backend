@@ -264,6 +264,7 @@ struct mouseInfo
 struct attinfo {
 	int attacker;
 	int attacked;
+	int kind;
 	int assist1=-1;
 	int assist2 = -1;
 	int assist3 = -1;
