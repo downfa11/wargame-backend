@@ -2,11 +2,14 @@ package com.ns.wargame.Repository;
 
 import com.ns.wargame.Domain.Post;
 import com.ns.wargame.Domain.User;
+import com.ns.wargame.Domain.dto.PostSummary;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
 import org.springframework.r2dbc.core.DatabaseClient;
 import org.springframework.stereotype.Repository;
 import reactor.core.publisher.Flux;
 
+import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
 
 @Repository
@@ -17,33 +20,35 @@ public class PostCustomR2dbcRepositoryImplement implements PostCustomR2dbcReposi
     @Override
     public Flux<Post> findAllByUserId(Long userId) {
         var sql = """
-                SELECT p.id as pid, p.user_id as userId, p.title, p.content, p.created_at as createdAt, p.updated_at as updatedAt,
-                   u.id as uid,u.password as upassword, u.name as name, u.email as email,u.elo as elo, u.created_at as uCreatedAt, u.updated_at as uUpdatedAt
+                SELECT p.id, p.user_id, p.category_id, p.title, p.content, p.sort_status, p.created_at, p.updated_at,
+                   u.id as uid, u.password, u.name, u.email, u.elo, u.created_at as u_created_at, u.updated_at as u_updated_at
                 FROM posts p
                 LEFT JOIN users u ON p.user_id = u.id
                 WHERE p.user_id = :userId
                 """;
         return databaseClient.sql(sql)
                 .bind("userId", userId)
-                .fetch()
-                .all()
                 .map(row -> Post.builder()
-                        .id((Long) row.get("pid"))
-                        .userId((Long) row.get("userId"))
-                        .title((String) row.get("title"))
-                        .content((String) row.get("content"))
+                        .id(row.get("id", Long.class))
+                        .userId(row.get("user_id", Long.class))
+                        .categoryId(row.get("category_id", Long.class))
+                        .title(row.get("title", String.class))
+                        .content(row.get("content", String.class))
+                        .sortStatus(row.get("sort_status", Post.SortStatus.class))
+                        .createdAt(row.get("created_at", LocalDateTime.class))
+                        .updatedAt(row.get("updated_at", LocalDateTime.class))
                         .user(User.builder()
-                                .id((Long)row.get("uid"))
-                                .password((String)row.get("upassword"))
-                                .elo((Long)row.get("elo"))
-                                .name((String)row.get("name"))
-                                .email((String)row.get("email"))
-                                .createdAt(((ZonedDateTime)row.get("uCreatedAt")).toLocalDateTime())
-                                .updatedAt(((ZonedDateTime)row.get("uUpdatedAt")).toLocalDateTime())
-                                .build()
-                        )
-                        .createdAt(((ZonedDateTime)row.get("createdAt")).toLocalDateTime())
-                        .updatedAt(((ZonedDateTime)row.get("updatedAt")).toLocalDateTime())
-                        .build());
+                                .id(row.get("uid", Long.class))
+                                .password(row.get("password", String.class))
+                                .name(row.get("name", String.class))
+                                .email(row.get("email", String.class))
+                                .elo(row.get("elo", Long.class))
+                                .createdAt(row.get("u_created_at", LocalDateTime.class))
+                                .updatedAt(row.get("u_updated_at", LocalDateTime.class))
+                                .build())
+                        .build())
+                .all();
     }
+
+
 }

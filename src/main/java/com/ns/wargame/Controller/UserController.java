@@ -84,7 +84,7 @@ public class UserController {
         return postService.findAllByuserId(id)
                 .collectList()
                 .map(boards -> boards.stream()
-                        .map(UserPostResponse::of)
+                        .map(PostResponse::of)
                         .collect(Collectors.toList()))
                 .map(boardResponses -> ResponseEntity.ok()
                         .body(new messageEntity("Success", boardResponses)))

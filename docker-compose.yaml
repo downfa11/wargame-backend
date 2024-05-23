@@ -63,6 +63,15 @@ services:
       - MYSQL_USER=mysqluser
       - MYSQL_PASSWORD=mysqlpw
 
+  redis:
+    image: redis:6.2
+    networks:
+      - wargame_network
+    ports:
+      - "6379:6379"
+    environment:
+      - REDIS_PASSWORD=1116
+
   wargame:
     image: wargame:1.0.0
     networks:
@@ -79,7 +88,7 @@ services:
       - KAFKA_CLUSTERS_BOOTSTRAPSERVERS=kafka:29092
       - MATCHING_TOPIC=matching.users
       - GAME_RESULT_TOPIC=game.result.topic
-      - SPRING_DATA_REDIS_HOST=43.201.14.73
+      - SPRING_DATA_REDIS_HOST=redis
       - SPRING_DATA_REDIS_PORT=6379
       - SPRING_DATA_REDIS_PASSWORD=1116
       - SPRING_REDIS_REACTIVE_ENABLED=true

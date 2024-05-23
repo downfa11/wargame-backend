@@ -49,6 +49,17 @@ back-end : Spring Webflux, r2dbc(mysql)
 middleware : ReactiveRedis, ReactiveKafka, Vault, Prometheus, Grafana, Docker-Compose
 </br></br>
 
+#### 왜 Apache Kafka를 사용했는가?
+게임 서버와 로비 서버간의 IPC를 위해서
+#### 왜 Redis 를 사용했는가
+매치메이킹 과정에서 이용하기 위함
+#### 왜 Spring Webflux를 사용했는가?
+고성능 퍼포먼스를 위해 IOCP를 사용한 게임서버에 맞춰서 동기적 이벤트를 줄이기 위함
+#### 왜 r2dbc를 사용했는가?
+spring webflux처럼 비동기, Non-Blocking으로 작업하는 경우 데이터베이스를 관리하기 마땅한 프레임워크가 유일
+
+
+
 ### 백엔드 주요 기능 
 
 - 매치메이킹

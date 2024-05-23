@@ -12,36 +12,24 @@ import org.springframework.data.relational.core.mapping.Column;
 import org.springframework.data.relational.core.mapping.Table;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@Table("posts")
-public class Post {
+@Table("comments")
+public class Comment {
+
     @Id
     private Long id;
+
     @Column("user_id")
-    private Long userId; // FK
+    private Long userId;
 
-    @Column("category_id")
-    private Long categoryId; // FK
+    @Column("board_id")
+    private Long boardId;
 
-    private String title;
     private String content;
-
-    private Long comments;
-    private Long likes;
-    private Long views;
-
-    @Transient //실제 db에 저장되는 대상이 아니다
-    private User user;
-
-    public enum SortStatus{
-        announce,free
-    }
-    private SortStatus sortStatus;
 
     @Column("created_at")
     @CreatedDate

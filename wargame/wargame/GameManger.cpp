@@ -153,6 +153,10 @@ void GameManager::ClientChat(int client_socket, int size, void* data)
 	{
 		shared_lock<shared_mutex> lock(clients_info_mutex);
 		Client* sender = clients_info[client_socket];
+		if (sender == nullptr) {
+			cout << client_socket << " 소켓의 사용자는 픽 전에 종료하셨습니다." << endl;
+			return;
+		}
 		chan = sender->channel;
 		room = sender->room;
 		name = sender->user_name;
@@ -314,6 +318,10 @@ void GameManager::ClientMoveStart(int client_socket, void* data)
 	{
 		unique_lock<shared_mutex> lock(clients_info_mutex);
 		auto& client_info = clients_info[client_socket];
+		if (client_info == nullptr) {
+			cout << client_socket << " 소켓의 사용자는 픽 전에 종료하셨습니다." << endl;
+			return;
+		}
 		chan = client_info->channel;
 		room = client_info->room;
 
@@ -349,6 +357,10 @@ void GameManager::ClientMove(int client_socket, void* data)
 	{
 		unique_lock<shared_mutex> lock(clients_info_mutex);
 		auto& client_info = clients_info[client_socket];
+		if (client_info == nullptr) {
+			cout << client_socket << " 소켓의 사용자는 픽 전에 종료하셨습니다." << endl;
+			return;
+		}
 		chan = client_info->channel;
 		room = client_info->room;
 
@@ -384,6 +396,10 @@ void GameManager::ClientMoveStop(int client_socket, void* data)
 	{
 		unique_lock<shared_mutex> lock(clients_info_mutex);
 		auto& client_info = clients_info[client_socket];
+		if (client_info == nullptr) {
+			cout << client_socket << " 소켓의 사용자는 픽 전에 종료하셨습니다." << endl;
+			return;
+		}
 		chan = client_info->channel;
 		room = client_info->room;
 
@@ -477,6 +493,10 @@ void GameManager::ClientReady(int client_socket, int size, void* data)
 	{
 		shared_lock<shared_mutex> lock(clients_info_mutex);
 		auto& client_info = clients_info[client_socket];
+		if (client_info == nullptr) {
+			cout << client_socket << " 소켓의 사용자는 픽 전에 종료하셨습니다." << endl;
+			return;
+		}
 		chan = client_info->channel;
 		room = client_info->room;
 	}
@@ -1034,7 +1054,7 @@ void GameManager::AttackStructure(int client_socket, void* data)
 		auto attacked_it = find_if(structures_in_room.begin(), structures_in_room.end(),
 			[&info,&team](structure* struc) { return (struc->team != team && struc->index == info.attacked && struc->kind == info.kind); });
 		if (attacker_it == clients_in_room.end() || attacked_it == structures_in_room.end()) {
-			cout << "none struc" << endl;
+			cout << "none struc :"<<info.attacked<<", struc kind :"<<info.kind << endl;
 			return;
 		}
 		attacked = *attacked_it;
@@ -1850,15 +1870,17 @@ void GameManager::ClientAuth(int socket, void* data) {
 				PacketManger::Send(socket, H_NEWBI, &info, sizeof(ClientInfo));
 			}
 		}
-		//sendTeamPackets(socket);
+		sendTeamPackets(socket);
 	}
 
 	else if (curRoom.isGame == 1)
 		reconnectClient(socket, index, chan, room);
 }
-
 //todo
 void GameManager::reconnectClient(int socket, int index, int channel, int room) {
+
+	cout << "인게임 재접속을 시도합니다." << endl;
+
 	auto it = client_channel[channel].client_list_room[room].begin();
 	while (it != client_channel[channel].client_list_room[room].end()) {
 		if ((*it)->clientindex == index && (*it)->socket == -1) {
@@ -1999,15 +2021,19 @@ void GameManager::sendTeamPackets(int channel, int room) {
 
 
 }
-
 //reconnect
 void GameManager::sendTeamPackets(int client_socket) {
 
 	int chan = -1, room = -1;
 	{
 		shared_lock<shared_mutex> lock(clients_info_mutex);
-		chan = clients_info[client_socket]->channel;
-		room = clients_info[client_socket]->room;
+		auto& client_info = clients_info[client_socket];
+		if (client_info == nullptr) {
+			cout << "reconnect teamPackets error" << endl;
+			return;
+		}
+		chan = client_info->channel;
+		room = client_info->room;
 	}
 
 
@@ -2075,9 +2101,10 @@ void GameManager::handleBattleStart(int channel, int room) {
 
 	client_channel[channel].startTime[room] = chrono::system_clock::now();
 
+	// [kind] nexus: 0, turret: 1, gate: 2
 	NewStructure(0,0, 0, channel, room,  30, 7, 30); // nexus
-	NewStructure(0,1, 1, channel, room,  30, 0, -30); // turret
-	NewStructure(1,1, 0, channel, room,  60, 7, -60); // nexus
+	NewStructure(1,1, 1, channel, room,  30, 0, -30); // turret
+	NewStructure(2,1, 0, channel, room,  60, 7, -60); // nexus
 }
 
 void GameManager::handleDodgeResult(int channel, int room) {
@@ -2144,10 +2171,9 @@ void GameManager::handleDodgeResult(int channel, int room) {
 	}
 
 }
-
 //todo
 void GameManager::ReConnection(int socket, int chan, int room) {
-
+	cout << "reconnection" << endl;
 	for (auto inst : client_channel[chan].client_list_room[room]) // 룸의 클라이언트들을 생성합니다.
 	{
 		if (inst->socket == socket)
