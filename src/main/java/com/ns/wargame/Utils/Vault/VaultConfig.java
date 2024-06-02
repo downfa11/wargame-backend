@@ -1,4 +1,4 @@
-package com.ns.wargame.Vault;
+package com.ns.wargame.Utils.Vault;
 /*
 
 import org.springframework.beans.factory.annotation.Value;

@@ -24,6 +24,7 @@ public class User {
     private Long elo;
 
     private String curGameSpaceCode;
+    private String refreshToken;
 
     @CreatedDate
     private LocalDateTime createdAt;

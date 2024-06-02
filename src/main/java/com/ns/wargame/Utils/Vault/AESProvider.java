@@ -1,4 +1,4 @@
-package com.ns.wargame.Vault;
+package com.ns.wargame.Utils.Vault;
 
 import javax.crypto.Cipher;
 import javax.crypto.spec.SecretKeySpec;

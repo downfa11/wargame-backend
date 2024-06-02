@@ -1,4 +1,4 @@
-package com.ns.wargame.Config;
+package com.ns.wargame.Utils;
 
 import jakarta.validation.Constraint;
 import jakarta.validation.constraints.Pattern;

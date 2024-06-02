@@ -15,6 +15,8 @@ public class UserResponse {
     private String name;
     private String email;
     private String curGameSpaceCode;
+    private String jwtToken;
+    private String refreshToken;
     private LocalDateTime createAt;
     private LocalDateTime updateAt;
     public static UserResponse of(User user){
@@ -25,6 +27,7 @@ public class UserResponse {
                 .email(user.getEmail())
                 .elo(user.getElo())
                 .curGameSpaceCode(user.getCurGameSpaceCode())
+                .refreshToken(user.getRefreshToken())
                 .createAt(user.getCreatedAt())
                 .updateAt(user.getUpdatedAt())
                 .build();

@@ -6,6 +6,7 @@ import com.ns.wargame.Domain.dto.messageEntity;
 import com.ns.wargame.Service.GameResultService;
 import com.ns.wargame.Service.GameService;
 import com.ns.wargame.Service.MatchQueueService;
+import com.ns.wargame.Utils.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
@@ -24,10 +25,11 @@ public class GameController {
     private final GameService gameService;
     private final GameResultService gameResultService;
     private final MatchQueueService matchQueueService;
-
+    private final JwtTokenProvider jwtTokenProvider;
 
     @GetMapping(value = "/rank", produces = MediaType.APPLICATION_JSON_VALUE)
     public Mono<ResponseEntity<messageEntity>> rankUsers() {
+        // todo. jwt 권한
         return gameResultService.getLeaderboard()
                 .collectList()
                 .map(users -> ResponseEntity.ok()
@@ -38,6 +40,8 @@ public class GameController {
 
     @PostMapping("/match")
     public Mono<ResponseEntity<messageEntity>> queue(@RequestBody MatchRequest request) {
+        // todo. jwt 권한과 본인 여부
+
         return matchQueueService.getRank("match", request.getMembershipId())
                 .flatMap(rank -> {
                     if (rank < 0)
@@ -57,6 +61,8 @@ public class GameController {
 
     @PostMapping("/match/cancel")
     public Mono<ResponseEntity<messageEntity>> queueCancel(@RequestBody MatchRequest request) {
+        // todo. jwt 권한과 본인 여부
+
         Long membershipId = request.getMembershipId();
         if (membershipId == null) {
             return Mono.just(ResponseEntity.badRequest().body(new messageEntity("Error", "Invalid membership ID.")));
@@ -75,6 +81,8 @@ public class GameController {
 
     @GetMapping(path="/match/rank/{memberId}")
     public Mono<ResponseEntity<messageEntity>> getRank(@PathVariable Long memberId){
+        // todo. jwt 권한과 본인 여부
+
         return matchQueueService.getMatchResponse(memberId)
                 .map(matchStatus -> {
                     if (matchStatus.getT1() == MatchQueueService.MatchStatus.MATCH_FOUND)

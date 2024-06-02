@@ -1,6 +1,6 @@
 package com.ns.wargame.Domain.dto;
 
-import com.ns.wargame.Config.Numberic;
+import com.ns.wargame.Utils.Numberic;
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Data;
