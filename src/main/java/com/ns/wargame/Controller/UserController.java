@@ -65,46 +65,46 @@ public class UserController {
     }
 
     @DeleteMapping("/delete/{id}")
-    public Mono<ResponseEntity<messageEntity>> deleteUser(@PathVariable Long id, ServerWebExchange exchange) {
-
-        // todo. 본인인지 어케아노
+    public Mono<ResponseEntity<messageEntity>> deleteUser(ServerWebExchange exchange) {
         return jwtTokenProvider.getMembershipIdByToken(exchange)
                 .flatMap(idx -> {
-                    if (idx == 0) {
+                    if(idx==0)
                         return Mono.just(ResponseEntity.ok().body(new messageEntity("Fail", "Not Authorization or boardId is incorrect.")));
-                    }
-                    return Mono.just(ResponseEntity.ok()
-                                    .body(new messageEntity("Success", userService.deleteById(id))))
-                            .defaultIfEmpty(ResponseEntity.ok().body(new messageEntity("Fail", "id is not correct.")));
-                });
+
+                        return Mono.just(ResponseEntity.ok()
+                                        .body(new messageEntity("Success", userService.deleteById(idx))))
+                                .defaultIfEmpty(ResponseEntity.ok().body(new messageEntity("Fail", "id is not correct.")));
+
+                                        });
     }
     @DeleteMapping("/delete")
     public Mono<ResponseEntity<messageEntity>> deleteUserByName(@RequestParam String name, ServerWebExchange exchange) {
-        // todo. 본인인지 어케알아
+
         return jwtTokenProvider.getMembershipIdByToken(exchange)
                 .flatMap(idx -> {
-                    if (idx == 0) {
+                    if (idx == 0)
                         return Mono.just(ResponseEntity.ok().body(new messageEntity("Fail", "Not Authorization or boardId is incorrect.")));
-                    }
+
                     return Mono.just(ResponseEntity.ok()
                                     .body(new messageEntity("Success", userService.deleteByName(name))))
                             .defaultIfEmpty(ResponseEntity.ok().body(new messageEntity("Fail", "request is not correct.")));
                 });
     }
     @PutMapping("/update/{id}")
-    public Mono<ResponseEntity<messageEntity>> updateUser(@PathVariable Long id, @RequestBody UserUpdateRequest request, ServerWebExchange exchange) {
-
-        // todo. 본인인지 어케아냐고
+    public Mono<ResponseEntity<messageEntity>> updateUser(@RequestBody UserUpdateRequest request, ServerWebExchange exchange) {
         return jwtTokenProvider.getMembershipIdByToken(exchange)
                 .flatMap(idx -> {
-                    if (idx == 0) {
+
+                    if(idx==0)
                         return Mono.just(ResponseEntity.ok().body(new messageEntity("Fail", "Not Authorization or boardId is incorrect.")));
-                    }
-                    return userService.update(id, request.getName(), request.getEmail(), request.getPassword())
-                            .map(user -> ResponseEntity.ok()
-                                    .body(new messageEntity("Success", UserResponse.of(user))))
-                            .defaultIfEmpty(ResponseEntity.ok().body(new messageEntity("Fail", "request is not correct.")));
-                });
+
+                    return userService.update(idx, request.getName(), request.getEmail(), request.getPassword())
+                                .map(user -> ResponseEntity.ok()
+                                        .body(new messageEntity("Success", UserResponse.of(user))))
+                                .defaultIfEmpty(ResponseEntity.ok().body(new messageEntity("Fail", "request is not correct.")));
+
+
+                    });
     }
 
     @GetMapping("/{id}/posts")

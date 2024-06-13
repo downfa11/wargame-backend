@@ -27,8 +27,6 @@ public class PostSummary {
                 .nickname(nickname)
                 .title(post.getTitle())
                 .comments(post.getComments())
-                .likes(post.getLikes())
-                .views(post.getViews())
                 .createdAt(post.getCreatedAt())
                 .build();
     }

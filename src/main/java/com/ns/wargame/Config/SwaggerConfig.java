@@ -1,7 +1,7 @@
 package com.ns.wargame.Config;
 
 
-import io.swagger.v3.oas.models.OpenAPI;
+
 import io.swagger.v3.oas.models.info.Info;
 import org.springdoc.core.models.GroupedOpenApi;
 import org.springframework.beans.factory.annotation.Value;
@@ -33,7 +33,7 @@ public class SwaggerConfig {
 
     @Bean
     public GroupedOpenApi OpenApiUser(@Value("${springdoc.version}") String appVersion) {
-        String[] paths = { "/user/**" };
+        String[] paths = { "/users/**" };
         return GroupedOpenApi.builder().
                 group("user")
                 .addOpenApiCustomizer(openApi -> openApi.info(new Info().title("user API").version(appVersion)))

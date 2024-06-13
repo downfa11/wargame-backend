@@ -39,8 +39,6 @@ public class PostResponse {
                 .title(post.getTitle())
                 .content(post.getContent())
                 .comments(post.getComments())
-                .likes(post.getLikes())
-                .views(post.getViews())
                 .createdAt(post.getCreatedAt())
                 .updatedAt(post.getUpdatedAt())
                 .build();

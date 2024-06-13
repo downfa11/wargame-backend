@@ -55,7 +55,7 @@ public class RedisConfig implements ApplicationListener<ApplicationReadyEvent> {
     }
 
     @Bean
-    public ReactiveRedisTemplate<String, Long> reactiveRedisTemplate_rank(ReactiveRedisConnectionFactory connectionFactory){
+    public ReactiveRedisTemplate<String, Long> reactiveRedisTemplate_long(ReactiveRedisConnectionFactory connectionFactory){
         RedisSerializationContext<String, Long> serializationContext = RedisSerializationContext
                 .<String, Long>newSerializationContext(new StringRedisSerializer())
                 .key(new StringRedisSerializer())

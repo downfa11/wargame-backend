@@ -11,7 +11,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
@@ -23,7 +22,9 @@ import java.util.List;
 @RequiredArgsConstructor
 public class PostService {
     private final ReactiveRedisTemplate<String, String> reactiveRedisTemplate;
+    private final ReactiveRedisTemplate<String, Long> reactiveRedisTemplate_long;
     private final String BOARD_LIKES_KEY ="boards:likes:%s";
+    private final String BOARD_VIEWS_KEY ="boards:views:%s";
 
     private final PostR2dbcRepository postR2dbcRepository;
     private final CommentR2dbcRepository commentR2dbcRepository;
@@ -31,13 +32,12 @@ public class PostService {
 
     private final CategoryService categoryService;
     private final UserService userService;
-    public Mono<Post> create(PostRegisterRequest request){
+    public Mono<Post> create(Long userId, PostRegisterRequest request){
         long categoryId = request.getCategoryId();
 
         return categoryService.findById(categoryId)
                 .flatMap(category -> {
                     Post.SortStatus status = request.getSortStatus();
-                    long userId = request.getUserId();
                     String title = request.getTitle();
                     String content = request.getContent();
 
@@ -48,8 +48,6 @@ public class PostService {
                             .title(title)
                             .content(content)
                             .comments(0L)
-                            .likes(0L)
-                            .views(0L)
                             .build());
                 })
                 .switchIfEmpty(Mono.error(new RuntimeException("Category not found")));
@@ -62,7 +60,6 @@ public class PostService {
                         .flatMap(category -> {
                             post.setCategoryId(request.getCategoryId());
                             post.setSortStatus(request.getSortStatus());
-                            post.setUserId(request.getUserId());
                             post.setTitle(request.getTitle());
                             post.setContent(request.getContent());
                             return postR2dbcRepository.save(post);
@@ -77,8 +74,17 @@ public class PostService {
     public Mono<Page<PostSummary>> findPostAllPagination(Long categoryId, PageRequest pageRequest) {
         Mono<List<PostSummary>> postsMono = postR2dbcRepository.findAllByCategoryId(categoryId, pageRequest)
                 .flatMap(post -> userService.findById(post.getUserId())
-                        .map(user -> PostSummary.of(post, user.getName())))
-                .collectList();
+                        .flatMap(user -> getPostViews(post.getId())
+                                .flatMap(views -> getLikesCount(post.getId().toString())
+                                        .map(likes -> {
+                                            PostSummary summary = PostSummary.of(post, user.getName());
+                                            summary.setViews(views);
+                                            summary.setLikes(likes);
+                                            return summary;
+                                        })
+                                )
+                        )
+                ).collectList();
 
         Mono<Long> countMono = postR2dbcRepository.countByCategoryId(categoryId);
 
@@ -86,22 +92,45 @@ public class PostService {
                 .map(tuple -> new PageImpl<>(tuple.getT1(), pageRequest, tuple.getT2()));
     }
 
+
     public Mono<PostResponse> findPostResponseById(Long id){
         return postR2dbcRepository.findById(id)
-                .flatMap(post -> {
-                    Long curViews = post.getViews();
-                    post.setViews(curViews+1);
-                    return postR2dbcRepository.save(post).thenReturn(PostResponse.of(post));
-                }).flatMap(this::fetchCommentsForPost);
+                .flatMap(post -> incrPostViews(id)
+                        .flatMap(views -> getLikesCount(id.toString())
+                                .map(likes -> {
+                                    PostResponse response = PostResponse.of(post);
+                                    response.setViews(views);
+                                    response.setLikes(likes);
+                                    return response;
+                                }))).flatMap(this::fetchCommentsForPost);
+    }
+
+    public Mono<PostResponse> updatePostResponseById(Long id){
+        return postR2dbcRepository.findById(id)
+                .flatMap(post -> getPostViews(id)
+                        .flatMap(views -> getLikesCount(id.toString())
+                                .map(likes -> {
+                                    PostResponse response = PostResponse.of(post);
+                                    response.setViews(views);
+                                    response.setLikes(likes);
+                                    return response;
+                                }))).flatMap(this::fetchCommentsForPost);
     }
 
     public Mono<Post> findPostById(Long id){
-        return postR2dbcRepository.findById(id)
-                .flatMap(post -> {
-                    Long curViews = post.getViews();
-                    post.setViews(curViews+1);
-                    return postR2dbcRepository.save(post).thenReturn(post);
-                });
+        return postR2dbcRepository.findById(id);
+    }
+
+    public Mono<Long> incrPostViews(Long boardId){
+         return reactiveRedisTemplate_long.opsForValue()
+                 .increment(BOARD_VIEWS_KEY.formatted(boardId))
+                 .switchIfEmpty(Mono.just(0L));
+    }
+
+    public Mono<Long> getPostViews(Long boardId){
+        return reactiveRedisTemplate_long.opsForValue()
+                .get(BOARD_VIEWS_KEY.formatted(boardId))
+                .switchIfEmpty(Mono.just(0L));
     }
 
     private Mono<PostResponse> fetchCommentsForPost(PostResponse post) {
@@ -115,18 +144,15 @@ public class PostService {
 
     public Flux<Post> findAllByuserId(Long id) {return postR2dbcRepository.findByuserId(id);}
 
-    public Mono<Void> deleteById(Long boardId, Long userId) {
-        return userService.findById(userId)
-                .switchIfEmpty(Mono.error(new RuntimeException("User not found")))
-                .flatMap(user -> postR2dbcRepository.findById(boardId)
+    public Mono<Void> deleteById(Long boardId) {
+        return postR2dbcRepository.findById(boardId)
                         .switchIfEmpty(Mono.error(new RuntimeException("Post not found")))
-                        .flatMap(post -> {
-                            if (post.getUserId().equals(user.getId()))
-                                return postR2dbcRepository.deleteById(boardId);
-                             else
-                                return Mono.error(new RuntimeException("User not authorized to delete this post"));
-
-                        }));
+                        .flatMap(post ->{
+                                // redis에 기록된 조회수도 지워야한다.
+                            reactiveRedisTemplate_long.unlink(BOARD_VIEWS_KEY.formatted(boardId));
+                                reactiveRedisTemplate.unlink(BOARD_LIKES_KEY.formatted(boardId));
+                                 return postR2dbcRepository.deleteById(boardId);
+                        });
     }
 
     // 해당 사용자는 좋아요를 눌렀는가?
@@ -150,37 +176,26 @@ public class PostService {
         return reactiveRedisTemplate.opsForSet().size(key);
     }
 
-    public Mono<Post> updateLikes(Long userId, Long boardId, boolean addLike) {
+    public Mono<Long> updateLikes(Long userId, Long boardId) {
         String userIdString = String.valueOf(userId);
         String boardIdString = String.valueOf(boardId);
 
         return isUserLiked(boardIdString, userIdString)
                 .flatMap(userLiked -> {
 
-                    if (addLike && !userLiked) { // 좋아요한적 없고 좋아요 누를 상황
+                    if (!userLiked) { // 좋아요
                         return addLike(boardIdString, userIdString)
-                                .then(getLikesCount(boardIdString))
-                                .flatMap(likesCount -> updateLikesInBoard(boardId, likesCount));
+                                .then(getLikesCount(boardIdString));
                     }
 
-                    else if (!addLike && userLiked) { // 좋아요 이미 했고 취소할 상황
+                    else if (userLiked) { // 좋아요 취소
                         return removeLike(boardIdString, userIdString)
-                                .then(getLikesCount(boardIdString))
-                                .flatMap(likesCount -> updateLikesInBoard(boardId, likesCount));
+                                .then(getLikesCount(boardIdString));
                     }
 
                     else {
-                        return getLikesCount(boardIdString)
-                                .flatMap(likesCount -> updateLikesInBoard(boardId, likesCount));
+                        return getLikesCount(boardIdString);
                     }
-                });
-    }
-
-    private Mono<Post> updateLikesInBoard(Long boardId, Long likesCount) {
-        return postR2dbcRepository.findById(boardId)
-                .flatMap(post -> {
-                    post.setLikes(likesCount);
-                    return postR2dbcRepository.save(post);
                 });
     }
 }

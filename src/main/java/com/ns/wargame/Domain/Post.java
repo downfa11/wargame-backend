@@ -32,8 +32,6 @@ public class Post {
     private String content;
 
     private Long comments;
-    private Long likes;
-    private Long views;
 
     @Transient //실제 db에 저장되는 대상이 아니다
     private User user;

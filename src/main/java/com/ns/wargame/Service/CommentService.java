@@ -20,9 +20,8 @@ public class CommentService {
     private final UserService userService;
     private final PostService postService;
 
-    public Mono<CommentResponse> create(CommentRegisterRequest request) {
+    public Mono<CommentResponse> create(Long userId, CommentRegisterRequest request) {
         long boardId = request.getBoardId();
-        long userId = request.getUserId();
         String content = request.getBody();
 
         return postService.findPostById(boardId)
@@ -46,7 +45,6 @@ public class CommentService {
 
 
     public Mono<CommentResponse> modify(CommentModifyRequest request) {
-        long userId = request.getUserId();
         String content = request.getBody();
 
         return commentR2dbcRepository.findById(request.getCommentId())
@@ -72,7 +70,7 @@ public class CommentService {
 
     public Flux<Comment> findAllByBoardId(Long boardId) {return commentR2dbcRepository.findByBoardId(boardId);}
 
-    public Mono<Void> deleteById(Long commentId, Long userId) {
+    public Mono<Void> deleteById(Long commentId) {
         return commentR2dbcRepository.findById(commentId)
                 .switchIfEmpty(Mono.error(new RuntimeException("Comment not found")))
                 .flatMap(comment -> {
@@ -84,9 +82,7 @@ public class CommentService {
                                 post.setComments(curComments - 1);
                                 return postR2dbcRepository.save(post);
                             })
-                            .then(userService.findById(userId)
-                                    .switchIfEmpty(Mono.error(new RuntimeException("User not found"))))
-                            .flatMap(user -> commentR2dbcRepository.deleteById(commentId));
+                            .then(commentR2dbcRepository.deleteById(commentId));
                 });
     }
 }

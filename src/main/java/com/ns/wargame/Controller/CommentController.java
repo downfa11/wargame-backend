@@ -27,7 +27,7 @@ public class CommentController {
                     if (idx == 0) {
                         return Mono.just(ResponseEntity.ok().body(new messageEntity("Fail", "Not Authorization or boardId is incorrect.")));
                     }
-                    return commentService.create(request)
+                    return commentService.create(idx, request)
                             .map(comment -> ResponseEntity.ok().body(new messageEntity("Success", comment)))
                             .defaultIfEmpty(ResponseEntity.ok().body(new messageEntity("Fail", "Post is empty.")));
                 })
@@ -36,16 +36,22 @@ public class CommentController {
 
     @PatchMapping("")
     public Mono<ResponseEntity<messageEntity>> modifyComment(@RequestBody CommentModifyRequest request, ServerWebExchange exchange) {
-        //todo. 본인 여부
         return jwtTokenProvider.getMembershipIdByToken(exchange)
                 .flatMap(idx -> {
-                    if (idx == 0) {
+                    if (idx == 0)
                         return Mono.just(ResponseEntity.ok().body(new messageEntity("Fail", "Not Authorization or boardId is incorrect.")));
-                    }
-                    return commentService.modify(request)
-                .map(comment -> ResponseEntity.ok().body(new messageEntity("Success", comment)))
-                .defaultIfEmpty(ResponseEntity.ok().body(new messageEntity("Fail", "Post is empty.")));
-            });
+
+                    return commentService.findById(request.getCommentId())
+                            .flatMap(comment -> {
+                                if (!comment.getUserId().equals(idx))
+                                    return Mono.just(ResponseEntity.ok().body(new messageEntity("Fail", "Unauthorized to modify this comment.")));
+
+                                return commentService.modify(request)
+                                        .map(updatedComment -> ResponseEntity.ok().body(new messageEntity("Success", updatedComment)))
+                                        .defaultIfEmpty(ResponseEntity.ok().body(new messageEntity("Fail", "Unable to modify the comment.")));
+                            });
+                })
+                .defaultIfEmpty(ResponseEntity.ok().body(new messageEntity("Fail", "Comment not found.")));
     }
 
     @GetMapping("/{id}")
@@ -64,16 +70,24 @@ public class CommentController {
     }
 
     @DeleteMapping("/{commentId}")
-    public Mono<ResponseEntity<messageEntity>> deleteComment(@PathVariable Long commentId, @RequestParam Long userId , ServerWebExchange exchange) {
-        // todo. jwt 권한과 본인 여부
+    public Mono<ResponseEntity<messageEntity>> deleteComment(@PathVariable Long commentId, ServerWebExchange exchange) {
 
         return jwtTokenProvider.getMembershipIdByToken(exchange)
                 .flatMap(idx -> {
-                    if (idx == 0) {
+                    if (idx == 0)
                         return Mono.just(ResponseEntity.ok().body(new messageEntity("Fail", "Not Authorization or boardId is incorrect.")));
-                    }
-                    return commentService.deleteById(commentId, userId)
+
+                    return commentService.findById(commentId)
+                            .flatMap(comment ->
+                            {
+                                if (!comment.getUserId().equals(idx))
+                                    return Mono.just(ResponseEntity.ok().body(new messageEntity("Fail", "Unauthorized to delete this comment.")));
+
+                                return commentService.deleteById(commentId)
+                                        .then(Mono.just(ResponseEntity.ok().body(new messageEntity("Success", commentId))));
+                            });
+                            })
                 .map(deleted-> ResponseEntity.ok().body(new messageEntity("Success", commentId)));
-        });
+
     }
 }
