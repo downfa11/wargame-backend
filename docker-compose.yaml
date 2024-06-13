@@ -72,6 +72,27 @@ services:
     environment:
       - REDIS_PASSWORD=1116
 
+  elasticsearch:
+    image: elasticsearch:8.11.0
+    networks:
+      - wargame_network
+    environment:
+      - node.name=elasticsearch
+      - discovery.type=single-node
+      - cluster.name=docker-cluster
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - xpack.security.enabled=false # false for dev
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - esdata1:/usr/share/elasticsearch/data
+    ports:
+      - "9300:9300"
+      - "9200:9200"
+
   wargame:
     image: wargame:1.0.0
     networks:
@@ -81,6 +102,8 @@ services:
     depends_on:
       - mysql
       - redis
+      - kafka
+      - elasticsearch
     environment:
       - SPRING_R2DBC_URL=r2dbc:mysql://mysql:3306/wargame?serverTimezone=Asia/Seoul
       - SPRING_R2DBC_USERNAME=mysqluser
@@ -97,6 +120,8 @@ services:
       - SCHEDULER_ENABLED=true
       - SPRING_VAR_MATCHEXPIRETIME=3600
       - SPRINGDOC_VERSION=1.6.6
+      - spring.data.elasticsearch.client.reactive.endpoints="localhost:9200"
+      - SPRING_ELASTICSEARCH_REST_URIS=http://elasticsearch:9200
 
 
 #  prometheus:
@@ -126,3 +151,7 @@ services:
 networks:
   wargame_network:
     driver: bridge
+
+volumes:
+  esdata1:
+    driver: local

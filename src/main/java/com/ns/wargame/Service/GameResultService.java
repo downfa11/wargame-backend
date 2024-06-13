@@ -1,6 +1,9 @@
 package com.ns.wargame.Service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ns.wargame.Domain.GameResult;
+import com.ns.wargame.Domain.GameResultDocument;
 import com.ns.wargame.Domain.User;
 import com.ns.wargame.Domain.Client;
 import com.ns.wargame.Domain.dto.ClientRequest;
@@ -8,6 +11,7 @@ import com.ns.wargame.Domain.dto.GameResultRequest;
 import com.ns.wargame.Domain.dto.GameResultUpdate;
 import com.ns.wargame.Repository.ClientR2dbcRepository;
 import com.ns.wargame.Repository.ResultR2dbcRepository;
+import com.ns.wargame.Repository.ResultRepository;
 import com.ns.wargame.Repository.UserR2dbcRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -18,6 +22,7 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.time.Duration;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -25,11 +30,21 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class GameResultService {
+
+    private final String GAME_RESULT_USER_KEY = "users:result:%s";
+    private final Long expireTime = 60L;
+
     private final ResultR2dbcRepository resultR2dbcRepository;
+    private final ResultRepository resultRepository;
     private final UserR2dbcRepository userRepository;
     private final ClientR2dbcRepository clientRepository;
+
     private final ReactiveRedisTemplate<String, Long> reactiveRedisTemplate;
+    private final ReactiveRedisTemplate<String, String> RedisTemplateUserResult;
+
+    private final ObjectMapper objectMapper;
     private final UserService userService;
+
     public Mono<Void> updateRanking(Long userId) {
         return userService.findById(userId)
                 .flatMap(user -> {
@@ -74,6 +89,8 @@ public class GameResultService {
                 });
     }
 
+
+
     public Mono<Void> enroll(GameResultRequest request) {
         List<ClientRequest> allTeamMembers = new ArrayList<>();
         allTeamMembers.addAll(request.getBlueTeams());
@@ -93,9 +110,6 @@ public class GameResultService {
                 )
                 .collectList()
                 .flatMap(list -> {
-                    // 여기에서 팀에 따라 분류된 결과를 가지고 ELO를 업데이트하고 사용자 정보를 저장하십시오.
-                    // 예를 들어, winTeam에 대해 ELO를 증가시키고, loseTeam에 대해 감소 등의 처리를 할 수 있습니다.
-                    // 이 부분의 구현은 프로젝트의 나머지 로직에 따라 달라질 수 있습니다.
                     return updateEloAndSaveUsers(request.getWinTeam(), list);
                 })
                 .then(saveGameResult(request));
@@ -181,6 +195,12 @@ public class GameResultService {
     }
 
     public Mono<Void> saveGameResult(GameResultRequest request) {
+        return saveResultToDatabase(request)
+                .then(saveResultToElasticsearch(request))
+                .then();
+    }
+
+    private Mono<Void> saveResultToDatabase(GameResultRequest request) {
         GameResult result = GameResult.builder()
                 .code(request.getSpaceId())
                 .channel(request.getChannel())
@@ -200,6 +220,28 @@ public class GameResultService {
                         }))
                 .then();
     }
+
+    private Mono<GameResultDocument> saveResultToElasticsearch(GameResultRequest request) {
+        GameResultDocument document = mapToGameResultDocument(request);
+        return resultRepository.save(document);
+    }
+
+    private GameResultDocument mapToGameResultDocument(GameResultRequest request) {
+        return GameResultDocument.builder()
+                .spaceId(request.getSpaceId())
+                .state("success")
+                .channel(request.getChannel())
+                .room(request.getRoom())
+                .winTeam(request.getWinTeam())
+                .loseTeam(request.getLoseTeam())
+                .blueTeams(request.getBlueTeams())
+                .redTeams(request.getRedTeams())
+                .dateTime(request.getDateTime())
+                .gameDuration(request.getGameDuration())
+                .build();
+    }
+
+
 
     public Mono<Void> dodge(GameResultRequest result) {
 
@@ -224,4 +266,130 @@ public class GameResultService {
                 .then();
     }
 
+
+    public Mono<String> getUserResults(String name) {
+        String key = String.format(GAME_RESULT_USER_KEY, name);
+
+        return RedisTemplateUserResult.opsForValue().get(key)
+                .flatMap(json -> Mono.just(json))
+                .switchIfEmpty(Mono.defer(() ->
+                        getGameResultsByName(name)
+                            .collectList()
+                            .flatMap(results -> {
+                                if (results.isEmpty()) {
+                                    return Mono.just("전적 검색 결과가 없습니다.");
+                                } else {
+                                    try {
+                                        String json = objectMapper.writeValueAsString(results);
+                                        return RedisTemplateUserResult.opsForValue().set(key, json)
+                                                .then(RedisTemplateUserResult.expire(key, Duration.ofMinutes(expireTime)))
+                                                .then(Mono.just("검색된 전적: " + json));
+                                    } catch (JsonProcessingException e) {
+                                        return Mono.error(new RuntimeException("JSON 직렬화 오류", e));
+                                    }
+                                }
+                            })));
+    }
+
+
+
+    public Flux<GameResultDocument> getGameResultsByName(String name) {
+        return resultRepository.searchByUserName(name);
+    }
+
+    public Mono<Void> migrateAllResultsToElasticsearch() {
+        return fetchAllResultsFromDatabase()
+                .flatMap(result -> fetchClientsForResult(result)
+                        .flatMap(clients -> saveResultToElasticsearch(result, clients))
+                        .then())
+                .then();
+    }
+
+    private Flux<GameResult> fetchAllResultsFromDatabase() {
+        return resultR2dbcRepository.findAll();
+    }
+
+    private Mono<List<Client>> fetchClientsForResult(GameResult result) {
+        return clientRepository.findByGameResultId(result.getId()).collectList();
+    }
+
+    private Mono<GameResultDocument> saveResultToElasticsearch(GameResult result, List<Client> clients) {
+        GameResultDocument document = mapGameResultToDocument(result, clients);
+        return resultRepository.save(document);
+    }
+
+    private GameResultDocument mapGameResultToDocument(GameResult result, List<Client> clients) {
+        List<ClientRequest> blueTeams = clients.stream()
+                .filter(client -> "blue".equals(client.getTeam()))
+                .map(this::mapToClientRequest)
+                .collect(Collectors.toList());
+
+        List<ClientRequest> redTeams = clients.stream()
+                .filter(client -> "red".equals(client.getTeam()))
+                .map(this::mapToClientRequest)
+                .collect(Collectors.toList());
+
+        return GameResultDocument.builder()
+                .spaceId(result.getCode())
+                .state("success")
+                .channel(result.getChannel())
+                .room(result.getRoom())
+                .winTeam(result.getWinTeam())
+                .loseTeam(result.getLoseTeam())
+                .blueTeams(blueTeams)
+                .redTeams(redTeams)
+                .dateTime(result.getDateTime())
+                .gameDuration(result.getGameDuration())
+                .build();
+    }
+
+    private ClientRequest mapToClientRequest(Client client) {
+        List<Integer> itemList = convertStringToItems(client.getItemList());
+        log.info("TEST : "+itemList.toString());
+        return ClientRequest.builder()
+                .clientindex(client.getUserId().intValue())
+                .socket(client.getSocket())
+                .champindex(client.getChamp())
+                .user_name(client.getName())
+                .team(client.getTeam())
+                .channel(client.getChannel())
+                .room(client.getRoom())
+                .kill(client.getKills())
+                .death(client.getDeaths())
+                .assist(client.getAssists())
+                .gold(client.getGold())
+                .level(client.getLevel())
+                .maxhp(client.getMaxhp())
+                .maxmana(client.getMaxmana())
+                .attack(client.getAttack())
+                .critical(client.getCritical())
+                .criProbability(client.getCriProbability())
+                .attrange(client.getAttrange())
+                .attspeed(client.getAttspeed())
+                .movespeed(client.getMovespeed())
+                .itemList(itemList)
+                .build();
+    }
+
+    private List<Integer> convertStringToItems(String itemList) {
+        if (itemList == null || itemList.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        try {
+            String cleanedItemList = itemList.replaceAll("[\\[\\]]", "");
+            return Arrays.stream(cleanedItemList.split(","))
+                    .map(String::trim)
+                    .map(Integer::valueOf)
+                    .collect(Collectors.toList());
+        } catch (NumberFormatException e) {
+            System.err.println("Invalid number format in itemList: " + itemList);
+            throw e;
+        }
+    }
+
+
+
 }
+
+

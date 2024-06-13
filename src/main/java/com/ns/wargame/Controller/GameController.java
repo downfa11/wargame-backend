@@ -1,6 +1,8 @@
 package com.ns.wargame.Controller;
 
 
+import com.ns.wargame.Domain.GameResultDocument;
+import com.ns.wargame.Domain.dto.GameResultRequest;
 import com.ns.wargame.Domain.dto.MatchRequest;
 import com.ns.wargame.Domain.dto.messageEntity;
 import com.ns.wargame.Service.GameResultService;
@@ -12,6 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.stream.Collectors;
@@ -102,6 +105,24 @@ public class GameController {
                         .body(new messageEntity("Success",gameService.CommonSendMessage("test","key",data))))
                 .defaultIfEmpty(ResponseEntity.ok().body(new messageEntity("Fail","request is not correct.")));
 
+    }
+
+
+
+    @GetMapping("/elastic/search")
+    public Flux<GameResultDocument> getGameResultsByName(@RequestParam String name) {
+        return gameResultService.getGameResultsByName(name);
+    }
+
+    @GetMapping("/search/user")
+    public Mono<String> getUserResults(@RequestParam String name) {
+        return gameResultService.getUserResults(name);
+    }
+
+
+    @PostMapping("/migrate")
+    public Mono<Void> migrateAllResultsToElasticsearch() {
+        return gameResultService.migrateAllResultsToElasticsearch();
     }
 }
 
