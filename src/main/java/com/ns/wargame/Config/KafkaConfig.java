@@ -39,21 +39,6 @@ public class KafkaConfig {
     }
 
     @Bean
-    public ReactiveKafkaConsumerTemplate<String, String> reactiveCommonConsumerTemplate() {
-        Map<String, Object> consumerProps = new HashMap<>();
-        consumerProps.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
-        consumerProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
-        consumerProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
-        consumerProps.put(JsonDeserializer.TRUSTED_PACKAGES, "*");
-        consumerProps.put(ConsumerConfig.GROUP_ID_CONFIG, "test-consumer-group");
-
-        ReceiverOptions<String, String> receiverOptions = ReceiverOptions.<String, String>create(consumerProps)
-                .subscription(Collections.singleton("common"));
-
-        return new ReactiveKafkaConsumerTemplate<>(receiverOptions);
-    }
-
-    @Bean
     public ReactiveKafkaConsumerTemplate<String, String> reactiveResultConsumerTemplate() {
         Map<String, Object> consumerProps = new HashMap<>();
         consumerProps.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);

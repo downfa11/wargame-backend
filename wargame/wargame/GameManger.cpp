@@ -2356,3 +2356,105 @@ string GameManager::clientToJson(const Client* client) {
 	oss << "}";
 	return oss.str();
 }
+
+void GameManager::champ1Passive(void* data) {
+	attinfo info;
+	memcpy(&info, data, sizeof(attinfo));
+	int attacker_socket = info.attacker;
+
+	int chan = -1, room = -1;
+	{
+		shared_lock<shared_mutex> lock(clients_info_mutex);
+		chan = clients_info[attacker_socket]->channel;
+		room = clients_info[attacker_socket]->room;
+	}
+
+	if (chan == -1 || room == -1) {
+		cout << "lock error" << endl;
+		return;
+	}
+
+	Client* attacker = nullptr;
+
+		
+
+	{
+		shared_lock<shared_mutex> lock(room_mutex[chan][room]);
+		auto& clients_in_room = client_channel[chan].client_list_room[room];
+
+		auto attacker_it = find_if(clients_in_room.begin(), clients_in_room.end(),
+			[attacker_socket](Client* client) { return client->socket == attacker_socket; });
+
+		if (attacker_it == clients_in_room.end())
+			return;
+
+		attacker = *attacker_it;
+
+		if (info.kind == -1) {
+
+			Client* attacked = nullptr;
+			auto attacked_it = find_if(clients_in_room.begin(), clients_in_room.end(),
+				[&info](Client* client) { return client->socket == info.attacked; });
+
+			if (attacked_it == clients_in_room.end() || (*attacked_it)->curhp <= 0)
+				return;
+
+			attacked = *attacked_it;
+
+
+			int damage = 0.2f * attacker->attack * attacker->level;
+			attacked->curhp -= damage;
+			cout << "client passive demage : " << damage << " attacked.curHp :" << attacked->curhp << endl;
+			NotifyAttackResulttoClient(attacker_socket, chan, room, attacked->socket);
+
+
+			if (attacker == nullptr || attacked == nullptr) {
+				cout << "lock attacker, attacked error" << endl;
+				return;
+			}
+
+			if (attacked->curhp <= 0)
+				ClientDie(attacked->socket, attacker_socket, 0);
+
+			ClientStat(attacked->socket);
+		}
+		else {
+			structure* attacked = nullptr;
+
+			{
+				shared_lock<shared_mutex> lock(room_mutex[chan][room]);
+				// shared_lock<shared_mutex> lock(structure_mutex[chan][room]);
+
+				auto& structures_in_room = client_channel[chan].structure_list_room[room];
+
+				int team = attacker->team;
+
+				auto attacked_it = find_if(structures_in_room.begin(), structures_in_room.end(),
+					[&info, &team](structure* struc) { return (struc->team != team && struc->index == info.attacked && struc->kind == info.kind); });
+				if (attacker_it == clients_in_room.end() || attacked_it == structures_in_room.end()) {
+					cout << "none struc :" << info.attacked << ", struc kind :" << info.kind << endl;
+					return;
+				}
+				attacked = *attacked_it;
+
+				if (attacked->curhp <= 0)
+					return;
+
+				attacker = *attacker_it;
+
+				int damage = 0.2f * attacker->attack * attacker->level;
+				attacked->curhp -= damage;
+				cout << "client passive demage : " << damage << " attacked.curHp :" << attacked->curhp << endl;
+
+				NotifyAttackResulttoStructure(attacker_socket, chan, room, attacked->index);
+			}
+
+			if (attacker == nullptr || attacked == nullptr) {
+				cout << "lock attacker, attacked error" << endl;
+				return;
+			}
+
+			StructureStat(attacked->index, attacked->team, attacked->kind, chan, room);
+		}
+	}
+}

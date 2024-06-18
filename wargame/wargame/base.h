@@ -79,6 +79,8 @@ typedef unsigned char       BYTE;
 #define H_CAUTHORIZATION 1530
 #define H_PICK_TIME 1084
 
+#define H_CHAMP1_PASSIVE 1611
+
 typedef struct socketf
 {
 	SOCKET hClntSock;

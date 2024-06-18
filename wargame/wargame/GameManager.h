@@ -103,4 +103,6 @@ public:
 	static bool findEmptyRoom(roomData curRoom);
 	static string clientToJson(const Client* client);
 	static string matchResultToJson(const MatchResult& result);
+
+	static void champ1Passive(void* data);
 };

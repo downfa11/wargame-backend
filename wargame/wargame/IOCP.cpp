@@ -291,6 +291,9 @@ unsigned WINAPI EchoThreadMain(LPVOID pComPort)
 				else if (number == H_WELL) {
 					GameManager::Well(sock, data);
 				}
+				else if (number == H_CHAMP1_PASSIVE) {
+					GameManager::champ1Passive(data);
+				}
 
 				ioInfo->header_broken = false;
 				ioInfo->data_broken = false;
