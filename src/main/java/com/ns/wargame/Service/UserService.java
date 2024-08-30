@@ -6,6 +6,7 @@ import com.ns.wargame.Domain.dto.UserResponse;
 import com.ns.wargame.Repository.UserR2dbcRepository;
 import com.ns.wargame.Domain.dto.UserCreateRequest;
 import com.ns.wargame.Utils.JwtTokenProvider;
+import com.ns.wargame.Utils.Vault.VaultAdapter;
 import com.ns.wargame.Utils.jwtToken;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -18,19 +19,18 @@ import java.time.Duration;
 import java.util.Optional;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class UserService {
 
     private final UserR2dbcRepository userRepository;
     private final ReactiveRedisTemplate<String, User> reactiveRedisTemplate;
     private final JwtTokenProvider jwtTokenProvider;
-    //private final VaultAdapter vaultAdapter;
+    private final VaultAdapter vaultAdapter;
 
     public Mono<User> create(UserCreateRequest request) {
 
-        //String encryptedPassword = vaultAdapter.encrypt(request.getPassword());
-        //String encryptedName = vaultAdapter.encrypt(request.getName());
-        //String encryptedEmail = vaultAdapter.encrypt(request.getEmail());
+        String encryptedPassword = vaultAdapter.encrypt(request.getPassword());
 
         // name, email의 중복 여부를 확인
         Flux<User> existingUsers = Flux.concat(
@@ -42,7 +42,7 @@ public class UserService {
                 .flatMap(existingUserList -> {
                     if (existingUserList.isEmpty()) {
                         return userRepository.save(User.builder()
-                                .password(request.getPassword())
+                                .password(encryptedPassword)
                                 .name(request.getName())
                                 .email(request.getEmail())
                                         .elo(2000L)
@@ -53,9 +53,11 @@ public class UserService {
                     }
                 });
     }
+    public Mono<UserResponse> login(UserRequest request) {
+        String encryptedPassword = vaultAdapter.encrypt(request.getPassword());
+        log.info("encrypt password : " + encryptedPassword);
 
-    public Mono<UserResponse> login(UserRequest request){
-        return userRepository.findByEmailAndPassword(request.getEmail(), request.getPassword())
+        return userRepository.findByEmailAndPassword(request.getEmail(), encryptedPassword)
                 .flatMap(user -> {
                     String id = user.getId().toString();
                     Mono<String> jwtMono = jwtTokenProvider.generateJwtToken(id);
@@ -75,8 +77,10 @@ public class UserService {
                                             return Mono.just(userResponse);
                                         });
                             });
-                } );
+                })
+                .switchIfEmpty(Mono.error(new RuntimeException("Invalid credentials id:"+request.getEmail()+" pw:"+request.getPassword())));
     }
+
 
     public Flux<User> findAll(){
         return userRepository.findAll().flatMap(user -> decryptUserData(user));
@@ -110,15 +114,13 @@ public class UserService {
     }
 
     public Mono<User> update(Long id, String name, String email,String password){
-        // String encryptedName = vaultAdapter.encrypt(name);
-        // String encryptedEmail = vaultAdapter.encrypt(email);
-        // String encryptedPassword = vaultAdapter.encrypt(password);
+        String encryptedPassword = vaultAdapter.encrypt(password);
 
         return userRepository.findById(id)
                 .flatMap(u -> {
                     u.setName(name);
                     u.setEmail(email);
-                    u.setPassword(password);
+                    u.setPassword(encryptedPassword);
                     return userRepository.save(u);
                 })
                 .flatMap(u->reactiveRedisTemplate.unlink("users:%d".formatted(id))
@@ -127,14 +129,12 @@ public class UserService {
     }
 
     private Mono<User> decryptUserData(User user) {
-        //String decryptedName = vaultAdapter.decrypt(user.getName());
-        //String decryptedEmail = vaultAdapter.decrypt(user.getEmail());
-        //String decryptedPassword = vaultAdapter.decrypt(user.getPassword());
+        String decryptedPassword = vaultAdapter.decrypt(user.getPassword());
 
         User decryptedUser = new User();
         decryptedUser.setId(user.getId());
         decryptedUser.setEmail(user.getEmail());
-        decryptedUser.setPassword(user.getPassword());
+        decryptedUser.setPassword(decryptedPassword);
         decryptedUser.setName(user.getName());
         decryptedUser.setElo(user.getElo());
         decryptedUser.setCurGameSpaceCode(user.getCurGameSpaceCode());
