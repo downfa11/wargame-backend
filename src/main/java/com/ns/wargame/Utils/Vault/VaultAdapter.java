@@ -1,5 +1,5 @@
 package com.ns.wargame.Utils.Vault;
-/*
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.vault.core.VaultKeyValueOperations;
@@ -13,17 +13,11 @@ public class VaultAdapter {
 
     @Autowired
     public VaultAdapter(VaultTemplate vaultTemplate) {
-        VaultKeyValueOperations ops = vaultTemplate.opsForKeyValue("kv-v1/data/ecrypt", VaultKeyValueOperationsSupport.KeyValueBackend.KV_2);
-        VaultResponse response = ops.get("dbkey");
-
-        //kv-v1
-        // ecrypt/data/dbkey
-        // QgOklUDRhvNfCex0/BllsQ==
-        // path "kv-v1/*" { capabilities = ["create", "read", "update", "delete", "sudo", "list"] }
-        // vault write auth/token/create policies=default
+        VaultKeyValueOperations ops = vaultTemplate.opsForKeyValue("kv-v1/data/encrypt", VaultKeyValueOperationsSupport.KeyValueBackend.KV_2);
+        VaultResponse response = ops.get("key");
 
         if (response != null) {
-            String key = (String) response.getData().get("key");
+            String key = (String) response.getData().get("vaultKey");
             this.encryptor = new AESProvider(key);
         } else {
             throw new RuntimeException("Vault key 'dbkey' not found");
@@ -46,4 +40,4 @@ public class VaultAdapter {
             throw new RuntimeException(e);
         }
     }
-}*/
+}

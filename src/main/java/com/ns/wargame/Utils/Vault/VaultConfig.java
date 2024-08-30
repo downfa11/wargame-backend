@@ -1,5 +1,5 @@
 package com.ns.wargame.Utils.Vault;
-/*
+
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -25,5 +25,5 @@ public class VaultConfig {
         endpoint.setScheme(vaultUrl);
         return new VaultTemplate(endpoint, () -> VaultToken.of(vaultToken));
     }
-}*/
+}
 

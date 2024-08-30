@@ -2,7 +2,7 @@
 
 #include "kafka.h"
 
-const string kafkaMessage::brokers = "localhost:9092";
+const string kafkaMessage::brokers = "localhost:9094";
 const Topic kafkaMessage::resultTopic = "result";
 const Topic kafkaMessage::matchTopic = "match";
 

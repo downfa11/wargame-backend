@@ -12,31 +12,31 @@ import org.springframework.context.annotation.Configuration;
 public class SwaggerConfig {
 
     @Bean
-    public GroupedOpenApi OpenApiCommunity(@Value("${springdoc.version}") String appVersion) {
+    public GroupedOpenApi OpenApiCommunity() {
         String[] paths = { "/v1/**" };
         return GroupedOpenApi.builder().
                 group("community")
-                .addOpenApiCustomizer(openApi -> openApi.info(new Info().title("v1 API").version(appVersion)))
+                .addOpenApiCustomizer(openApi -> openApi.info(new Info().title("v1 API")))
                 .pathsToMatch(paths)
                 .build();
     }
 
     @Bean
-    public GroupedOpenApi OpenApiGame(@Value("${springdoc.version}") String appVersion) {
+    public GroupedOpenApi OpenApiGame() {
         String[] paths = { "/game/**" };
         return GroupedOpenApi.builder().
                 group("game")
-                .addOpenApiCustomizer(openApi -> openApi.info(new Info().title("game API").version(appVersion)))
+                .addOpenApiCustomizer(openApi -> openApi.info(new Info().title("game API")))
                 .pathsToMatch(paths)
                 .build();
     }
 
     @Bean
-    public GroupedOpenApi OpenApiUser(@Value("${springdoc.version}") String appVersion) {
+    public GroupedOpenApi OpenApiUser() {
         String[] paths = { "/users/**" };
         return GroupedOpenApi.builder().
                 group("user")
-                .addOpenApiCustomizer(openApi -> openApi.info(new Info().title("user API").version(appVersion)))
+                .addOpenApiCustomizer(openApi -> openApi.info(new Info().title("user API")))
                 .pathsToMatch(paths)
                 .build();
     }
