@@ -14,6 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -42,10 +43,14 @@ public class GameController {
     }
 
     @PostMapping("/match")
-    public Mono<ResponseEntity<messageEntity>> queue(@RequestBody MatchRequest request) {
-        // todo. jwt 권한과 본인 여부
+    public Mono<ResponseEntity<messageEntity>> queue(@RequestBody MatchRequest request, ServerWebExchange exchange) {
 
-        return matchQueueService.getRank("match", request.getMembershipId())
+        return jwtTokenProvider.getMembershipIdByToken(exchange)
+                .flatMap(idx -> {
+                    if (idx == 0) {
+                        return Mono.just(ResponseEntity.ok().body(new messageEntity("Fail", "Not Authorization or boardId is incorrect.")));
+                    }
+                    return matchQueueService.getRank("match", request.getMembershipId())
                 .flatMap(rank -> {
                     if (rank < 0)
                         return matchQueueService.registerMatchQueue("match", request.getMembershipId())
@@ -60,39 +65,50 @@ public class GameController {
 
                 })
                 .onErrorResume(error -> Mono.just(ResponseEntity.badRequest().body(new messageEntity("Fail", error.getMessage()))));
+        });
     }
 
     @PostMapping("/match/cancel")
-    public Mono<ResponseEntity<messageEntity>> queueCancel(@RequestBody MatchRequest request) {
-        // todo. jwt 권한과 본인 여부
+    public Mono<ResponseEntity<messageEntity>> queueCancel(@RequestBody MatchRequest request, ServerWebExchange exchange) {
 
         Long membershipId = request.getMembershipId();
         if (membershipId == null) {
             return Mono.just(ResponseEntity.badRequest().body(new messageEntity("Error", "Invalid membership ID.")));
         }
 
-        return matchQueueService.cancelMatchQueue(membershipId)
-                .then(Mono.just(ResponseEntity.ok().body(new messageEntity("Success", "All queues have been deleted."))))
-                .onErrorResume(error -> {
-                    log.error("Error occurred while cancelling match queues: {}", error.getMessage());
-                    return Mono.just(ResponseEntity.ok().body(new messageEntity("Error", "Failed to cancel match queues.")));
+        return jwtTokenProvider.getMembershipIdByToken(exchange)
+                .flatMap(idx -> {
+                    if (idx == 0) {
+                        return Mono.just(ResponseEntity.ok().body(new messageEntity("Fail", "Not Authorization or boardId is incorrect.")));
+                    }
+                    return matchQueueService.cancelMatchQueue(membershipId)
+                            .then(Mono.just(ResponseEntity.ok().body(new messageEntity("Success", "All queues have been deleted."))))
+                            .onErrorResume(error -> {
+                                log.error("Error occurred while cancelling match queues: {}", error.getMessage());
+                                return Mono.just(ResponseEntity.ok().body(new messageEntity("Error", "Failed to cancel match queues.")));
+                            });
                 });
     }
 
 
-
-
     @GetMapping(path="/match/rank/{memberId}")
-    public Mono<ResponseEntity<messageEntity>> getRank(@PathVariable Long memberId){
-        // todo. jwt 권한과 본인 여부
+    public Mono<ResponseEntity<messageEntity>> getRank(@PathVariable Long memberId, ServerWebExchange exchange){
 
-        return matchQueueService.getMatchResponse(memberId)
-                .map(matchStatus -> {
-                    if (matchStatus.getT1() == MatchQueueService.MatchStatus.MATCH_FOUND)
-                        return ResponseEntity.ok().body(new messageEntity("Success", matchStatus.getT2()));
-                    else if (matchStatus.getT1() == MatchQueueService.MatchStatus.MATCHING)
-                        return ResponseEntity.ok().body(new messageEntity("Success", "matching.."));
-                    else return ResponseEntity.ok().body(new messageEntity("Fail", "Request is not correct."));
+        return jwtTokenProvider.getMembershipIdByToken(exchange)
+                .flatMap(idx -> {
+                    if (idx == 0) {
+                        return Mono.just(ResponseEntity.ok().body(new messageEntity("Fail", "Not Authorization or boardId is incorrect.")));
+                    }
+
+                    return matchQueueService.getMatchResponse(memberId)
+                            .map(matchStatus -> {
+                                if (matchStatus.getT1() == MatchQueueService.MatchStatus.MATCH_FOUND)
+                                    return ResponseEntity.ok().body(new messageEntity("Success", matchStatus.getT2()));
+                                else if (matchStatus.getT1() == MatchQueueService.MatchStatus.MATCHING)
+                                    return ResponseEntity.ok().body(new messageEntity("Success", "matching.."));
+                                else
+                                    return ResponseEntity.ok().body(new messageEntity("Fail", "Request is not correct."));
+                            });
                 });
     }
 
