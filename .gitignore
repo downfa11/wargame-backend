@@ -694,3 +694,6 @@ db/data/binlog.000131
 wargame/.vs/wargame/FileContentIndex/8aa2a437-c5ff-47dc-a942-7b7fad991060.vsidx
 db/data/binlog.000133
 db/data/binlog.000132
+db/data/binlog.000134
+db/data/binlog.000135
+db/initdb.d/initdb.sql
