@@ -1,7 +1,6 @@
 package com.ns.membership.repository;
 
 import com.ns.membership.entity.User;
-import com.ns.wargame.Domain.User;
 import org.springframework.data.r2dbc.repository.Modifying;
 import org.springframework.data.r2dbc.repository.Query;
 import org.springframework.data.repository.reactive.ReactiveCrudRepository;

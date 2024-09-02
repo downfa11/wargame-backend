@@ -25,6 +25,8 @@ public class Post {
     @Column("user_id")
     private Long userId; // FK
 
+    private String nickname;
+
     @Column("category_id")
     private Long categoryId; // FK
 

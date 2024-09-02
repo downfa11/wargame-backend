@@ -1,7 +1,6 @@
 package com.ns.feed.entity.dto;
 
 import com.ns.feed.entity.Post;
-import com.ns.wargame.Domain.Post;
 import lombok.*;
 
 import java.time.LocalDateTime;
@@ -20,11 +19,11 @@ public class PostSummary {
     private Long views;
     private LocalDateTime createdAt;
 
-    public static PostSummary of(Post post, String nickname) {
+    public static PostSummary of(Post post) {
         return PostSummary.builder()
                 .id(post.getId())
                 .sortStatus(post.getSortStatus())
-                .nickname(nickname)
+                .nickname(post.getNickname())
                 .title(post.getTitle())
                 .comments(post.getComments())
                 .createdAt(post.getCreatedAt())

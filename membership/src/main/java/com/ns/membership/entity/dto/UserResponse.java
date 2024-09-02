@@ -1,7 +1,6 @@
 package com.ns.membership.entity.dto;
 
 import com.ns.membership.entity.User;
-import com.ns.wargame.Domain.User;
 import lombok.Builder;
 import lombok.Data;
 

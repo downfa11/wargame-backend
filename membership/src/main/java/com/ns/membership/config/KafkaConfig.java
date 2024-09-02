@@ -1,5 +1,6 @@
 package com.ns.membership.config;
 
+import com.ns.common.Task;
 import lombok.RequiredArgsConstructor;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
@@ -28,7 +29,7 @@ public class KafkaConfig {
     String bootstrapServers;
 
     @Bean
-    public ReactiveKafkaProducerTemplate<String, String> MembershipProducerTemplate() {
+    public ReactiveKafkaProducerTemplate<String, Task> MembershipProducerTemplate() {
         Map<String, Object> producerProps = new HashMap<>();
         producerProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         producerProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
@@ -39,7 +40,7 @@ public class KafkaConfig {
     }
 
     @Bean
-    public ReactiveKafkaConsumerTemplate<String, String> PostConsumerTemplate() {
+    public ReactiveKafkaConsumerTemplate<String, Task> PostConsumerTemplate() {
         Map<String, Object> consumerProps = new HashMap<>();
         consumerProps.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         consumerProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
@@ -47,7 +48,7 @@ public class KafkaConfig {
         consumerProps.put(JsonDeserializer.TRUSTED_PACKAGES, "*");
         consumerProps.put(ConsumerConfig.GROUP_ID_CONFIG, "test-consumer-group");
 
-        ReceiverOptions<String, String> receiverOptions = ReceiverOptions.<String, String>create(consumerProps)
+        ReceiverOptions<String, Task> receiverOptions = ReceiverOptions.<String, Task>create(consumerProps)
                 .subscription(Collections.singleton("post"));
 
         return new ReactiveKafkaConsumerTemplate<>(receiverOptions);

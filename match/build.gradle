@@ -48,6 +48,11 @@ dependencies {
     //Swagger
     implementation 'org.springframework.boot:spring-boot-starter-webflux'
     implementation 'org.springdoc:springdoc-openapi-starter-webflux-ui:2.1.0'
+
+    //jwt
+    implementation 'io.jsonwebtoken:jjwt-api:0.11.2'
+    implementation 'io.jsonwebtoken:jjwt-impl:0.11.2'
+    implementation 'io.jsonwebtoken:jjwt-jackson:0.11.2'
 }
 
 tasks.named('bootBuildImage') {
@@ -57,6 +62,9 @@ tasks.named('bootBuildImage') {
 tasks.named('test') {
     useJUnitPlatform()
 }
+bootJar {
+    archiveFileName = "${project.name}.jar"
+}
 
 docker {
     println(tasks.bootJar.outputs.files)
@@ -64,10 +72,6 @@ docker {
     dockerfile file('../Dockerfile')
     files tasks.bootJar.outputs.files
     buildArgs(['JAR_FILE':tasks.bootJar.outputs.files.singleFile.name])
-}
-
-bootJar {
-    archiveFileName = "${project.name}.jar"
 }
 
 tasks.register("prepareKotlinBuildScriptModel"){}

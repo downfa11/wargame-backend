@@ -1,7 +1,6 @@
 package com.ns.feed.entity.dto;
 
 import com.ns.feed.entity.Post;
-import com.ns.wargame.Domain.Post;
 import lombok.Data;
 
 @Data

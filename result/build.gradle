@@ -52,16 +52,16 @@ tasks.named('test') {
     useJUnitPlatform()
 }
 
+bootJar {
+    archiveFileName = "${project.name}.jar"
+}
+
 docker {
     println(tasks.bootJar.outputs.files)
     name project.name
     dockerfile file('../Dockerfile')
     files tasks.bootJar.outputs.files
     buildArgs(['JAR_FILE':tasks.bootJar.outputs.files.singleFile.name])
-}
-
-bootJar {
-    archiveFileName = "${project.name}.jar"
 }
 
 tasks.register("prepareKotlinBuildScriptModel"){}

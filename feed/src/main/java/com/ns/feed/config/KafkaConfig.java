@@ -1,5 +1,7 @@
 package com.ns.feed.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ns.common.Task;
 import lombok.RequiredArgsConstructor;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
@@ -27,42 +29,35 @@ public class KafkaConfig {
     @Value("${kafka.clusters.bootstrapservers}")
     String bootstrapServers;
 
+    private final ObjectMapper objectMapper;
+
     @Bean
-    public ReactiveKafkaProducerTemplate<String, String> reactiveCommonProducerTemplate() {
+    public ReactiveKafkaProducerTemplate<String, Task> MembershipProducerTemplate() {
         Map<String, Object> producerProps = new HashMap<>();
         producerProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         producerProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         producerProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
-        return new ReactiveKafkaProducerTemplate<>(
-                SenderOptions.create(producerProps)
-        );
+
+        SenderOptions<String, Task> senderOptions = SenderOptions.<String, Task>create(producerProps)
+                .withValueSerializer(new JsonSerializer<>(objectMapper));
+
+        return new ReactiveKafkaProducerTemplate<>(senderOptions);
     }
 
     @Bean
-    public ReactiveKafkaConsumerTemplate<String, String> reactiveResultConsumerTemplate() {
+    public ReactiveKafkaConsumerTemplate<String, Task> MembershipConsumerTemplate() {
         Map<String, Object> consumerProps = new HashMap<>();
         consumerProps.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         consumerProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
-        consumerProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+        consumerProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
         consumerProps.put(JsonDeserializer.TRUSTED_PACKAGES, "*");
+        consumerProps.put(JsonDeserializer.VALUE_DEFAULT_TYPE, Task.class.getName());
         consumerProps.put(ConsumerConfig.GROUP_ID_CONFIG, "test-consumer-group");
 
-        ReceiverOptions<String, String> receiverOptions = ReceiverOptions.<String, String>create(consumerProps)
-                .subscription(Collections.singleton("result"));
+        ReceiverOptions<String, Task> receiverOptions = ReceiverOptions.<String, Task>create(consumerProps)
+                .subscription(Collections.singleton("membership"));
 
         return new ReactiveKafkaConsumerTemplate<>(receiverOptions);
     }
-
-    @Bean
-    public ReactiveKafkaProducerTemplate<String, String> reactiveMatchProducerTemplate() {
-        Map<String, Object> producerProps = new HashMap<>();
-        producerProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
-        producerProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
-        producerProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
-        return new ReactiveKafkaProducerTemplate<>(
-                SenderOptions.create(producerProps)
-        );
-    }
-
 }
 

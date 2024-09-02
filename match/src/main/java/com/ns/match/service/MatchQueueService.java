@@ -2,13 +2,20 @@ package com.ns.match.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ns.common.SubTask;
+import com.ns.common.Task;
+import com.ns.common.TaskUseCase;
 import com.ns.match.dto.MatchResponse;
+import com.ns.match.dto.MatchUserResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.ApplicationArguments;
+import org.springframework.boot.ApplicationRunner;
 import org.springframework.data.domain.Range;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.data.redis.core.ScanOptions;
+import org.springframework.kafka.core.reactive.ReactiveKafkaConsumerTemplate;
 import org.springframework.kafka.core.reactive.ReactiveKafkaProducerTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -20,13 +27,12 @@ import reactor.util.function.Tuple2;
 import reactor.util.function.Tuples;
 
 import java.time.Duration;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class MatchQueueService {
+public class MatchQueueService implements ApplicationRunner {
     private final ReactiveRedisTemplate<String, String> reactiveRedisTemplate;
     private final String MATCH_WAIT_KEY ="users:queue:%s:wait";
     private final String MATCH_WAIT_KEY_FOR_SCAN ="users:queue:*:wait";
@@ -41,12 +47,17 @@ public class MatchQueueService {
 
     private final ObjectMapper mapper = new ObjectMapper();
 
-    private final ReactiveKafkaProducerTemplate<String, String> reactiveMatchProducerTemplate;
+    private final ReactiveKafkaProducerTemplate<String, Task> MatchProducerTemplate;
+    private final ReactiveKafkaConsumerTemplate<String, Task> MembershipConsumerTemplate;
+
+    private final TaskUseCase taskUseCase;
 
 
-    public Mono<SenderResult<Void>> MatchSendMessage(String topic, String key, String message){
-        return reactiveMatchProducerTemplate.send(topic, key, message);
+    public Mono<Void> sendTask(String topic, Task task){
+        String key = task.getTaskID();
+        return MatchProducerTemplate.send(topic, key, task).then();
     }
+
 
     public Mono<String> registerMatchQueue(final String queue, final Long userId) {
         String lockKey = "lock:" + queue;
@@ -58,23 +69,70 @@ public class MatchQueueService {
                         return Mono.just("fail");
                     }
 
-                    return userService.findById(userId).flatMap(user -> {
-                        if (!user.getCurGameSpaceCode().isEmpty()) {
-                            return releaseLock(lockKey, lockValue)
-                                    .thenReturn("fail");
-                        }
+                    List<SubTask> subTasks = Collections.singletonList(
+                            taskUseCase.createSubTask(
+                                    "MatchUserByMembershipId",
+                                    String.valueOf(userId),
+                                    SubTask.TaskType.membership,
+                                    SubTask.TaskStatus.ready,
+                                    userId
+                            )
+                    );
 
-                        Long elo = user.getElo();
-                        String name = user.getName();
-                        String member = userId + ":" + name;
+                    Task task = taskUseCase.createTask(
+                            "Match Request",
+                            String.valueOf(userId),
+                            subTasks
+                    );
 
-                        return reactiveRedisTemplate.opsForZSet().add(MATCH_WAIT_KEY.formatted(queue), member, elo.doubleValue())
-                                .flatMap(result -> reactiveRedisTemplate.expire(MATCH_WAIT_KEY.formatted(queue), Duration.ofSeconds(expireTime)))
-                                .thenReturn("{\"userId\":\"" + userId + "\", \"name\":\"" + name + "\", \"elo\":\"" + elo + "\"}")
-                                .doFinally(signal -> releaseLock(lockKey, lockValue).subscribe());
-                    });
+                    return sendTask("Post", task)
+                            .then(waitForTaskResult(task.getTaskID()))
+                            .flatMap(result -> processTaskResult(result, queue, userId))
+                            .doFinally(signal -> releaseLock(lockKey, lockValue).subscribe());
                 });
     }
+
+    private Mono<String> processTaskResult(String result, String queue, Long userId) {
+        try {
+            Task taskData = mapper.readValue(result, Task.class);
+            return Flux.fromIterable(taskData.getSubTaskList())
+                    .filter(subTaskItem -> "success".equals(subTaskItem.getStatus()))
+                    .flatMap(subTaskItem -> {
+                        MatchUserResponse matchResponse = mapper.convertValue(subTaskItem.getData(), MatchUserResponse.class);
+                        return handleMatchResponse(matchResponse, queue, userId);
+                    })
+                    .next() // Convert Flux<String> to Mono<String> by taking the first emitted item
+                    .switchIfEmpty(Mono.error(new RuntimeException("No successful subtask found in task result.")));
+        } catch (JsonProcessingException e) {
+            return Mono.error(new RuntimeException("Error processing task result", e));
+        }
+    }
+
+    private Mono<String> handleMatchResponse(MatchUserResponse user, String queue, Long userId) {
+        if (!user.getSpaceCode().isEmpty()) {
+            return Mono.just("fail");
+        }
+
+        Long elo = user.getElo();
+        String name = user.getName();
+        String member = userId + ":" + name;
+
+        return reactiveRedisTemplate.opsForZSet().add(MATCH_WAIT_KEY.formatted(queue), member, elo.doubleValue())
+                .flatMap(result -> reactiveRedisTemplate.expire(MATCH_WAIT_KEY.formatted(queue), Duration.ofSeconds(expireTime)))
+                .thenReturn("{\"userId\":\"" + userId + "\", \"name\":\"" + name + "\", \"elo\":\"" + elo + "\"}");
+    }
+
+    private Mono<String> waitForTaskResult(String taskId) {
+        return MembershipConsumerTemplate
+                .receive()
+                .filter(record -> taskId.equals(record.key()))
+                .map(record -> record.value().toString())
+                .next() // Convert Flux<String> to Mono<String> by taking the first emitted item
+                .timeout(Duration.ofSeconds(5))
+                .onErrorResume(throwable -> Mono.error(new RuntimeException("Timeout while waiting for task result", throwable)));
+    }
+
+
 
     private Mono<Boolean> releaseLock(String lockKey, String lockValue) {
         return reactiveRedisTemplate.opsForValue().get(lockKey)
@@ -87,7 +145,6 @@ public class MatchQueueService {
     }
 
 
-
     public Mono<Void> cancelMatchQueue(Long userId) {
         String lockKey = "lock:cancelMatchQueue:" + userId;
         String lockValue = UUID.randomUUID().toString();
@@ -97,19 +154,55 @@ public class MatchQueueService {
                         return Mono.error(new RuntimeException("Unable to acquire lock"));
                     }
 
-                    return userService.findById(userId).flatMap(user -> {
-                        String name = user.getName();
-                        String member = userId + ":" + name;
-                        return Flux.concat(
-                                        reactiveRedisTemplate.keys(MATCH_WAIT_KEY.formatted("*"))
-                                                .flatMap(key -> reactiveRedisTemplate.opsForZSet().remove(key, member)),
-                                        reactiveRedisTemplate.keys(MATCH_WAIT_KEY_FOR_SCAN.formatted("*"))
-                                                .flatMap(key -> reactiveRedisTemplate.opsForZSet().remove(key, member))
-                                ).then()
-                                .doFinally(signal -> releaseLock(lockKey, lockValue).subscribe());
-                    });
+                    List<SubTask> subTasks = new ArrayList<>();
+                    subTasks.add(
+                            taskUseCase.createSubTask("MatchUserByMembershipId",
+                                    String.valueOf(userId),
+                                    SubTask.TaskType.membership,
+                                    SubTask.TaskStatus.ready,
+                                    userId));
+
+                    Task task = taskUseCase.createTask(
+                            "Match Request",
+                            String.valueOf(userId),
+                            subTasks);
+
+                    return sendTask("Post", task)
+                            .then(waitForTaskResult(task.getTaskID()))
+                            .flatMap(result -> processCancelTaskResult(result, userId))
+                            .doFinally(signal -> releaseLock(lockKey, lockValue).subscribe());
                 });
     }
+
+    private Mono<Void> processCancelTaskResult(String result, Long userId) {
+        ObjectMapper objectMapper = new ObjectMapper();
+
+        try {
+            Task taskData = objectMapper.readValue(result, Task.class);
+            return Flux.fromIterable(taskData.getSubTaskList())
+                    .filter(subTaskItem -> "success".equals(subTaskItem.getStatus()))
+                    .flatMap(subTaskItem -> {
+                        MatchUserResponse matchResponse = objectMapper.convertValue(subTaskItem.getData(), MatchUserResponse.class);
+                        return handleCancelMatchResponse(matchResponse, userId);
+                    })
+                    .then(); // Convert Flux<Void> to Mono<Void>
+        } catch (JsonProcessingException e) {
+            return Mono.error(new RuntimeException("Error processing task result", e));
+        }
+    }
+
+    private Mono<Void> handleCancelMatchResponse(MatchUserResponse user, Long userId) {
+        String name = user.getName();
+        String member = userId + ":" + name;
+
+        return Flux.concat(
+                reactiveRedisTemplate.keys(MATCH_WAIT_KEY.formatted("*"))
+                        .flatMap(key -> reactiveRedisTemplate.opsForZSet().remove(key, member)),
+                reactiveRedisTemplate.keys(MATCH_WAIT_KEY_FOR_SCAN.formatted("*"))
+                        .flatMap(key -> reactiveRedisTemplate.opsForZSet().remove(key, member))
+        ).then();
+    }
+
 
 
     //몇번째 순위로 대기중인지 반환합니다.
@@ -123,14 +216,18 @@ public class MatchQueueService {
                         return Mono.just(-1L); // 잠금 획득 실패 시 -1 반환
                     }
 
-                    return userService.findById(userId).flatMap(user -> {
-                        String name = user.getName();
-                        String member = userId + ":" + name;
-                        return reactiveRedisTemplate.opsForZSet().rank(MATCH_WAIT_KEY.formatted(queue), member)
-                                .defaultIfEmpty(-1L)
-                                .map(rank -> rank >= 0 ? rank + 1 : rank)
-                                .doFinally(signal -> releaseLock(lockKey, lockValue).subscribe());
-                    });
+                    return reactiveRedisTemplate.opsForValue().get("*:" + userId)
+                            .flatMap(nickname -> {
+                                if (nickname == null) {
+                                    return Mono.just(-1L);
+                                }
+
+                                String member = nickname + ":" + userId;
+                                return reactiveRedisTemplate.opsForZSet().rank(MATCH_WAIT_KEY.formatted(queue), member)
+                                        .defaultIfEmpty(-1L)
+                                        .map(rank -> rank >= 0 ? rank + 1 : rank)
+                                        .doFinally(signal -> releaseLock(lockKey, lockValue).subscribe());
+                            });
                 });
     }
 
@@ -156,30 +253,43 @@ public class MatchQueueService {
                             .flatMap(matchResponseStr -> {
                                 try {
                                     MatchResponse matchResponse = mapper.readValue(matchResponseStr, MatchResponse.class);
-                                    return userService.findById(memberId)
-                                            .flatMap(user -> {
-                                                user.setCurGameSpaceCode(matchResponse.getSpaceId());
-                                                return userRepository.save(user)
-                                                        .thenReturn(Tuples.of(MatchStatus.MATCH_FOUND, matchResponse));
-                                            })
-                                            .doOnSuccess(result -> reactiveRedisTemplate.unlink(key).subscribe());
+
+                                    List<SubTask> subTasks = new ArrayList<>();
+                                    subTasks.add(taskUseCase.createSubTask(
+                                            "MatchCodeUpdate",
+                                            String.valueOf(memberId),
+                                            SubTask.TaskType.membership,
+                                            SubTask.TaskStatus.ready,
+                                            matchResponse.getSpaceId()
+                                    ));
+
+                                    Task task = taskUseCase.createTask("Match Request", null, subTasks);
+
+                                    return sendTask("membership", task)
+                                            .then(reactiveRedisTemplate.unlink(key))
+                                            .then(Mono.just(Tuples.of(MatchStatus.MATCH_FOUND, matchResponse)));
+
                                 } catch (JsonProcessingException e) {
-                                    log.error("getMatchResponse JsonProcessingException : ", e);
+                                    log.error("getMatchResponse JsonProcessingException: ", e);
                                     return Mono.error(e);
                                 }
                             })
                             .switchIfEmpty(
                                     getRank("match", memberId)
                                             .flatMap(rank -> {
-                                                if (rank > -1)
+                                                if (rank > -1) {
                                                     return Mono.just(Tuples.of(MatchStatus.MATCHING, new MatchResponse()));
-                                                else
+                                                } else {
                                                     return Mono.just(Tuples.of(MatchStatus.NO_MATCH, new MatchResponse()));
+                                                }
                                             })
                             )
                             .doFinally(signal -> releaseLock(lockKey, lockValue).subscribe());
                 });
     }
+
+
+
     @Scheduled(initialDelay = 5000, fixedDelay = 1000)
     public void scheduleMatchUser() {
         if (!scheduling) {
@@ -219,7 +329,19 @@ public class MatchQueueService {
                                                 }
                                             });
 
-                                            return gameService.MatchSendMessage("match", "key", matchResponse.toString())
+                                            List<SubTask> subTasks = new ArrayList<>();
+
+                                            subTasks.add(
+                                                    taskUseCase.createSubTask("Match response",
+                                                            null,
+                                                            SubTask.TaskType.match,
+                                                            SubTask.TaskStatus.ready,
+                                                            matchResponse));
+
+                                            return sendTask("match", taskUseCase.createTask(
+                                                    "Match response",
+                                                    null,
+                                                            subTasks))
                                                     .then(RemoveMembersFromQueue(queue, members))
                                                     .doOnSuccess(result -> log.info("Kafka message sent and members removed from Redis successfully."))
                                                     .doOnError(error -> log.error("Error during Kafka send or Redis operation: " + error.getMessage()))
@@ -247,6 +369,34 @@ public class MatchQueueService {
         return Flux.fromIterable(members)
                 .flatMap(member -> reactiveRedisTemplate.opsForZSet().remove(String.format(MATCH_WAIT_KEY, queue), member))
                 .then();
+    }
+
+
+    @Override
+    public void run(ApplicationArguments args){
+
+        this.MembershipConsumerTemplate
+                .receiveAutoAck()
+                .doOnNext(r -> {
+                    Task task = r.value();
+
+                    List<SubTask> subTasks = task.getSubTaskList();
+
+                    for(var subtask : subTasks){
+                        try {
+                            switch (subtask.getSubTaskName()) {
+
+                                default:
+                                    log.warn("Unknown subtask: {}", subtask.getSubTaskName());
+                                    break;
+                            }
+                        } catch (Exception e) {
+                            log.error("Error processing subtask {}: {}", subtask.getSubTaskName(), e.getMessage());
+                        }
+                    }
+                })
+                .doOnError(e -> log.error("Error receiving: " + e))
+                .subscribe();
     }
 
 }

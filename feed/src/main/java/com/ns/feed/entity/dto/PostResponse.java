@@ -2,8 +2,6 @@ package com.ns.feed.entity.dto;
 
 import com.ns.feed.entity.Comment;
 import com.ns.feed.entity.Post;
-import com.ns.wargame.Domain.Comment;
-import com.ns.wargame.Domain.Post;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -19,6 +17,7 @@ import java.util.List;
 public class PostResponse {
     private Long id;
     private Long userId;
+    private String nickname;
     private Long categoryId;
     private Post.SortStatus sortStatus;
     private String title;
@@ -35,6 +34,7 @@ public class PostResponse {
         return PostResponse.builder()
                 .id(post.getId())
                 .userId(post.getUserId())
+                .nickname(post.getNickname())
                 .sortStatus(post.getSortStatus())
                 .categoryId(post.getCategoryId())
                 .title(post.getTitle())

@@ -6,7 +6,7 @@ import org.springframework.data.elasticsearch.client.elc.ElasticsearchConfigurat
 import org.springframework.data.elasticsearch.repository.config.EnableReactiveElasticsearchRepositories;
 
 @Configuration
-@EnableReactiveElasticsearchRepositories(basePackages = "com.ns.result.Repository")
+@EnableReactiveElasticsearchRepositories(basePackages = "com.ns.result.repository")
 public class ElasticSearchConfig extends ElasticsearchConfiguration {
 
     @Override

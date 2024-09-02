@@ -10,9 +10,18 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class SubTask {
-    private String membersrhipId;
+    private String membershipId;
     private String subTaskName;
-    private String taskType;
-    private String status; //ready, success, fail
+
     private Object data;
+
+    public enum TaskType{
+        membership, post, match, result
+    }
+    private TaskType taskType;
+
+    public enum TaskStatus{
+        ready, success, fail
+    }
+    private TaskStatus status;
 }

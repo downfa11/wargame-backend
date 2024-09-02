@@ -1,6 +1,7 @@
 package com.ns.feed.repository;
 
 import com.ns.feed.entity.Post;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.querydsl.QuerydslPredicateExecutor;
 import org.springframework.data.repository.reactive.ReactiveCrudRepository;

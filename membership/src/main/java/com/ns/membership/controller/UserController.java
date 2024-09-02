@@ -50,8 +50,8 @@ public class UserController {
     @GetMapping("/{id}")
     public Mono<ResponseEntity<messageEntity>> findUser(@PathVariable Long id, ServerWebExchange exchange) {
         return jwtTokenProvider.getMembershipIdByToken(exchange)
-                .flatMap(idx -> {
-                    if (idx == 0) {
+                .flatMap(membershipId -> {
+                    if (membershipId == 0) {
                         return Mono.just(ResponseEntity.ok().body(new messageEntity("Fail", "Not Authorization or boardId is incorrect.")));
                     }
                     return userService.findById(id)
@@ -64,12 +64,12 @@ public class UserController {
     @DeleteMapping("/delete/{id}")
     public Mono<ResponseEntity<messageEntity>> deleteUser(ServerWebExchange exchange) {
         return jwtTokenProvider.getMembershipIdByToken(exchange)
-                .flatMap(idx -> {
-                    if(idx==0)
+                .flatMap(membershipId -> {
+                    if(membershipId==0)
                         return Mono.just(ResponseEntity.ok().body(new messageEntity("Fail", "Not Authorization or boardId is incorrect.")));
 
                         return Mono.just(ResponseEntity.ok()
-                                        .body(new messageEntity("Success", userService.deleteById(idx))))
+                                        .body(new messageEntity("Success", userService.deleteById(membershipId))))
                                 .defaultIfEmpty(ResponseEntity.ok().body(new messageEntity("Fail", "id is not correct.")));
 
                                         });
@@ -78,8 +78,8 @@ public class UserController {
     public Mono<ResponseEntity<messageEntity>> deleteUserByName(@RequestParam String name, ServerWebExchange exchange) {
 
         return jwtTokenProvider.getMembershipIdByToken(exchange)
-                .flatMap(idx -> {
-                    if (idx == 0)
+                .flatMap(membershipId -> {
+                    if (membershipId == 0)
                         return Mono.just(ResponseEntity.ok().body(new messageEntity("Fail", "Not Authorization or boardId is incorrect.")));
 
                     return Mono.just(ResponseEntity.ok()
@@ -90,12 +90,12 @@ public class UserController {
     @PutMapping("/update/{id}")
     public Mono<ResponseEntity<messageEntity>> updateUser(@RequestBody UserUpdateRequest request, ServerWebExchange exchange) {
         return jwtTokenProvider.getMembershipIdByToken(exchange)
-                .flatMap(idx -> {
+                .flatMap(membershipId -> {
 
-                    if(idx==0)
+                    if(membershipId==0)
                         return Mono.just(ResponseEntity.ok().body(new messageEntity("Fail", "Not Authorization or boardId is incorrect.")));
 
-                    return userService.update(idx, request.getName(), request.getEmail(), request.getPassword())
+                    return userService.update(membershipId, request.getName(), request.getEmail(), request.getPassword())
                                 .map(user -> ResponseEntity.ok()
                                         .body(new messageEntity("Success", UserResponse.of(user))))
                                 .defaultIfEmpty(ResponseEntity.ok().body(new messageEntity("Fail", "request is not correct.")));
@@ -104,19 +104,21 @@ public class UserController {
                     });
     }
 
-    @GetMapping("/posts")
-    public Mono<ResponseEntity<messageEntity>> getUserPosts(ServerWebExchange exchange) {
+    @GetMapping("/posts/{membershipId}")
+    public Mono<ResponseEntity<messageEntity>> getUserPosts(@PathVariable Long membershipId, ServerWebExchange exchange) {
+//        return jwtTokenProvider.getMembershipIdByToken(exchange)
+//                .flatMap(membershipId -> {
+//                    if (membershipId == 0) {
+//                        return Mono.just(ResponseEntity.ok().body(new messageEntity("Fail", "Not Authorized or boardId is incorrect.")));
+//                    }
+//                    return userService.getUserPosts(postMemberId)
+//                            .map(posts -> ResponseEntity.ok(new messageEntity("Success", posts)))
+//                            .defaultIfEmpty(ResponseEntity.ok().body(new messageEntity("Fail", "Request is not correct.")));
+//                });
 
-        return jwtTokenProvider.getMembershipIdByToken(exchange)
-                .flatMap(idx -> {
-                    if (idx == 0) {
-                        return Mono.just(ResponseEntity.ok().body(new messageEntity("Fail", "Not Authorization or boardId is incorrect.")));
-                    }
-                    return userService.getUserPosts(idx).collectList()
-                            .map(posts -> ResponseEntity.ok()
-                                    .body(new messageEntity("Success", posts)))
-                            .defaultIfEmpty(ResponseEntity.ok().body(new messageEntity("Fail", "request is not correct.")));
-                });
+                    return userService.getUserPosts(membershipId)
+                            .map(posts -> ResponseEntity.ok(new messageEntity("Success", posts)))
+                            .defaultIfEmpty(ResponseEntity.ok().body(new messageEntity("Fail", "Request is not correct.")));
     }
 
     @PostMapping(path="/refresh-token")

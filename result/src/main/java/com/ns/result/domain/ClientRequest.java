@@ -12,7 +12,7 @@ import java.util.List;
 @AllArgsConstructor
 @NoArgsConstructor
 public class ClientRequest {
-    private int clientindex;
+    private Long membershipId;
     private int socket;
     private int champindex;
     private String user_name;

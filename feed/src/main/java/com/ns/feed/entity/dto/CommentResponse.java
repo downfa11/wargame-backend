@@ -1,7 +1,6 @@
 package com.ns.feed.entity.dto;
 
 import com.ns.feed.entity.Comment;
-import com.ns.wargame.Domain.Comment;
 import lombok.*;
 
 import java.time.LocalDateTime;
