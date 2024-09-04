@@ -21,17 +21,21 @@ public class CommentController {
     private final JwtTokenProvider jwtTokenProvider;
 
     @PostMapping("")
-    public Mono<ResponseEntity<messageEntity>> createComment(@RequestBody CommentRegisterRequest request, ServerWebExchange exchange) {
-        return jwtTokenProvider.getMembershipIdByToken(exchange)
-                .flatMap(idx -> {
-                    if (idx == 0) {
-                        return Mono.just(ResponseEntity.ok().body(new messageEntity("Fail", "Not Authorization or boardId is incorrect.")));
-                    }
-                    return commentService.create(idx, request)
+    public Mono<ResponseEntity<messageEntity>> createComment(@RequestParam Long idx, @RequestBody CommentRegisterRequest request, ServerWebExchange exchange) {
+//        return jwtTokenProvider.getMembershipIdByToken(exchange)
+//                .flatMap(idx -> {
+//                    if (idx == 0) {
+//                        return Mono.just(ResponseEntity.ok().body(new messageEntity("Fail", "Not Authorization or boardId is incorrect.")));
+//                    }
+//                    return commentService.create(idx, request)
+//                            .map(comment -> ResponseEntity.ok().body(new messageEntity("Success", comment)))
+//                            .defaultIfEmpty(ResponseEntity.ok().body(new messageEntity("Fail", "Post is empty.")));
+//                })
+//                .onErrorResume(e -> Mono.just(ResponseEntity.ok().body(new messageEntity("Fail", "JwtToken is Invalid."))));
+
+        return commentService.create(idx, request)
                             .map(comment -> ResponseEntity.ok().body(new messageEntity("Success", comment)))
                             .defaultIfEmpty(ResponseEntity.ok().body(new messageEntity("Fail", "Post is empty.")));
-                })
-                .onErrorResume(e -> Mono.just(ResponseEntity.ok().body(new messageEntity("Fail", "JwtToken is Invalid."))));
     }
 
     @PatchMapping("")

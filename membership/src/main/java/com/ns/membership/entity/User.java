@@ -18,12 +18,13 @@ import java.time.LocalDateTime;
 public class User {
     @Id
     private Long id;
+    private String account;
     private String email;
     private String password;
     private String name;
     private Long elo;
 
-    private String curGameSpaceCode;
+    private String code;
     private String refreshToken;
 
     @CreatedDate

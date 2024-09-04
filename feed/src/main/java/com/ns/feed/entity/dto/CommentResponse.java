@@ -23,6 +23,7 @@ public class CommentResponse {
         return CommentResponse.builder()
                 .id(comment.getId())
                 .userId(comment.getUserId())
+                .nickname(comment.getNickname())
                 .boardId(comment.getBoardId())
                 .body(comment.getContent())
                 .createdAt(comment.getCreatedAt())

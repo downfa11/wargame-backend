@@ -28,6 +28,8 @@ import reactor.util.function.Tuples;
 
 import java.time.Duration;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Service
@@ -47,15 +49,20 @@ public class MatchQueueService implements ApplicationRunner {
 
     private final ObjectMapper mapper = new ObjectMapper();
 
-    private final ReactiveKafkaProducerTemplate<String, Task> MatchProducerTemplate;
-    private final ReactiveKafkaConsumerTemplate<String, Task> MembershipConsumerTemplate;
+    private final ReactiveKafkaConsumerTemplate<String, Task> TaskRequestConsumerTemplate;
+    private final ReactiveKafkaConsumerTemplate<String, Task> TaskResponseConsumerTemplate;
+    private final ReactiveKafkaProducerTemplate<String, Task> taskProducerTemplate;
 
     private final TaskUseCase taskUseCase;
 
+    private final ConcurrentHashMap<String, Task> taskResults = new ConcurrentHashMap<>();
+    private final int MAX_TASK_RESULT_SIZE = 5000;
+
 
     public Mono<Void> sendTask(String topic, Task task){
+        log.info("send ["+topic+"]: "+task.toString());
         String key = task.getTaskID();
-        return MatchProducerTemplate.send(topic, key, task).then();
+        return taskProducerTemplate.send(topic, key, task).then();
     }
 
 
@@ -85,27 +92,29 @@ public class MatchQueueService implements ApplicationRunner {
                             subTasks
                     );
 
-                    return sendTask("Post", task)
-                            .then(waitForTaskResult(task.getTaskID()))
-                            .flatMap(result -> processTaskResult(result, queue, userId))
+                    return sendTask("task.membership.response", task)
+                            .then(waitForMatchTaskResult(task.getTaskID(),queue,userId))
                             .doFinally(signal -> releaseLock(lockKey, lockValue).subscribe());
                 });
     }
 
-    private Mono<String> processTaskResult(String result, String queue, Long userId) {
-        try {
-            Task taskData = mapper.readValue(result, Task.class);
-            return Flux.fromIterable(taskData.getSubTaskList())
-                    .filter(subTaskItem -> "success".equals(subTaskItem.getStatus()))
-                    .flatMap(subTaskItem -> {
-                        MatchUserResponse matchResponse = mapper.convertValue(subTaskItem.getData(), MatchUserResponse.class);
-                        return handleMatchResponse(matchResponse, queue, userId);
+    private Mono<String> waitForMatchTaskResult(String taskId, String queue, Long userId) {
+        return Mono.defer(() -> {
+            return Mono.fromCallable(() -> {
+                        while (true) {
+                            Task resultTask = taskResults.get(taskId);
+                            if (resultTask != null) {
+                                MatchUserResponse matchResponse = mapper.convertValue(resultTask.getSubTaskList().get(0), MatchUserResponse.class);
+                                return matchResponse;
+                            }
+                            Thread.sleep(50);
+                        }
                     })
-                    .next() // Convert Flux<String> to Mono<String> by taking the first emitted item
-                    .switchIfEmpty(Mono.error(new RuntimeException("No successful subtask found in task result.")));
-        } catch (JsonProcessingException e) {
-            return Mono.error(new RuntimeException("Error processing task result", e));
-        }
+                    .subscribeOn(Schedulers.boundedElastic())
+                    .timeout(Duration.ofSeconds(3))
+                    .flatMap(matchResponse -> handleMatchResponse(matchResponse, queue, userId))
+                    .onErrorResume(e -> Mono.error(new RuntimeException("waitForMatchTaskResult error : ", e)));
+        });
     }
 
     private Mono<String> handleMatchResponse(MatchUserResponse user, String queue, Long userId) {
@@ -122,14 +131,17 @@ public class MatchQueueService implements ApplicationRunner {
                 .thenReturn("{\"userId\":\"" + userId + "\", \"name\":\"" + name + "\", \"elo\":\"" + elo + "\"}");
     }
 
-    private Mono<String> waitForTaskResult(String taskId) {
-        return MembershipConsumerTemplate
-                .receive()
+    private Flux<Task> waitForTaskResult(String taskId) {
+
+        return TaskRequestConsumerTemplate
+                .receiveAutoAck()
                 .filter(record -> taskId.equals(record.key()))
-                .map(record -> record.value().toString())
-                .next() // Convert Flux<String> to Mono<String> by taking the first emitted item
-                .timeout(Duration.ofSeconds(5))
-                .onErrorResume(throwable -> Mono.error(new RuntimeException("Timeout while waiting for task result", throwable)));
+                .doOnNext(record -> log.info("TaskRequestConsumerTemplate received : Key = {}, Value = {}", record.key(), record.value()))
+                .map(record -> record.value())
+                .onErrorResume(throwable -> {
+                    log.error("Error occurred: {}", throwable.getMessage());
+                    return Flux.empty();
+                });
     }
 
 
@@ -167,28 +179,21 @@ public class MatchQueueService implements ApplicationRunner {
                             String.valueOf(userId),
                             subTasks);
 
-                    return sendTask("Post", task)
-                            .then(waitForTaskResult(task.getTaskID()))
-                            .flatMap(result -> processCancelTaskResult(result, userId))
-                            .doFinally(signal -> releaseLock(lockKey, lockValue).subscribe());
+                    return sendTask("task.membership.response", task)
+                            .thenMany(waitForTaskResult(task.getTaskID()))
+                            .flatMap(result -> Flux.fromIterable(result.getSubTaskList())
+                                    .filter(subTaskItem -> subTaskItem.getStatus().equals(SubTask.TaskStatus.success)))
+                            .flatMap(subTaskItem ->
+                                    processCancelTaskResult(subTaskItem, userId)
+                                    .doFinally(signal -> releaseLock(lockKey, lockValue).subscribe())
+                            ).then();
+
                 });
     }
 
-    private Mono<Void> processCancelTaskResult(String result, Long userId) {
-        ObjectMapper objectMapper = new ObjectMapper();
-
-        try {
-            Task taskData = objectMapper.readValue(result, Task.class);
-            return Flux.fromIterable(taskData.getSubTaskList())
-                    .filter(subTaskItem -> "success".equals(subTaskItem.getStatus()))
-                    .flatMap(subTaskItem -> {
-                        MatchUserResponse matchResponse = objectMapper.convertValue(subTaskItem.getData(), MatchUserResponse.class);
-                        return handleCancelMatchResponse(matchResponse, userId);
-                    })
-                    .then(); // Convert Flux<Void> to Mono<Void>
-        } catch (JsonProcessingException e) {
-            return Mono.error(new RuntimeException("Error processing task result", e));
-        }
+    private Mono<Void> processCancelTaskResult(SubTask subTask, Long userId) {
+        MatchUserResponse matchResponse = mapper.convertValue(subTask.getData(), MatchUserResponse.class);
+        return handleCancelMatchResponse(matchResponse, userId);
     }
 
     private Mono<Void> handleCancelMatchResponse(MatchUserResponse user, Long userId) {
@@ -205,7 +210,7 @@ public class MatchQueueService implements ApplicationRunner {
 
 
 
-    //몇번째 순위로 대기중인지 반환합니다.
+    //몇번째 순위로 대기중인지 반환
     public Mono<Long> getRank(final String queue, final Long userId) {
         String lockKey = "lock:getRank:" + userId;
         String lockValue = UUID.randomUUID().toString();
@@ -265,7 +270,7 @@ public class MatchQueueService implements ApplicationRunner {
 
                                     Task task = taskUseCase.createTask("Match Request", null, subTasks);
 
-                                    return sendTask("membership", task)
+                                    return sendTask("task.membership.response", task)
                                             .then(reactiveRedisTemplate.unlink(key))
                                             .then(Mono.just(Tuples.of(MatchStatus.MATCH_FOUND, matchResponse)));
 
@@ -338,7 +343,7 @@ public class MatchQueueService implements ApplicationRunner {
                                                             SubTask.TaskStatus.ready,
                                                             matchResponse));
 
-                                            return sendTask("match", taskUseCase.createTask(
+                                            return sendTask("task.match.response", taskUseCase.createTask(
                                                     "Match response",
                                                     null,
                                                             subTasks))
@@ -375,7 +380,7 @@ public class MatchQueueService implements ApplicationRunner {
     @Override
     public void run(ApplicationArguments args){
 
-        this.MembershipConsumerTemplate
+        this.TaskResponseConsumerTemplate
                 .receiveAutoAck()
                 .doOnNext(r -> {
                     Task task = r.value();
@@ -383,9 +388,10 @@ public class MatchQueueService implements ApplicationRunner {
                     List<SubTask> subTasks = task.getSubTaskList();
 
                     for(var subtask : subTasks){
+
+                        log.info("TaskResponseConsumerTemplate received : "+subtask.toString());
                         try {
                             switch (subtask.getSubTaskName()) {
-
                                 default:
                                     log.warn("Unknown subtask: {}", subtask.getSubTaskName());
                                     break;
@@ -394,6 +400,21 @@ public class MatchQueueService implements ApplicationRunner {
                             log.error("Error processing subtask {}: {}", subtask.getSubTaskName(), e.getMessage());
                         }
                     }
+                })
+                .doOnError(e -> log.error("Error receiving: " + e))
+                .subscribe();
+
+        this.TaskRequestConsumerTemplate
+                .receiveAutoAck()
+                .doOnNext(r -> {
+                    Task task = r.value();
+                    taskResults.put(task.getTaskID(),task);
+
+                    if(taskResults.size() > MAX_TASK_RESULT_SIZE){
+                        taskResults.clear();
+                        log.info("taskResults clear.");
+                    }
+
                 })
                 .doOnError(e -> log.error("Error receiving: " + e))
                 .subscribe();

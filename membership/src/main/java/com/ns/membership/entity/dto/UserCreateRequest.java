@@ -9,7 +9,7 @@ import lombok.Data;
 public class UserCreateRequest {
 
     @NotBlank
-    private String id;
+    private String account;
 
     @NotBlank
     private String password;

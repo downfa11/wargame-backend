@@ -27,17 +27,21 @@ public class PostController {
     private final JwtTokenProvider jwtTokenProvider;
 
     @PostMapping("")
-    public Mono<ResponseEntity<messageEntity>> createPost(@RequestBody PostRegisterRequest request, ServerWebExchange exchange){
-        return jwtTokenProvider.getMembershipIdByToken(exchange)
-                .flatMap(idx -> {
-                    if (idx == 0) {
-                        return Mono.just(ResponseEntity.ok().body(new messageEntity("Fail", "Not Authorization or boardId is incorrect.")));
-                    }
-                return postService.create(idx,request)
-                    .map(board -> ResponseEntity.ok()
-                        .body(new messageEntity("Success", PostResponse.of(board))))
-                    .defaultIfEmpty(ResponseEntity.ok().body(new messageEntity("Fail", "Post is empty.")));
-                });
+    public Mono<ResponseEntity<messageEntity>> createPost(@RequestBody PostRegisterRequest request, @RequestParam Long idx, ServerWebExchange exchange){
+//        return jwtTokenProvider.getMembershipIdByToken(exchange)
+//                .flatMap(idx -> {
+//                    if (idx == 0) {
+//                        return Mono.just(ResponseEntity.ok().body(new messageEntity("Fail", "Not Authorization or boardId is incorrect.")));
+//                    }
+//                return postService.create(idx,request)
+//                    .map(board -> ResponseEntity.ok()
+//                        .body(new messageEntity("Success", PostResponse.of(board))))
+//                    .defaultIfEmpty(ResponseEntity.ok().body(new messageEntity("Fail", "Post is empty.")));
+//                });
+                    return postService.create(idx,request)
+                            .map(board -> ResponseEntity.ok()
+                                    .body(new messageEntity("Success", PostResponse.of(board))))
+                            .defaultIfEmpty(ResponseEntity.ok().body(new messageEntity("Fail", "Post is empty.")));
     }
 
     @PatchMapping("")

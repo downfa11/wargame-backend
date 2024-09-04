@@ -1,7 +1,6 @@
 package com.ns.feed.service;
 
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ns.common.SubTask;
 import com.ns.common.Task;
@@ -13,20 +12,23 @@ import com.ns.feed.entity.dto.CommentResponse;
 import com.ns.feed.repository.CommentR2dbcRepository;
 import com.ns.feed.repository.PostR2dbcRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.reactive.ReactiveKafkaConsumerTemplate;
 import org.springframework.kafka.core.reactive.ReactiveKafkaProducerTemplate;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
+
+import static com.ns.feed.service.PostService.taskResults;
 
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class CommentService {
     private final CommentR2dbcRepository commentR2dbcRepository;
@@ -34,14 +36,18 @@ public class CommentService {
     private final PostService postService;
 
 
-    private final ReactiveKafkaConsumerTemplate<String, Task> MembershipConsumerTemplate;
-    private final ReactiveKafkaProducerTemplate<String, Task> MembershipProducerTemplate;
+    private final ReactiveKafkaConsumerTemplate<String, Task> TaskRequestConsumerTemplate;
+    private final ReactiveKafkaConsumerTemplate<String, Task> TaskResponseConsumerTemplate;
+    private final ReactiveKafkaProducerTemplate<String, Task> taskProducerTemplate;
 
     private final TaskUseCase taskUseCase;
+    private final ObjectMapper objectMapper;
+
 
     public Mono<Void> sendTask(String topic, Task task){
+        log.info("send ["+topic+"]: "+task.toString());
         String key = task.getTaskID();
-        return MembershipProducerTemplate.send(topic, key, task).then();
+        return taskProducerTemplate.send(topic, key, task).then();
     }
 
     public Mono<CommentResponse> create(Long userId, CommentRegisterRequest request) {
@@ -50,47 +56,42 @@ public class CommentService {
 
         return postService.findPostById(boardId)
                 .flatMap(post -> {
-                    Long curComments = post.getComments();
-                    post.setComments(curComments + 1);
-                    return postR2dbcRepository.save(post)
-                            .then(commentR2dbcRepository.save(Comment.builder()
+                    return getUserName(userId)
+                            .flatMap(nickname -> commentR2dbcRepository.save(Comment.builder()
                                     .userId(userId)
+                                    .nickname(nickname)
                                     .boardId(boardId)
                                     .content(content)
-                                    .build()));
+                                    .build()))
+                            .flatMap(savedComment -> {
+                                Long curComments = post.getComments();
+                                post.setComments(curComments + 1);
+                                return postR2dbcRepository.save(post)
+                                        .then(Mono.just(savedComment));
+                            });
                 })
-                .flatMap(savedComment -> getUserName(userId)
-                        .map(username -> {
-                            CommentResponse commentResponse = CommentResponse.of(savedComment);
-                            commentResponse.setNickname(username);
-                            return commentResponse;
-                        }));
+                .flatMap(savedComment -> Mono.just(CommentResponse.of(savedComment)))
+                .switchIfEmpty(Mono.error(new RuntimeException("Post not found")));
     }
-
 
     public Mono<CommentResponse> modify(CommentModifyRequest request) {
         String content = request.getBody();
 
         return commentR2dbcRepository.findById(request.getCommentId())
-                .flatMap(post -> {
-                    post.setContent(content);
-                    return commentR2dbcRepository.save(post);
-                }).flatMap(savedComment -> getUserName(savedComment.getUserId())
-                        .map(username -> {
-                            CommentResponse commentResponse = CommentResponse.of(savedComment);
-                            commentResponse.setNickname(username);
-                            return commentResponse;
-                        }))
+                .flatMap(comment -> {
+                    comment.setContent(content);
+                    return getUserName(comment.getUserId())
+                            .doOnNext(nickname -> comment.setNickname(nickname))
+                            .then(commentR2dbcRepository.save(comment)); })
+                        .flatMap(savedComment -> Mono.just(CommentResponse.of(savedComment)))
                 .switchIfEmpty(Mono.error(new RuntimeException("Comment or category not found")));
     }
     public Mono<CommentResponse> findById(Long id){
         return commentR2dbcRepository.findById(id)
-                .flatMap(comments -> getUserName(comments.getUserId())
-                .map(username -> {
-                    CommentResponse commentResponse = CommentResponse.of(comments);
-                    commentResponse.setNickname(username);
+                .map(comment -> {
+                    CommentResponse commentResponse = CommentResponse.of(comment);
                     return commentResponse;
-                }));
+                });
     }
 
     public Flux<Comment> findAllByBoardId(Long boardId) {return commentR2dbcRepository.findByBoardId(boardId);}
@@ -126,33 +127,27 @@ public class CommentService {
                 String.valueOf(membershipId),
                 subTasks);
 
-        return sendTask("Post",task)
-                .thenMany(waitForTaskResult(task.getTaskID()))
-                .flatMap(result -> {
-                    ObjectMapper objectMapper = new ObjectMapper();
-                    try {
-                        Task taskData = objectMapper.readValue(result, Task.class);
-                        return Flux.fromIterable(taskData.getSubTaskList())
-                                .filter(subTaskItem -> "success".equals(subTaskItem.getStatus()))
-                                .flatMap(subTaskItem -> {
-                                    String username = (String) subTaskItem.getData();
-                                    return Mono.just(username);
-                                });
-                    } catch (JsonProcessingException e) {
-                        return Flux.error(new RuntimeException("Error processing task result", e));
-                    }
-                }).single();
-
+        return sendTask("task.membership.response",task)
+                .then(waitForGetUserNameTaskResult(task.getTaskID()));
     }
 
-    private Flux<String> waitForTaskResult(String taskId) {
-        return MembershipConsumerTemplate
-                .receive()
-                .filter(record -> taskId.equals(record.key()))
-                .map(record -> record.value().toString())
-                .timeout(Duration.ofSeconds(5))
-                .onErrorResume(throwable -> {
-                    return Flux.error(new RuntimeException("Timeout while waiting for task result", throwable));
-                });
-        }
+    private Mono<String> waitForGetUserNameTaskResult(String taskId) {
+        return Mono.defer(() -> {
+            return Mono.fromCallable(() -> {
+                        while (true) {
+                            Task resultTask = taskResults.get(taskId);
+                            if (resultTask != null) {
+                                log.info("resultTask : " + resultTask);
+                                SubTask subTask = resultTask.getSubTaskList().get(0);
+                                return String.valueOf(subTask.getData());
+                            }
+                            Thread.sleep(50);
+                        }
+                    })
+                    .subscribeOn(Schedulers.boundedElastic())
+                    .timeout(Duration.ofSeconds(3))
+                    .onErrorResume(e -> Mono.error(new RuntimeException("waitForUserPostsTaskResult error : ", e)));
+        });
+    }
+
 }

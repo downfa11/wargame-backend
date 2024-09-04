@@ -1,7 +1,6 @@
 package com.ns.membership.service;
 
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ns.common.SubTask;
 import com.ns.common.Task;
@@ -24,9 +23,13 @@ import org.springframework.kafka.core.reactive.ReactiveKafkaProducerTemplate;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.time.Duration;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 @Service
 @Slf4j
@@ -38,16 +41,21 @@ public class UserService implements ApplicationRunner {
     private final VaultAdapter vaultAdapter;
 
 
-    private final ReactiveKafkaConsumerTemplate<String, Task> PostConsumerTemplate;
-    private final ReactiveKafkaProducerTemplate<String, Task> PostProducerTemplate;
+    private final ReactiveKafkaConsumerTemplate<String, Task> TaskRequestConsumerTemplate;
+    private final ReactiveKafkaConsumerTemplate<String, Task> TaskResponseConsumerTemplate;
+    private final ReactiveKafkaProducerTemplate<String, Task> TaskProducerTemplate;
 
     private final TaskUseCase taskUseCase;
+    private final ObjectMapper objectMapper;
+
+    private final ConcurrentHashMap<String, Task> taskResults = new ConcurrentHashMap<>();
+    private final int MAX_TASK_RESULT_SIZE = 5000;
 
     public Mono<Void> sendTask(String topic, Task task){
+        log.info("send ["+topic+"]: "+task.toString());
         String key = task.getTaskID();
-        return PostProducerTemplate.send(topic, key, task).then();
+        return TaskProducerTemplate.send(topic, key, task).then();
     }
-
     public Mono<User> create(UserCreateRequest request) {
 
         String encryptedPassword = vaultAdapter.encrypt(request.getPassword());
@@ -62,11 +70,12 @@ public class UserService implements ApplicationRunner {
                 .flatMap(existingUserList -> {
                     if (existingUserList.isEmpty()) {
                         return userRepository.save(User.builder()
+                                .account(request.getAccount())
                                 .password(encryptedPassword)
                                 .name(request.getName())
                                 .email(request.getEmail())
                                         .elo(2000L)
-                                        .curGameSpaceCode("")
+                                        .code("")
                                 .build());
                     } else {
                         return Mono.error(new RuntimeException("Duplicated data."));
@@ -77,7 +86,7 @@ public class UserService implements ApplicationRunner {
         String encryptedPassword = vaultAdapter.encrypt(request.getPassword());
         log.info("encrypt password : " + encryptedPassword);
 
-        return userRepository.findByEmailAndPassword(request.getEmail(), encryptedPassword)
+        return userRepository.findByAccountAndPassword(request.getAccount(), encryptedPassword)
                 .flatMap(user -> {
                     String id = user.getId().toString();
                     Mono<String> jwtMono = jwtTokenProvider.generateJwtToken(id);
@@ -98,17 +107,14 @@ public class UserService implements ApplicationRunner {
                                         });
                             });
                 })
-                .switchIfEmpty(Mono.error(new RuntimeException("Invalid credentials id:"+request.getEmail()+" pw:"+request.getPassword())));
+                .switchIfEmpty(Mono.error(new RuntimeException("Invalid credentials id:"+request.getAccount()+" pw:"+request.getPassword())));
     }
-
     public Flux<User> findAll(){
         return userRepository.findAll().flatMap(user -> decryptUserData(user));
     }
-
     public Mono<User> findById(Long id){
         return userRepository.findById(id).flatMap(this::decryptUserData);
     }
-
     public Mono<Void> deleteById(Long id){
         return userRepository.deleteById(id)
                 .then(Mono.empty());
@@ -119,33 +125,32 @@ public class UserService implements ApplicationRunner {
                             .thenReturn(user.getId()))
                 .then(Mono.empty());
     }
-
-    public Mono<User> update(Long id, String name, String email,String password){
+    public Mono<User> update(Long id,String account, String name, String email,String password){
         String encryptedPassword = vaultAdapter.encrypt(password);
 
         return userRepository.findById(id)
                 .flatMap(u -> {
                     u.setName(name);
                     u.setEmail(email);
+                    u.setAccount(account);
                     u.setPassword(encryptedPassword);
                     return userRepository.save(u);
                 });
                 // map으로 하면 Mono<Mono<User>>를 반환
     }
-
     private Mono<User> decryptUserData(User user) {
         String decryptedPassword = vaultAdapter.decrypt(user.getPassword());
 
         User decryptedUser = new User();
         decryptedUser.setId(user.getId());
+        decryptedUser.setAccount(user.getAccount());
         decryptedUser.setEmail(user.getEmail());
         decryptedUser.setPassword(decryptedPassword);
         decryptedUser.setName(user.getName());
         decryptedUser.setElo(user.getElo());
-        decryptedUser.setCurGameSpaceCode(user.getCurGameSpaceCode());
+        decryptedUser.setCode(user.getCode());
         return Mono.just(decryptedUser);
     }
-
     public Mono<jwtToken> refreshJwtToken(String refreshToken) {
 
         return jwtTokenProvider.validateJwtToken(refreshToken)
@@ -169,11 +174,9 @@ public class UserService implements ApplicationRunner {
                             );
                 });
     }
-
     public Mono<Boolean> validateJwtToken(String token) {
         return jwtTokenProvider.validateJwtToken(token);
     }
-
     public Mono<User> getMembershipByJwtToken(String token) {
 
         return validateJwtToken(token)
@@ -196,7 +199,7 @@ public class UserService implements ApplicationRunner {
     @Override
     public void run(ApplicationArguments args){
 
-        this.PostConsumerTemplate
+        this.TaskResponseConsumerTemplate
                 .receiveAutoAck()
                 .doOnNext(r -> {
                     Task task = r.value();
@@ -204,10 +207,18 @@ public class UserService implements ApplicationRunner {
                     List<SubTask> subTasks = task.getSubTaskList();
 
                     for(var subtask : subTasks){
+
+                        log.info("TaskResponseConsumerTemplate received : "+subtask.toString());
                         try {
                             switch (subtask.getSubTaskName()) {
                                 case "MatchUserNameByMembershipId":
-                                    handleMatchUserName(subtask);
+                                    handleMatchUserName(task.getTaskID(), subtask);
+                                    break;
+                                case "PostUserNameByMembershipId":
+                                    handlePostUserName(task.getTaskID(), subtask);
+                                    break;
+                                case "CommentUserNameByMembershipId":
+                                    handleCommentUserName(task.getTaskID(), subtask);
                                     break;
                                 case "MatchUserCodeByMembershipId":
                                     handleMatchUserCode(subtask);
@@ -232,9 +243,24 @@ public class UserService implements ApplicationRunner {
                 })
                 .doOnError(e -> log.error("Error receiving: " + e))
                 .subscribe();
+
+        this.TaskRequestConsumerTemplate
+                .receiveAutoAck()
+                .doOnNext(r -> {
+                    Task task = r.value();
+                    taskResults.put(task.getTaskID(),task);
+
+                    if(taskResults.size() > MAX_TASK_RESULT_SIZE){
+                        taskResults.clear();
+                        log.info("taskResults clear.");
+                    }
+
+                })
+                .doOnError(e -> log.error("Error receiving: " + e))
+                .subscribe();
     }
 
-    private void handleMatchUserName(SubTask subtask) {
+    private void handleMatchUserName(String taskId, SubTask subtask) {
         Long membershipId = Long.parseLong(subtask.getMembershipId());
 
         userRepository.findById(membershipId)
@@ -247,10 +273,11 @@ public class UserService implements ApplicationRunner {
                             taskUseCase.createSubTask("MatchUserNameByMembershipId",
                             String.valueOf(membershipId),
                             SubTask.TaskType.match,
-                            SubTask.TaskStatus.ready,
+                            SubTask.TaskStatus.success,
                             nickname));
 
-                    return sendTask("Match", taskUseCase.createTask(
+                    return sendTask("task.match.request", taskUseCase.createTask(
+                            taskId,
                             "Match Request - Nickname",
                             String.valueOf(membershipId),
                             subTasks));
@@ -260,13 +287,69 @@ public class UserService implements ApplicationRunner {
                 .subscribe();
     }
 
+    private void handlePostUserName(String taskId, SubTask subtask) {
+        Long membershipId = Long.parseLong(subtask.getMembershipId());
+
+        userRepository.findById(membershipId)
+                .flatMap(user -> {
+                    String nickname = user.getName();
+
+                    List<SubTask> subTasks = new ArrayList<>();
+
+                    subTasks.add(
+                            taskUseCase.createSubTask("PostUserNameByMembershipId",
+                                    String.valueOf(membershipId),
+                                    SubTask.TaskType.post,
+                                    SubTask.TaskStatus.success,
+                                    nickname));
+
+                    return sendTask("task.post.request", taskUseCase.createTask(
+                            taskId,
+                            "Post Request - Nickname",
+                            String.valueOf(membershipId),
+                            subTasks));
+
+                })
+                .doOnError(e -> log.error("Error handling MatchUserName for membershipId {}: {}", membershipId, e.getMessage()))
+                .subscribe();
+    }
+
+    private void handleCommentUserName(String taskId, SubTask subtask) {
+        Long membershipId = Long.parseLong(subtask.getMembershipId());
+
+        userRepository.findById(membershipId)
+                .flatMap(user -> {
+                    String nickname = user.getName();
+
+                    List<SubTask> subTasks = new ArrayList<>();
+
+                    subTasks.add(
+                            taskUseCase.createSubTask("CommentUserNameByMembershipId",
+                                    String.valueOf(membershipId),
+                                    SubTask.TaskType.post,
+                                    SubTask.TaskStatus.success,
+                                    nickname));
+
+                    return sendTask("task.post.request", taskUseCase.createTask(
+                            taskId,
+                            "Comment Request - Nickname",
+                            String.valueOf(membershipId),
+                            subTasks));
+
+                })
+                .doOnError(e -> log.error("Error handling MatchUserName for membershipId {}: {}", membershipId, e.getMessage()))
+                .subscribe();
+    }
+
+
     private void handleMatchUserCode(SubTask subtask) {
         Long membershipId = Long.parseLong(subtask.getMembershipId());
 
         userRepository.findById(membershipId)
                 .flatMap(user -> {
-                    String spaceId = "someSpaceId";
-                    user.setCurGameSpaceCode(spaceId);
+                    String spaceId = String.valueOf(subtask.getData());
+                    user.setCode(spaceId);
+                    log.info(user.getName()+" 사용자의 code는 "+spaceId+"입니다.");
                     return userRepository.save(user);
                 })
                 .doOnError(e -> log.error("Error handling MatchUserCode for membershipId {}: {}", membershipId, e.getMessage()))
@@ -297,7 +380,7 @@ public class UserService implements ApplicationRunner {
 
         userRepository.findById(membershipId)
                 .flatMap(user -> {
-                    user.setCurGameSpaceCode("");
+                    user.setCode("");
                     return userRepository.save(user);
                 })
                 .doOnError(e -> log.error("Error handling ResultUserDodge for membershipId {}: {}", membershipId, e.getMessage()))
@@ -320,36 +403,33 @@ public class UserService implements ApplicationRunner {
                 String.valueOf(membershipId),
                 subTasks);
 
-        return sendTask("Post",task)
-                .thenMany(waitForTaskResult(task.getTaskID()))
-                .flatMap(result -> {
-                    ObjectMapper objectMapper = new ObjectMapper();
-                    try {
-                        Task taskData = objectMapper.readValue(result, Task.class);
-                        return Flux.fromIterable(taskData.getSubTaskList())
-                                .filter(subTaskItem -> "success".equals(subTaskItem.getStatus()))
-                                .flatMap(subTaskItem -> {
-                                    PostSummary postSummary = objectMapper.convertValue(subTaskItem.getData(), PostSummary.class);
-                                    return Mono.just(postSummary);
-                                });
-                    } catch (JsonProcessingException e) {
-                        return Flux.error(new RuntimeException("Error processing task result", e));
-                    }
-                })
-                .collectList();
-
+        return sendTask("task.post.response",task)
+                .then(waitForUserPostsTaskResult(task.getTaskID()));
     }
 
-    private Flux<String> waitForTaskResult(String taskId) {
-        return PostConsumerTemplate
-                .receive()
-                .filter(record -> taskId.equals(record.key()))
-                .map(record -> record.value().toString())
-                .timeout(Duration.ofSeconds(5))
-                .onErrorResume(throwable -> {
-                    return Flux.error(new RuntimeException("Timeout while waiting for task result", throwable));
-                });
+    private Mono<List<PostSummary>> waitForUserPostsTaskResult(String taskId) {
+        return Mono.defer(() -> {
+            return Mono.fromCallable(() -> {
+                        while (true) {
+                            Task resultTask = taskResults.get(taskId);
+                            if (resultTask != null) {
+                                List<PostSummary> postSummaries = convertToPostSummaries(resultTask);
+                                return postSummaries;
+                            }
+                            Thread.sleep(50);
+                        }
+                    })
+                    .subscribeOn(Schedulers.boundedElastic())
+                    .timeout(Duration.ofSeconds(3))
+                    .onErrorResume(e -> Mono.error(new RuntimeException("waitForUserPostsTaskResult error : ", e)));
+        });
     }
 
+    private List<PostSummary> convertToPostSummaries(Task task) {
+        return task.getSubTaskList().stream()
+                .filter(subTaskItem -> subTaskItem.getStatus().equals(SubTask.TaskStatus.success))
+                .map(subTaskItem -> objectMapper.convertValue(subTaskItem.getData(), PostSummary.class))
+                .toList();
+    }
 
 }

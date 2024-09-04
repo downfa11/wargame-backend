@@ -18,9 +18,17 @@ public class TaskUseCase {
                         .build();
     }
 
-    public Task createTask(String taskName, String membershipId,List<SubTask> subTasks){
+    public Task createTask(String taskName, String membershipId, List<SubTask> subTasks) {
+        return createTask(null, taskName, membershipId, subTasks);
+    }
+
+    public Task createTask(String taskID, String taskName, String membershipId, List<SubTask> subTasks) {
+        if (taskID == null || taskID.isEmpty()) {
+            taskID = UUID.randomUUID().toString();
+        }
+
         return Task.builder()
-                .taskID(String.valueOf(UUID.randomUUID()))
+                .taskID(taskID)
                 .taskName(taskName)
                 .membershipId(membershipId)
                 .subTaskList(subTasks)

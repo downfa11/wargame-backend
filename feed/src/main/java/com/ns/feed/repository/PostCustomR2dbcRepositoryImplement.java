@@ -18,10 +18,8 @@ public class PostCustomR2dbcRepositoryImplement implements PostCustomR2dbcReposi
     @Override
     public Flux<Post> findAllByUserId(Long userId) {
         var sql = """
-                SELECT p.id, p.user_id, p.category_id, p.title, p.content, p.sort_status, p.created_at, p.updated_at,
-                   u.id as uid, u.password, u.name, u.email, u.elo, u.created_at as u_created_at, u.updated_at as u_updated_at
+                SELECT p.id, p.user_id, p.nickname, p.category_id, p.title, p.content, p.sort_status, p.created_at, p.updated_at
                 FROM posts p
-                LEFT JOIN users u ON p.user_id = u.id
                 WHERE p.user_id = :userId
                 """;
         return databaseClient.sql(sql)
@@ -29,6 +27,7 @@ public class PostCustomR2dbcRepositoryImplement implements PostCustomR2dbcReposi
                 .map(row -> Post.builder()
                         .id(row.get("id", Long.class))
                         .userId(row.get("user_id", Long.class))
+                        .nickname(row.get("nickname",String.class))
                         .categoryId(row.get("category_id", Long.class))
                         .title(row.get("title", String.class))
                         .content(row.get("content", String.class))

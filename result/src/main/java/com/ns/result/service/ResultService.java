@@ -1,6 +1,7 @@
 package com.ns.result.service;
 
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ns.common.SubTask;
 import com.ns.common.Task;
 import com.ns.common.TaskUseCase;
@@ -22,6 +23,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
 @Service
@@ -31,14 +33,20 @@ public class ResultService implements ApplicationRunner {
 
     private final ResultRepository resultRepository;
 
-    private final ReactiveKafkaConsumerTemplate<String, Task> resultConsumerTemplate;
-    private final ReactiveKafkaProducerTemplate<String, Task> membershipProducerTemplate;
+    private final ReactiveKafkaConsumerTemplate<String, Task> TaskRequestConsumerTemplate;
+    private final ReactiveKafkaConsumerTemplate<String, Task> TaskResponseConsumerTemplate;
+    private final ReactiveKafkaProducerTemplate<String, Task> taskProducerTemplate;
 
     private final TaskUseCase taskUseCase;
+    private final ObjectMapper objectMapper;
+
+    private final ConcurrentHashMap<String, Task> taskResults = new ConcurrentHashMap<>();
+    private final int MAX_TASK_RESULT_SIZE = 5000;
 
     public Mono<Void> sendTask(String topic, Task task){
+        log.info("send ["+topic+"]: "+task.toString());
         String key = task.getTaskID();
-        return membershipProducerTemplate.send(topic, key, task).then();
+        return taskProducerTemplate.send(topic, key, task).then();
     }
 
     private Map<Long ,Long> requestTeamElo(List<Long> membershipIds){
@@ -95,7 +103,7 @@ public class ResultService implements ApplicationRunner {
                 .flatMap(updatedEloMap -> {
                     List<SubTask> subTasks = createSubTasksUpdateElo(updatedEloMap);
 
-                    return sendTask("membership", taskUseCase.createTask(
+                    return sendTask("task.membership.response", taskUseCase.createTask(
                             "Elo Update",
                             null,
                             subTasks));
@@ -190,12 +198,11 @@ public class ResultService implements ApplicationRunner {
 
                 })
                 .collectList()
-                .flatMap(subTasks -> {
-                    return sendTask("membership", taskUseCase.createTask(
+                .flatMap(subTasks -> sendTask("task.membership.response", taskUseCase.createTask(
                             "Dodge Request",
                             null,
-                            subTasks));
-                });
+                            subTasks))
+                );
     }
 
 
@@ -206,22 +213,46 @@ public class ResultService implements ApplicationRunner {
     @Override
     public void run(ApplicationArguments args){
 
-        this.resultConsumerTemplate
+        this.TaskResponseConsumerTemplate
                 .receiveAutoAck()
                 .doOnNext(r -> {
-                    log.info("received message : "+r.value());
                     Task task = r.value();
 
-                    ResultRequest result = new ResultRequest();
+                    List<SubTask> subTasks = task.getSubTaskList();
+
+                    for(var subtask : subTasks){
+
+                        log.info("TaskResponseConsumerTemplate received : "+subtask.toString());
+                        try {
+                            switch (subtask.getSubTaskName()) {
+                                case "ReceivedResult":
+                                    ResultRequest result = objectMapper.convertValue(subtask.getData(),ResultRequest.class);
+                                    saveResult(result);
+                                    log.info("save result : "+result);
+                                    break;
+                                default:
+                                    log.warn("Unknown subtask: {}", subtask.getSubTaskName());
+                                    break;
+                            }
+                        } catch (Exception e) {
+                            log.error("Error processing subtask {}: {}", subtask.getSubTaskName(), e.getMessage());
+                        }
+                    }
+                })
+                .doOnError(e -> log.error("Error receiving: " + e))
+                .subscribe();
 
 
-                    String state = result.getState();
+        this.TaskRequestConsumerTemplate
+                .receiveAutoAck()
+                .doOnNext(r -> {
+                    Task task = r.value();
+                    taskResults.put(task.getTaskID(),task);
 
-                    if(state.equals("success")){
-                        saveResult(result).subscribe();}
-
-                    else if(state.equals("dodge")){
-                        dodge(result).subscribe();}
+                    if(taskResults.size() > MAX_TASK_RESULT_SIZE){
+                        taskResults.clear();
+                        log.info("taskResults clear.");
+                    }
 
                 })
                 .doOnError(e -> log.error("Error receiving: " + e))

@@ -26,7 +26,7 @@ public class UserResponse {
                 .name(user.getName())
                 .email(user.getEmail())
                 .elo(user.getElo())
-                .curGameSpaceCode(user.getCurGameSpaceCode())
+                .curGameSpaceCode(user.getCode())
                 .refreshToken(user.getRefreshToken())
                 .createAt(user.getCreatedAt())
                 .updateAt(user.getUpdatedAt())

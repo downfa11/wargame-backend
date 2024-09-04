@@ -10,7 +10,7 @@ import reactor.core.publisher.Mono;
 
 public interface PostR2dbcRepository extends ReactiveCrudRepository<Post,Long>,  PostCustomR2dbcRepository {
 
-    Flux<Post> findByuserId(Long id);
+    Flux<Post> findByUserId(Long id);
     Flux<Post> findAllByCategoryId(Long categoryId, Pageable pageable);
     Mono<Long> countByCategoryId(Long categoryId);
 }

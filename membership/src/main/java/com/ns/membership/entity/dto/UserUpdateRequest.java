@@ -12,6 +12,9 @@ public class UserUpdateRequest {
     private String name;
 
     @NotBlank
+    private String account;
+
+    @NotBlank
     private String email;
 
     @NotBlank

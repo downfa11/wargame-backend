@@ -1,6 +1,7 @@
 package com.ns.feed.service;
 
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ns.common.SubTask;
 import com.ns.common.Task;
 import com.ns.common.TaskUseCase;
@@ -24,9 +25,13 @@ import org.springframework.kafka.core.reactive.ReactiveKafkaProducerTemplate;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
+import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Service
@@ -43,14 +48,20 @@ public class PostService implements ApplicationRunner {
     private final CategoryService categoryService;
 
 
-    private final ReactiveKafkaConsumerTemplate<String, Task> MembershipConsumerTemplate;
-    private final ReactiveKafkaProducerTemplate<String, Task> MembershipProducerTemplate;
+    private final ReactiveKafkaConsumerTemplate<String, Task> TaskRequestConsumerTemplate;
+    private final ReactiveKafkaConsumerTemplate<String, Task> TaskResponseConsumerTemplate;
+    private final ReactiveKafkaProducerTemplate<String, Task> taskProducerTemplate;
 
     private final TaskUseCase taskUseCase;
+    private final ObjectMapper objectMapper;
+
+    public static final ConcurrentHashMap<String, Task> taskResults = new ConcurrentHashMap<>();
+    private final int MAX_TASK_RESULT_SIZE = 5000;
 
     public Mono<Void> sendTask(String topic, Task task){
+        log.info("send ["+topic+"]: "+task.toString());
         String key = task.getTaskID();
-        return MembershipProducerTemplate.send(topic, key, task).then();
+        return taskProducerTemplate.send(topic, key, task).then();
     }
 
     public Mono<Post> create(Long userId, PostRegisterRequest request){
@@ -62,14 +73,16 @@ public class PostService implements ApplicationRunner {
                     String title = request.getTitle();
                     String content = request.getContent();
 
-                    return postR2dbcRepository.save(Post.builder()
-                            .userId(userId)
-                            .categoryId(categoryId)
-                            .sortStatus(status)
-                            .title(title)
-                            .content(content)
-                            .comments(0L)
-                            .build());
+                    return getUserName(userId)
+                            .flatMap(nickname -> postR2dbcRepository.save(Post.builder()
+                                    .userId(userId)
+                                    .nickname(nickname)
+                                    .categoryId(categoryId)
+                                    .sortStatus(status)
+                                    .title(title)
+                                    .content(content)
+                                    .comments(0L)
+                                    .build()));
                 })
                 .switchIfEmpty(Mono.error(new RuntimeException("Category not found")));
     }
@@ -77,14 +90,17 @@ public class PostService implements ApplicationRunner {
     public Mono<Post> modify(PostModifyRequest request){
         long boardId = request.getBoardId();
         return postR2dbcRepository.findById(boardId)
-                .flatMap(post -> categoryService.findById(request.getCategoryId())
+                .flatMap(post -> getUserName(post.getUserId())
+                        .flatMap(nickname -> categoryService.findById(request.getCategoryId())
                         .flatMap(category -> {
                             post.setCategoryId(request.getCategoryId());
+                            post.setNickname(nickname);
                             post.setSortStatus(request.getSortStatus());
                             post.setTitle(request.getTitle());
                             post.setContent(request.getContent());
                             return postR2dbcRepository.save(post);
                         }))
+                )
                 .switchIfEmpty(Mono.error(new RuntimeException("Post or category not found")));
     }
 
@@ -110,7 +126,6 @@ public class PostService implements ApplicationRunner {
         return Mono.zip(postsMono, countMono)
                 .map(tuple -> new PageImpl<>(tuple.getT1(), pageRequest, tuple.getT2()));
     }
-
 
     public Mono<PostResponse> findPostResponseById(Long id){
         return postR2dbcRepository.findById(id)
@@ -161,8 +176,8 @@ public class PostService implements ApplicationRunner {
                 });
     }
 
-    public Mono<List<PostSummary>> findAllByuserId(Long membershipId) {
-        return postR2dbcRepository.findByuserId(membershipId)
+    public Mono<List<PostSummary>> findAllByUserId(Long membershipId) {
+        return postR2dbcRepository.findByUserId(membershipId)
                 .flatMap(post -> getPostViews(post.getId())
                         .flatMap(views -> getLikesCount(post.getId().toString())
                                 .map(likes -> {
@@ -233,7 +248,7 @@ public class PostService implements ApplicationRunner {
     @Override
     public void run(ApplicationArguments args){
 
-        this.MembershipConsumerTemplate
+        this.TaskResponseConsumerTemplate
                 .receiveAutoAck()
                 .doOnNext(r -> {
                     Task task = r.value();
@@ -241,15 +256,15 @@ public class PostService implements ApplicationRunner {
                     List<SubTask> subTasks = task.getSubTaskList();
 
                     for(var subtask : subTasks){
+
+                        log.info("TaskResponseConsumerTemplate received : "+subtask.toString());
                         try {
                             switch (subtask.getSubTaskName()) {
                                 case "PostByMembershipId":
-                                    @SuppressWarnings("unchecked")
-                                    Map<String, Integer> requests = (Map<String, Integer>) subtask.getData();
-                                    String membershipId = requests.get("membershipId").toString();
+                                    String membershipId = String.valueOf(subtask.getData());
 
                                     if (membershipId != null) {
-                                        postByMembershipId(membershipId)
+                                        postByMembershipId(task.getTaskID(),membershipId)
                                                 .doOnError(e -> log.error("PostByMembershipId 처리 중 오류 발생", e))
                                                 .subscribe();
                                     }
@@ -267,27 +282,80 @@ public class PostService implements ApplicationRunner {
                 })
                 .doOnError(e -> log.error("Error receiving: " + e))
                 .subscribe();
+
+        this.TaskRequestConsumerTemplate
+                .receiveAutoAck()
+                .doOnNext(r -> {
+                    Task task = r.value();
+                    taskResults.put(task.getTaskID(),task);
+
+                    if(taskResults.size() > MAX_TASK_RESULT_SIZE){
+                        taskResults.clear();
+                        log.info("taskResults clear.");
+                    }
+
+                })
+                .doOnError(e -> log.error("Error receiving: " + e))
+                .subscribe();
     }
 
-    private Mono<Void> postByMembershipId(String membershipId) {
+    private Mono<Void> postByMembershipId(String taskId, String membershipId) {
         Long memberId = Long.parseLong(String.valueOf(membershipId));
 
-        return findAllByuserId(memberId)
+        return findAllByUserId(memberId)
                 .flatMap(posts -> {
                     List<SubTask> subTasks = posts.stream()
                             .map(postSummary ->
                                     taskUseCase.createSubTask("PostSummary",
                                                     String.valueOf(postSummary.getId()),
                                                             SubTask.TaskType.post,
-                                                            SubTask.TaskStatus.ready,
+                                                            SubTask.TaskStatus.success,
                                                             postSummary))
                             .toList();
 
-                    return sendTask("membership",taskUseCase.createTask(
+                    return sendTask("task.membership.request",taskUseCase.createTask(
+                            taskId,
                             "Post Response",
                             String.valueOf(membershipId),
                             subTasks));
                 });
+    }
+
+    public Mono<String> getUserName(Long membershipId) {
+        List<SubTask> subTasks = new ArrayList<>();
+
+        subTasks.add(
+                taskUseCase.createSubTask("PostUserNameByMembershipId",
+                        String.valueOf(membershipId),
+                        SubTask.TaskType.post,
+                        SubTask.TaskStatus.ready,
+                        membershipId));
+
+        Task task = taskUseCase.createTask(
+                "Post Response",
+                String.valueOf(membershipId),
+                subTasks);
+
+        return sendTask("task.membership.response",task)
+                .then(waitForGetUserNameTaskResult(task.getTaskID()));
+    }
+
+    private Mono<String> waitForGetUserNameTaskResult(String taskId) {
+        return Mono.defer(() -> {
+            return Mono.fromCallable(() -> {
+                        while (true) {
+                            Task resultTask = taskResults.get(taskId);
+                            if (resultTask != null) {
+                                SubTask subTask = resultTask.getSubTaskList().get(0);
+                                return String.valueOf(subTask.getData());
+                            }
+                            Thread.sleep(50);
+                        }
+                    })
+                    .subscribeOn(Schedulers.boundedElastic())
+                    .timeout(Duration.ofSeconds(3))
+                    .onErrorResume(e -> Mono.error(new RuntimeException("waitForUserPostsTaskResult error : ", e)));
+        });
     }
 
 }

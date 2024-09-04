@@ -26,6 +26,8 @@ public class Comment {
     @Column("user_id")
     private Long userId;
 
+    private String nickname;
+
     @Column("board_id")
     private Long boardId;
 

@@ -95,7 +95,7 @@ public class UserController {
                     if(membershipId==0)
                         return Mono.just(ResponseEntity.ok().body(new messageEntity("Fail", "Not Authorization or boardId is incorrect.")));
 
-                    return userService.update(membershipId, request.getName(), request.getEmail(), request.getPassword())
+                    return userService.update(membershipId,request.getAccount(), request.getName(), request.getEmail(), request.getPassword())
                                 .map(user -> ResponseEntity.ok()
                                         .body(new messageEntity("Success", UserResponse.of(user))))
                                 .defaultIfEmpty(ResponseEntity.ok().body(new messageEntity("Fail", "request is not correct.")));
