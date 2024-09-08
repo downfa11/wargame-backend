@@ -2,9 +2,11 @@ package com.ns.membership.entity.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 
 @Data
+@Builder
 @AllArgsConstructor
 public class UserCreateRequest {
 
@@ -19,5 +21,8 @@ public class UserCreateRequest {
 
     @NotBlank
     private String email;
+
+    @NotBlank
+    private String verify;
 
 }
