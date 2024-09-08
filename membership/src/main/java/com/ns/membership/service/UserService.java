@@ -9,10 +9,7 @@ import com.ns.membership.Utils.JwtTokenProvider;
 import com.ns.membership.Utils.Vault.VaultAdapter;
 import com.ns.membership.Utils.jwtToken;
 import com.ns.membership.entity.User;
-import com.ns.membership.entity.dto.PostSummary;
-import com.ns.membership.entity.dto.UserCreateRequest;
-import com.ns.membership.entity.dto.UserRequest;
-import com.ns.membership.entity.dto.UserResponse;
+import com.ns.membership.entity.dto.*;
 import com.ns.membership.repository.UserR2dbcRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,10 +23,10 @@ import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
 import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
 
 @Service
 @Slf4j
@@ -76,6 +73,8 @@ public class UserService implements ApplicationRunner {
                                 .email(request.getEmail())
                                         .elo(2000L)
                                         .code("")
+                                        .createdAt(LocalDateTime.now())
+                                        .updatedAt(LocalDateTime.now())
                                 .build());
                     } else {
                         return Mono.error(new RuntimeException("Duplicated data."));
@@ -120,9 +119,7 @@ public class UserService implements ApplicationRunner {
                 .then(Mono.empty());
     }
     public Mono<Void> deleteByName(String name) {
-        return userRepository.findByName(name)
-                .flatMap(user -> userRepository.deleteByName(name)
-                            .thenReturn(user.getId()))
+        return userRepository.deleteByName(name)
                 .then(Mono.empty());
     }
     public Mono<User> update(Long id,String account, String name, String email,String password){
@@ -134,6 +131,7 @@ public class UserService implements ApplicationRunner {
                     u.setEmail(email);
                     u.setAccount(account);
                     u.setPassword(encryptedPassword);
+                    u.setUpdatedAt(LocalDateTime.now());
                     return userRepository.save(u);
                 });
                 // map으로 하면 Mono<Mono<User>>를 반환
@@ -222,6 +220,9 @@ public class UserService implements ApplicationRunner {
                                     break;
                                 case "MatchUserCodeByMembershipId":
                                     handleMatchUserCode(subtask);
+                                    break;
+                                case "MatchUserResponseByMembershipId":
+                                    handleMatchUserResponse(task.getTaskID(), subtask);
                                     break;
                                 case "ResultTeamEloRequest":
                                     handleResultTeamElo(subtask);
@@ -341,6 +342,33 @@ public class UserService implements ApplicationRunner {
                 .subscribe();
     }
 
+    private void handleMatchUserResponse(String taskId, SubTask subtask) {
+        Long membershipId = Long.parseLong(subtask.getMembershipId());
+
+        log.info("userRepso.findByid("+membershipId+") match");
+        userRepository.findById(membershipId)
+                .flatMap(user -> {
+                    List<SubTask> subTasks = new ArrayList<>();
+
+                    subTasks.add(
+                            taskUseCase.createSubTask("MatchUserResponseByMembershipId",
+                                    String.valueOf(membershipId),
+                                    SubTask.TaskType.match,
+                                    SubTask.TaskStatus.success,
+                                    convertToMatchUserResponse(user)));
+
+                    log.info("user match : "+user);
+                    return sendTask("task.match.request", taskUseCase.createTask(
+                            taskId,
+                            "Match Request - UserResponse",
+                            String.valueOf(membershipId),
+                            subTasks));
+
+                })
+                .doOnError(e -> log.error("Error handling MatchUserName for membershipId {}: {}", membershipId, e.getMessage()))
+                .subscribe();
+    }
+
 
     private void handleMatchUserCode(SubTask subtask) {
         Long membershipId = Long.parseLong(subtask.getMembershipId());
@@ -404,8 +432,28 @@ public class UserService implements ApplicationRunner {
                 subTasks);
 
         return sendTask("task.post.response",task)
-                .then(waitForUserPostsTaskResult(task.getTaskID()));
+               .then(waitForUserPostsTaskResult(task.getTaskID()));
+//                .thenMany(waitForTaskResult(task.getTaskID()))
+//                .flatMap(result -> Flux.fromIterable(result.getSubTaskList())
+//                        .filter(subTaskItem -> subTaskItem.getStatus().equals(SubTask.TaskStatus.success)))
+//                .flatMap(subTaskItem -> {
+//                    log.info(subTaskItem.toString());
+//                    PostSummary postSummary = objectMapper.convertValue(subTaskItem.getData(), PostSummary.class);
+//                    return Mono.just(postSummary);
+//                }).collectList();
+
     }
+
+//    private Flux<Task> waitForTaskResult(String taskId) {
+//        return TaskRequestConsumerTemplate
+//                .receiveAutoAck()
+//                .filter(record -> taskId.equals(record.key()))
+//                .map(record -> record.value())
+//                .onErrorResume(throwable -> {
+//                    log.error("Error occurred: {}", throwable.getMessage());
+//                    return Flux.empty();
+//                });
+//    }
 
     private Mono<List<PostSummary>> waitForUserPostsTaskResult(String taskId) {
         return Mono.defer(() -> {
@@ -416,7 +464,7 @@ public class UserService implements ApplicationRunner {
                                 List<PostSummary> postSummaries = convertToPostSummaries(resultTask);
                                 return postSummaries;
                             }
-                            Thread.sleep(50);
+                            Thread.sleep(500);
                         }
                     })
                     .subscribeOn(Schedulers.boundedElastic())
@@ -430,6 +478,15 @@ public class UserService implements ApplicationRunner {
                 .filter(subTaskItem -> subTaskItem.getStatus().equals(SubTask.TaskStatus.success))
                 .map(subTaskItem -> objectMapper.convertValue(subTaskItem.getData(), PostSummary.class))
                 .toList();
+    }
+
+    private MatchUserResponse convertToMatchUserResponse(User user){
+        return MatchUserResponse.builder()
+                .membershipId(user.getId())
+                .elo(user.getElo())
+                .name(user.getName())
+                .spaceCode(user.getCode()).build();
+
     }
 
 }

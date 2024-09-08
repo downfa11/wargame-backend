@@ -22,14 +22,14 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
-import reactor.kafka.sender.SenderResult;
 import reactor.util.function.Tuple2;
 import reactor.util.function.Tuples;
 
 import java.time.Duration;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Service
@@ -76,44 +76,49 @@ public class MatchQueueService implements ApplicationRunner {
                         return Mono.just("fail");
                     }
 
-                    List<SubTask> subTasks = Collections.singletonList(
-                            taskUseCase.createSubTask(
-                                    "MatchUserByMembershipId",
-                                    String.valueOf(userId),
-                                    SubTask.TaskType.membership,
-                                    SubTask.TaskStatus.ready,
-                                    userId
-                            )
-                    );
-
-                    Task task = taskUseCase.createTask(
-                            "Match Request",
-                            String.valueOf(userId),
-                            subTasks
-                    );
-
-                    return sendTask("task.membership.response", task)
-                            .then(waitForMatchTaskResult(task.getTaskID(),queue,userId))
+                    return getUserResponse(userId)
+                            .flatMap(userResponse -> handleMatchResponse(userResponse, queue, userId))
                             .doFinally(signal -> releaseLock(lockKey, lockValue).subscribe());
                 });
     }
 
-    private Mono<String> waitForMatchTaskResult(String taskId, String queue, Long userId) {
+    public Mono<MatchUserResponse> getUserResponse(Long membershipId) {
+        List<SubTask> subTasks = new ArrayList<>();
+
+        subTasks.add(
+                taskUseCase.createSubTask("MatchUserResponseByMembershipId",
+                        String.valueOf(membershipId),
+                        SubTask.TaskType.match,
+                        SubTask.TaskStatus.ready,
+                        membershipId));
+
+        Task task = taskUseCase.createTask(
+                "Match Response",
+                String.valueOf(membershipId),
+                subTasks);
+
+        return sendTask("task.membership.response",task)
+                .then(waitForUserResponseTaskResult(task.getTaskID()));
+    }
+
+    private Mono<MatchUserResponse> waitForUserResponseTaskResult(String taskId) {
         return Mono.defer(() -> {
             return Mono.fromCallable(() -> {
                         while (true) {
                             Task resultTask = taskResults.get(taskId);
                             if (resultTask != null) {
-                                MatchUserResponse matchResponse = mapper.convertValue(resultTask.getSubTaskList().get(0), MatchUserResponse.class);
-                                return matchResponse;
+                                List<MatchUserResponse> matchUserResponses = resultTask.getSubTaskList().stream().
+                                        filter(subTaskItem -> subTaskItem.getStatus().equals(SubTask.TaskStatus.success))
+                                        .map(subTaskItem -> mapper.convertValue(subTaskItem.getData(), MatchUserResponse.class))
+                                        .toList();
+
+                                return matchUserResponses.get(0);
                             }
-                            Thread.sleep(50);
+                            Thread.sleep(500);
                         }
                     })
                     .subscribeOn(Schedulers.boundedElastic())
-                    .timeout(Duration.ofSeconds(3))
-                    .flatMap(matchResponse -> handleMatchResponse(matchResponse, queue, userId))
-                    .onErrorResume(e -> Mono.error(new RuntimeException("waitForMatchTaskResult error : ", e)));
+                    .timeout(Duration.ofSeconds(3));
         });
     }
 
@@ -126,25 +131,11 @@ public class MatchQueueService implements ApplicationRunner {
         String name = user.getName();
         String member = userId + ":" + name;
 
+        log.info("register member :"+member);
         return reactiveRedisTemplate.opsForZSet().add(MATCH_WAIT_KEY.formatted(queue), member, elo.doubleValue())
                 .flatMap(result -> reactiveRedisTemplate.expire(MATCH_WAIT_KEY.formatted(queue), Duration.ofSeconds(expireTime)))
                 .thenReturn("{\"userId\":\"" + userId + "\", \"name\":\"" + name + "\", \"elo\":\"" + elo + "\"}");
     }
-
-    private Flux<Task> waitForTaskResult(String taskId) {
-
-        return TaskRequestConsumerTemplate
-                .receiveAutoAck()
-                .filter(record -> taskId.equals(record.key()))
-                .doOnNext(record -> log.info("TaskRequestConsumerTemplate received : Key = {}, Value = {}", record.key(), record.value()))
-                .map(record -> record.value())
-                .onErrorResume(throwable -> {
-                    log.error("Error occurred: {}", throwable.getMessage());
-                    return Flux.empty();
-                });
-    }
-
-
 
     private Mono<Boolean> releaseLock(String lockKey, String lockValue) {
         return reactiveRedisTemplate.opsForValue().get(lockKey)
@@ -166,40 +157,18 @@ public class MatchQueueService implements ApplicationRunner {
                         return Mono.error(new RuntimeException("Unable to acquire lock"));
                     }
 
-                    List<SubTask> subTasks = new ArrayList<>();
-                    subTasks.add(
-                            taskUseCase.createSubTask("MatchUserByMembershipId",
-                                    String.valueOf(userId),
-                                    SubTask.TaskType.membership,
-                                    SubTask.TaskStatus.ready,
-                                    userId));
-
-                    Task task = taskUseCase.createTask(
-                            "Match Request",
-                            String.valueOf(userId),
-                            subTasks);
-
-                    return sendTask("task.membership.response", task)
-                            .thenMany(waitForTaskResult(task.getTaskID()))
-                            .flatMap(result -> Flux.fromIterable(result.getSubTaskList())
-                                    .filter(subTaskItem -> subTaskItem.getStatus().equals(SubTask.TaskStatus.success)))
-                            .flatMap(subTaskItem ->
-                                    processCancelTaskResult(subTaskItem, userId)
-                                    .doFinally(signal -> releaseLock(lockKey, lockValue).subscribe())
-                            ).then();
-
+                    return getUserResponse(userId)
+                            .flatMap(userResponse -> handleCancelMatchResponse(userResponse, userId))
+                            .doFinally(signal -> releaseLock(lockKey, lockValue).subscribe())
+                            .onErrorResume(e -> Mono.error(new RuntimeException("waitForMatchTaskResult error : ", e)));
                 });
-    }
-
-    private Mono<Void> processCancelTaskResult(SubTask subTask, Long userId) {
-        MatchUserResponse matchResponse = mapper.convertValue(subTask.getData(), MatchUserResponse.class);
-        return handleCancelMatchResponse(matchResponse, userId);
     }
 
     private Mono<Void> handleCancelMatchResponse(MatchUserResponse user, Long userId) {
         String name = user.getName();
         String member = userId + ":" + name;
 
+        log.info("cancle match: "+member);
         return Flux.concat(
                 reactiveRedisTemplate.keys(MATCH_WAIT_KEY.formatted("*"))
                         .flatMap(key -> reactiveRedisTemplate.opsForZSet().remove(key, member)),
@@ -221,20 +190,34 @@ public class MatchQueueService implements ApplicationRunner {
                         return Mono.just(-1L); // 잠금 획득 실패 시 -1 반환
                     }
 
+
                     return reactiveRedisTemplate.opsForValue().get("*:" + userId)
+                            .defaultIfEmpty("null")
                             .flatMap(nickname -> {
-                                if (nickname == null) {
+                                log.info("Nickname found: " + nickname);
+                                if (nickname == "null") {
                                     return Mono.just(-1L);
                                 }
 
                                 String member = nickname + ":" + userId;
+                                log.info("Member: " + member);
                                 return reactiveRedisTemplate.opsForZSet().rank(MATCH_WAIT_KEY.formatted(queue), member)
                                         .defaultIfEmpty(-1L)
-                                        .map(rank -> rank >= 0 ? rank + 1 : rank)
-                                        .doFinally(signal -> releaseLock(lockKey, lockValue).subscribe());
-                            });
-                });
+                                        .map(rank -> {
+                                            log.info("Rank: " + rank);
+                                            return rank >= 0 ? rank + 1 : rank;
+                                        })
+                                        .doFinally(signal -> {
+                                            log.info("Releasing lock");
+                                            releaseLock(lockKey, lockValue).subscribe();
+                                        })
+                                        .doOnError(error -> log.error("Error during rank retrieval: ", error));
+                            })
+                            .doOnError(error -> log.error("Error during nickname retrieval: ", error));
+                })
+                .doOnError(error -> log.error("Error during lock acquisition: ", error));
     }
+
 
 
     public enum MatchStatus {
@@ -409,6 +392,7 @@ public class MatchQueueService implements ApplicationRunner {
                 .doOnNext(r -> {
                     Task task = r.value();
                     taskResults.put(task.getTaskID(),task);
+                    log.info("TaskRequestConsumerTemplate: "+task);
 
                     if(taskResults.size() > MAX_TASK_RESULT_SIZE){
                         taskResults.clear();
