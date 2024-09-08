@@ -31,7 +31,6 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Service
@@ -43,7 +42,7 @@ public class PostService implements ApplicationRunner {
     private final String BOARD_VIEWS_KEY ="boards:views:%s";
 
     private final PostR2dbcRepository postR2dbcRepository;
-    private final CommentR2dbcRepository commentR2dbcRepository;
+    private final CommentService commentService;
 
     private final CategoryService categoryService;
 
@@ -168,7 +167,7 @@ public class PostService implements ApplicationRunner {
     }
 
     private Mono<PostResponse> fetchCommentsForPost(PostResponse post) {
-        return commentR2dbcRepository.findByBoardId(post.getId())
+        return commentService.findByBoardId(post.getId())
                 .collectList()
                 .map(comments -> {
                     post.setCommentList(comments);
@@ -195,9 +194,10 @@ public class PostService implements ApplicationRunner {
                         .switchIfEmpty(Mono.error(new RuntimeException("Post not found")))
                         .flatMap(post ->{
                                 // redis에 기록된 조회수도 지워야한다.
-                            reactiveRedisTemplate_long.unlink(BOARD_VIEWS_KEY.formatted(boardId));
+                                reactiveRedisTemplate_long.unlink(BOARD_VIEWS_KEY.formatted(boardId));
                                 reactiveRedisTemplate.unlink(BOARD_LIKES_KEY.formatted(boardId));
-                                 return postR2dbcRepository.deleteById(boardId);
+                                return commentService.deleteByBoardId(boardId)
+                                        .then(postR2dbcRepository.deleteById(boardId));
                         });
     }
 
@@ -349,7 +349,7 @@ public class PostService implements ApplicationRunner {
                                 SubTask subTask = resultTask.getSubTaskList().get(0);
                                 return String.valueOf(subTask.getData());
                             }
-                            Thread.sleep(50);
+                            Thread.sleep(500);
                         }
                     })
                     .subscribeOn(Schedulers.boundedElastic())

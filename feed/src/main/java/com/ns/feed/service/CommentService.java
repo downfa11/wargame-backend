@@ -33,7 +33,6 @@ import static com.ns.feed.service.PostService.taskResults;
 public class CommentService {
     private final CommentR2dbcRepository commentR2dbcRepository;
     private final PostR2dbcRepository postR2dbcRepository;
-    private final PostService postService;
 
 
     private final ReactiveKafkaConsumerTemplate<String, Task> TaskRequestConsumerTemplate;
@@ -54,7 +53,7 @@ public class CommentService {
         long boardId = request.getBoardId();
         String content = request.getBody();
 
-        return postService.findPostById(boardId)
+        return postR2dbcRepository.findById(boardId)
                 .flatMap(post -> {
                     return getUserName(userId)
                             .flatMap(nickname -> commentR2dbcRepository.save(Comment.builder()
@@ -94,6 +93,11 @@ public class CommentService {
                 });
     }
 
+    public Flux<CommentResponse> findByBoardId(Long boardId){
+        return commentR2dbcRepository.findByBoardId(boardId)
+                .map(comment -> CommentResponse.of(comment));
+    }
+
     public Flux<Comment> findAllByBoardId(Long boardId) {return commentR2dbcRepository.findByBoardId(boardId);}
 
     public Mono<Void> deleteById(Long commentId) {
@@ -101,7 +105,7 @@ public class CommentService {
                 .switchIfEmpty(Mono.error(new RuntimeException("Comment not found")))
                 .flatMap(comment -> {
                     long boardId = comment.getBoardId();
-                    return postService.findPostById(boardId)
+                    return postR2dbcRepository.findById(boardId)
                             .switchIfEmpty(Mono.error(new RuntimeException("Post not found")))
                             .flatMap(post -> {
                                 Long curComments = post.getComments();
@@ -109,6 +113,14 @@ public class CommentService {
                                 return postR2dbcRepository.save(post);
                             })
                             .then(commentR2dbcRepository.deleteById(commentId));
+                });
+    }
+
+    public Flux<Void> deleteByBoardId(Long boardId){
+        return commentR2dbcRepository.findByBoardId(boardId)
+                .flatMap(comment -> {
+                    Long commentId = comment.getId();
+                    return commentR2dbcRepository.deleteById(commentId);
                 });
     }
 
@@ -141,7 +153,7 @@ public class CommentService {
                                 SubTask subTask = resultTask.getSubTaskList().get(0);
                                 return String.valueOf(subTask.getData());
                             }
-                            Thread.sleep(50);
+                            Thread.sleep(500);
                         }
                     })
                     .subscribeOn(Schedulers.boundedElastic())

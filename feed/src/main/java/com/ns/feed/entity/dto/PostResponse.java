@@ -23,7 +23,7 @@ public class PostResponse {
     private String title;
     private String content;
 
-    private List<Comment> commentList;
+    private List<CommentResponse> commentList;
     private Long comments;
     private Long likes;
     private Long views;

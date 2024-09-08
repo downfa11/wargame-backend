@@ -27,34 +27,45 @@ public class PostController {
     private final JwtTokenProvider jwtTokenProvider;
 
     @PostMapping("")
-    public Mono<ResponseEntity<messageEntity>> createPost(@RequestBody PostRegisterRequest request, @RequestParam Long idx, ServerWebExchange exchange){
+    public Mono<ResponseEntity<messageEntity>> createPost(@RequestBody PostRegisterRequest request, @RequestParam Long membershipId, ServerWebExchange exchange){
 //        return jwtTokenProvider.getMembershipIdByToken(exchange)
-//                .flatMap(idx -> {
-//                    if (idx == 0) {
+//                .flatMap(membershipId -> {
+//                    if (membershipId == 0) {
 //                        return Mono.just(ResponseEntity.ok().body(new messageEntity("Fail", "Not Authorization or boardId is incorrect.")));
 //                    }
-//                return postService.create(idx,request)
+//                return postService.create(membershipId,request)
 //                    .map(board -> ResponseEntity.ok()
 //                        .body(new messageEntity("Success", PostResponse.of(board))))
 //                    .defaultIfEmpty(ResponseEntity.ok().body(new messageEntity("Fail", "Post is empty.")));
 //                });
-                    return postService.create(idx,request)
+                    return postService.create(membershipId,request)
                             .map(board -> ResponseEntity.ok()
                                     .body(new messageEntity("Success", PostResponse.of(board))))
                             .defaultIfEmpty(ResponseEntity.ok().body(new messageEntity("Fail", "Post is empty.")));
     }
 
     @PatchMapping("")
-    public Mono<ResponseEntity<messageEntity>> modifyPost(@RequestBody PostModifyRequest request, ServerWebExchange exchange) {
+    public Mono<ResponseEntity<messageEntity>> modifyPost(@RequestParam Long membershipId, @RequestBody PostModifyRequest request, ServerWebExchange exchange) {
 
-        return jwtTokenProvider.getMembershipIdByToken(exchange)
-                .flatMap(idx -> {
-                    if (idx == 0)
-                        return Mono.just(ResponseEntity.ok().body(new messageEntity("Fail", "Not Authorization or boardId is incorrect.")));
-
+//        return jwtTokenProvider.getMembershipIdByToken(exchange)
+//                .flatMap(membershipId -> {
+//                    if (membershipId == 0)
+//                        return Mono.just(ResponseEntity.ok().body(new messageEntity("Fail", "Not Authorization or boardId is incorrect.")));
+//
+//                    return postService.findPostById(request.getBoardId())
+//                            .flatMap(post -> {
+//                                if(!post.getUserId().equals(membershipId))
+//                                    return Mono.just(ResponseEntity.ok().body(new messageEntity("Fail", "Unauthorized to modify this post.")));
+//
+//                                return postService.modify(request)
+//                                        .map(board -> ResponseEntity.ok()
+//                                                .body(new messageEntity("Success", PostResponse.of(board))))
+//                                        .defaultIfEmpty(ResponseEntity.ok().body(new messageEntity("Fail", "Post is empty.")));
+//                            });
+//                });
                     return postService.findPostById(request.getBoardId())
                             .flatMap(post -> {
-                                if(!post.getUserId().equals(idx))
+                                if(!post.getUserId().equals(membershipId))
                                     return Mono.just(ResponseEntity.ok().body(new messageEntity("Fail", "Unauthorized to modify this post.")));
 
                                 return postService.modify(request)
@@ -62,7 +73,6 @@ public class PostController {
                                                 .body(new messageEntity("Success", PostResponse.of(board))))
                                         .defaultIfEmpty(ResponseEntity.ok().body(new messageEntity("Fail", "Post is empty.")));
                             });
-                });
     }
 
     @GetMapping("")
@@ -79,27 +89,43 @@ public class PostController {
 
     @GetMapping("/all/{categoryId}")
     public Mono<ResponseEntity<messageEntity>> findPostAllPagination(@PathVariable Long categoryId,@RequestParam int page, ServerWebExchange exchange) {
-        return jwtTokenProvider.getMembershipIdByToken(exchange)
-                .flatMap(idx -> {
-                    if (idx == 0) {
-                        return Mono.just(ResponseEntity.ok().body(new messageEntity("Fail", "Not Authorization or boardId is incorrect.")));
-                    }
+//        return jwtTokenProvider.getMembershipIdByToken(exchange)
+//                .flatMap(membershipId -> {
+//                    if (membershipId == 0) {
+//                        return Mono.just(ResponseEntity.ok().body(new messageEntity("Fail", "Not Authorization or boardId is incorrect.")));
+//                    }
+//                    int size = 10;
+//                    PageRequest sortedPageRequest = PageRequest.of(page, size).withSort(Sort.by("createdAt").descending());
+//                    return postService.findPostAllPagination(categoryId, sortedPageRequest)
+//                            .map(posts -> ResponseEntity.ok()
+//                                    .body(new messageEntity("Success", posts)))
+//                            .defaultIfEmpty(ResponseEntity.ok().body(new messageEntity("Fail", "Post is empty.")));
+//                });
                     int size = 10;
                     PageRequest sortedPageRequest = PageRequest.of(page, size).withSort(Sort.by("createdAt").descending());
                     return postService.findPostAllPagination(categoryId, sortedPageRequest)
                             .map(posts -> ResponseEntity.ok()
                                     .body(new messageEntity("Success", posts)))
                             .defaultIfEmpty(ResponseEntity.ok().body(new messageEntity("Fail", "Post is empty.")));
-                });
     }
 
     @GetMapping("/{boardId}/comments")
     public Mono<ResponseEntity<messageEntity>> findCommentByBoardId(Long boardId, ServerWebExchange exchange) {
-        return jwtTokenProvider.getMembershipIdByToken(exchange)
-                .flatMap(idx -> {
-                    if (idx == 0) {
-                        return Mono.just(ResponseEntity.ok().body(new messageEntity("Fail", "Not Authorization or boardId is incorrect.")));
-                    }
+//        return jwtTokenProvider.getMembershipIdByToken(exchange)
+//                .flatMap(membershipId -> {
+//                    if (membershipId == 0) {
+//                        return Mono.just(ResponseEntity.ok().body(new messageEntity("Fail", "Not Authorization or boardId is incorrect.")));
+//                    }
+//                    return commentService.findAllByBoardId(boardId)
+//                            .collectList()
+//                            .flatMap(comments -> {
+//                                if (!comments.isEmpty())
+//                                    return Mono.just(ResponseEntity.ok().body(new messageEntity("Success", comments)));
+//                                else
+//                                    return Mono.just(ResponseEntity.ok().body(new messageEntity("Fail", "Comment is empty.")));
+//                            });
+//                });
+
                     return commentService.findAllByBoardId(boardId)
                             .collectList()
                             .flatMap(comments -> {
@@ -108,69 +134,91 @@ public class PostController {
                                 else
                                     return Mono.just(ResponseEntity.ok().body(new messageEntity("Fail", "Comment is empty.")));
                             });
-                });
     }
 
 
     @GetMapping("/{boardId}")
     public Mono<ResponseEntity<messageEntity>> findPostById(@PathVariable Long boardId, ServerWebExchange exchange) {
-        return jwtTokenProvider.getMembershipIdByToken(exchange)
-                .flatMap(idx -> {
-                    if (idx == 0) {
-                        return Mono.just(ResponseEntity.ok().body(new messageEntity("Fail", "Not Authorization or boardId is incorrect.")));
-                    }
+//        return jwtTokenProvider.getMembershipIdByToken(exchange)
+//                .flatMap(membershipId -> {
+//                    if (membershipId == 0) {
+//                        return Mono.just(ResponseEntity.ok().body(new messageEntity("Fail", "Not Authorization or boardId is incorrect.")));
+//                    }
+//                    return postService.findPostResponseById(boardId)
+//                            .map(postResponse -> ResponseEntity.ok().body(new messageEntity("Success", postResponse)))
+//                            .defaultIfEmpty(ResponseEntity.ok().body(new messageEntity("Fail", "Post is empty.")));
+//                });
+
                     return postService.findPostResponseById(boardId)
                             .map(postResponse -> ResponseEntity.ok().body(new messageEntity("Success", postResponse)))
                             .defaultIfEmpty(ResponseEntity.ok().body(new messageEntity("Fail", "Post is empty.")));
-                });
     }
 
     @GetMapping("/updates/{boardId}")
     public Mono<ResponseEntity<messageEntity>> updatePostById(@PathVariable Long boardId, ServerWebExchange exchange) {
-        return jwtTokenProvider.getMembershipIdByToken(exchange)
-                .flatMap(idx -> {
-                    if (idx == 0) {
-                        return Mono.just(ResponseEntity.ok().body(new messageEntity("Fail", "Not Authorization or boardId is incorrect.")));
-                    }
+//        return jwtTokenProvider.getMembershipIdByToken(exchange)
+//                .flatMap(membershipId -> {
+//                    if (membershipId == 0) {
+//                        return Mono.just(ResponseEntity.ok().body(new messageEntity("Fail", "Not Authorization or boardId is incorrect.")));
+//                    }
+//                    return postService.updatePostResponseById(boardId)
+//                            .map(postResponse -> ResponseEntity.ok().body(new messageEntity("Success", postResponse)))
+//                            .defaultIfEmpty(ResponseEntity.ok().body(new messageEntity("Fail", "Post is empty.")));
+//                });
+
                     return postService.updatePostResponseById(boardId)
                             .map(postResponse -> ResponseEntity.ok().body(new messageEntity("Success", postResponse)))
                             .defaultIfEmpty(ResponseEntity.ok().body(new messageEntity("Fail", "Post is empty.")));
-                });
     }
 
     @DeleteMapping("/{boardId}")
-    public Mono<ResponseEntity<messageEntity>> deletePost(@PathVariable Long boardId, ServerWebExchange exchange) {
+    public Mono<ResponseEntity<messageEntity>> deletePost(@RequestParam Long membershipId, @PathVariable Long boardId, ServerWebExchange exchange) {
 
-        return jwtTokenProvider.getMembershipIdByToken(exchange)
-                .flatMap(idx -> {
-                    if (idx == 0) {
-                        return Mono.just(ResponseEntity.ok().body(new messageEntity("Fail", "Not Authorized or boardId is incorrect.")));
+//        return jwtTokenProvider.getMembershipIdByToken(exchange)
+//                .flatMap(membershipId -> {
+//                    if (membershipId == 0) {
+//                        return Mono.just(ResponseEntity.ok().body(new messageEntity("Fail", "Not Authorized or boardId is incorrect.")));
+//                    }
+//
+//                    return postService.findPostById(boardId)
+//                            .flatMap(post -> {
+//                                if (!post.getUserId().equals(membershipId)) {
+//                                    return Mono.just(ResponseEntity.ok().body(new messageEntity("Fail", "Unauthorized to delete this post.")));
+//                                }
+//
+//                                return postService.deleteById(boardId)
+//                                        .map(deleted -> ResponseEntity.ok().body(new messageEntity("Success", "Post deleted successfully.")))
+//                                        .defaultIfEmpty(ResponseEntity.ok().body(new messageEntity("Fail", "Post not found.")));
+//                            });
+//                });
+
+        return postService.findPostById(boardId)
+                .flatMap(post -> {
+                    if (!post.getUserId().equals(membershipId)) {
+                        return Mono.just(ResponseEntity.ok().body(new messageEntity("Fail", "Unauthorized to delete this post.")));
                     }
 
-                    return postService.findPostById(boardId)
-                            .flatMap(post -> {
-                                if (!post.getUserId().equals(idx)) {
-                                    return Mono.just(ResponseEntity.ok().body(new messageEntity("Fail", "Unauthorized to delete this post.")));
-                                }
-
-                                return postService.deleteById(boardId)
-                                        .map(deleted -> ResponseEntity.ok().body(new messageEntity("Success", "Post deleted successfully.")))
-                                        .defaultIfEmpty(ResponseEntity.ok().body(new messageEntity("Fail", "Post not found.")));
-                            });
-                });
+                    return postService.deleteById(boardId)
+                            .then(Mono.just(ResponseEntity.ok().body(new messageEntity("Success", "Post deleted successfully."))))
+                            .onErrorReturn(ResponseEntity.ok().body(new messageEntity("Fail", "Post not found.")));
+                })
+                .defaultIfEmpty(ResponseEntity.ok().body(new messageEntity("Fail", "Post not found.")));
     }
 
 
     @PostMapping("/{boardId}/likes")
-    public Mono<ResponseEntity<messageEntity>> updateLikes(@PathVariable Long boardId, ServerWebExchange exchange) {
-        return jwtTokenProvider.getMembershipIdByToken(exchange)
-                .flatMap(idx -> {
-                    if (idx == 0) {
-                        return Mono.just(ResponseEntity.ok().body(new messageEntity("Fail", "Not Authorization or boardId is incorrect.")));
-                    }
-                    return postService.updateLikes(idx, boardId)
+    public Mono<ResponseEntity<messageEntity>> updateLikes(@RequestParam Long membershipId, @PathVariable Long boardId, ServerWebExchange exchange) {
+//        return jwtTokenProvider.getMembershipIdByToken(exchange)
+//                .flatMap(membershipId -> {
+//                    if (membershipId == 0) {
+//                        return Mono.just(ResponseEntity.ok().body(new messageEntity("Fail", "Not Authorization or boardId is incorrect.")));
+//                    }
+//                    return postService.updateLikes(membershipId, boardId)
+//                            .map(likes -> ResponseEntity.ok().body(new messageEntity("Success", "post likes : "+likes)))
+//                            .defaultIfEmpty(ResponseEntity.ok().body(new messageEntity("Fail", "Post is empty.")));
+//                });
+                    return postService.updateLikes(membershipId, boardId)
                             .map(likes -> ResponseEntity.ok().body(new messageEntity("Success", "post likes : "+likes)))
                             .defaultIfEmpty(ResponseEntity.ok().body(new messageEntity("Fail", "Post is empty.")));
-                });
     }
 }
