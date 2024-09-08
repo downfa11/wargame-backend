@@ -15,7 +15,7 @@ public class SwaggerConfig {
         String[] paths = { "/v1/**" };
         return GroupedOpenApi.builder().
                 group("community")
-                .addOpenApiCustomizer(openApi -> openApi.info(new Info().title("v1 API")))
+                .addOpenApiCustomizer(openApi -> openApi.info(new Info().title("Feed v1 API")))
                 .pathsToMatch(paths)
                 .build();
     }

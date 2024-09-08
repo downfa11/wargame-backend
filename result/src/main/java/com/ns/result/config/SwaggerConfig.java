@@ -12,10 +12,10 @@ public class SwaggerConfig {
 
     @Bean
     public GroupedOpenApi OpenApiCommunity() {
-        String[] paths = { "/v1/**" };
+        String[] paths = { "/**" };
         return GroupedOpenApi.builder().
                 group("community")
-                .addOpenApiCustomizer(openApi -> openApi.info(new Info().title("v1 API")))
+                .addOpenApiCustomizer(openApi -> openApi.info(new Info().title("Result API")))
                 .pathsToMatch(paths)
                 .build();
     }
