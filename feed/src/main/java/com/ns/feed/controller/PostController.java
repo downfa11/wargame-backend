@@ -1,11 +1,11 @@
 package com.ns.feed.controller;
 
 
+import com.ns.common.messageEntity;
 import com.ns.feed.Utils.JwtTokenProvider;
 import com.ns.feed.entity.dto.PostModifyRequest;
 import com.ns.feed.entity.dto.PostRegisterRequest;
 import com.ns.feed.entity.dto.PostResponse;
-import com.ns.feed.entity.dto.messageEntity;
 import com.ns.feed.service.CommentService;
 import com.ns.feed.service.PostService;
 import lombok.RequiredArgsConstructor;

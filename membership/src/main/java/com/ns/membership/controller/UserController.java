@@ -1,5 +1,6 @@
 package com.ns.membership.controller;
 
+import com.ns.common.messageEntity;
 import com.ns.membership.Utils.JwtTokenProvider;
 import com.ns.membership.entity.dto.*;
 import com.ns.membership.service.MailService;

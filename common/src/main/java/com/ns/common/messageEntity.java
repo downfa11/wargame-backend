@@ -1,10 +1,8 @@
-package com.ns.membership.entity.dto;
+package com.ns.common;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Data;
 
 @Data
-@JsonInclude(JsonInclude.Include.NON_NULL)
 public class messageEntity {
 
     private String message;
@@ -14,5 +12,4 @@ public class messageEntity {
         this.message = message;
         this.result  = result;
     }
-
 }

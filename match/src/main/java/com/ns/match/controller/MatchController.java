@@ -1,19 +1,16 @@
 package com.ns.match.controller;
 
 
+import com.ns.common.messageEntity;
 import com.ns.match.Utils.JwtTokenProvider;
 import com.ns.match.dto.MatchRequest;
-import com.ns.match.dto.messageEntity;
 import com.ns.match.service.MatchQueueService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
-
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/game")

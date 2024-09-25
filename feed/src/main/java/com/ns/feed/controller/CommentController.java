@@ -1,11 +1,10 @@
 package com.ns.feed.controller;
 
+import com.ns.common.messageEntity;
 import com.ns.feed.Utils.JwtTokenProvider;
 import com.ns.feed.entity.dto.CommentModifyRequest;
 import com.ns.feed.entity.dto.CommentRegisterRequest;
-import com.ns.feed.entity.dto.messageEntity;
 import com.ns.feed.service.CommentService;
-import io.lettuce.core.dynamic.annotation.Param;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;

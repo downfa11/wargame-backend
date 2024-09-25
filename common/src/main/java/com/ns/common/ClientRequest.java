@@ -1,4 +1,4 @@
-package com.ns.result.domain;
+package com.ns.common;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

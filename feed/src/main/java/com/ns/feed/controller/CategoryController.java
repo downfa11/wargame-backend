@@ -1,7 +1,7 @@
 package com.ns.feed.controller;
 
 
-import com.ns.feed.entity.dto.messageEntity;
+import com.ns.common.messageEntity;
 import com.ns.feed.service.CategoryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
