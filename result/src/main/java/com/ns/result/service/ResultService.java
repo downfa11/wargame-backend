@@ -2,15 +2,13 @@ package com.ns.result.service;
 
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ns.common.SubTask;
-import com.ns.common.Task;
-import com.ns.common.TaskUseCase;
-import com.ns.result.domain.ClientRequest;
+import com.ns.common.*;
 import com.ns.result.domain.ResultRequest;
 import com.ns.result.domain.entity.Result;
 import com.ns.result.repository.ResultRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.kafka.core.reactive.ReactiveKafkaConsumerTemplate;
@@ -19,10 +17,8 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.time.LocalDateTime;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
@@ -37,11 +33,16 @@ public class ResultService implements ApplicationRunner {
     private final ReactiveKafkaConsumerTemplate<String, Task> TaskResponseConsumerTemplate;
     private final ReactiveKafkaProducerTemplate<String, Task> taskProducerTemplate;
 
+    private final ReactiveKafkaProducerTemplate<String, ResultRequestEvent> eventProducerTemplate;
+
     private final TaskUseCase taskUseCase;
     private final ObjectMapper objectMapper;
 
     private final ConcurrentHashMap<String, Task> taskResults = new ConcurrentHashMap<>();
     private final int MAX_TASK_RESULT_SIZE = 5000;
+
+    @Value("${event.produce.topic}")
+    private String eventTopic;
 
     public Mono<Void> sendTask(String topic, Task task){
         log.info("send ["+topic+"]: "+task.toString());
@@ -94,9 +95,8 @@ public class ResultService implements ApplicationRunner {
                         ClientRequest::getMembershipId,
                         client -> {
                             Long currentElo = client.getMembershipId();
-                            // 상대 팀의 평균 ELO 계산
                             Long opposingTeamElo = (long) team.stream().mapToLong(ClientRequest::getMembershipId).average().orElse(0);
-                            // 새로운 ELO 계산
+
                             return calculateElo(currentElo, opposingTeamElo, isWinner);
                         }
                 )
@@ -156,7 +156,22 @@ public class ResultService implements ApplicationRunner {
 
     public Mono<Result> saveResult(ResultRequest request) {
         Result document = mapToResultDocument(request);
-        return resultRepository.save(document);
+        return resultRepository.save(document)
+                .doOnSuccess(saveResult -> {
+                    ResultRequestEvent event = new ResultRequestEvent()
+                            .builder()
+                            .spaceId(saveResult.getSpaceId())
+                            .blueTeams(saveResult.getBlueTeams())
+                            .redTeams(saveResult.getRedTeams())
+                            .winTeam(saveResult.getWinTeam())
+                            .loseTeam(saveResult.getLoseTeam())
+                            .dateTime(saveResult.getDateTime())
+                            .gameDuration(saveResult.getGameDuration()).build();
+
+                    eventProducerTemplate.send(eventTopic, "result-query", event)
+                            .doOnSuccess(senderResult -> log.info("ResultRequestEvent 발행됨. " + eventTopic))
+                            .doOnError(e -> log.error("메시지 전송 중 오류 발생: ", e)).subscribe();
+                });
     }
 
     private Result mapToResultDocument(ResultRequest request) {
@@ -227,7 +242,10 @@ public class ResultService implements ApplicationRunner {
                             switch (subtask.getSubTaskName()) {
                                 case "ReceivedResult":
                                     ResultRequest result = objectMapper.convertValue(subtask.getData(),ResultRequest.class);
-                                    saveResult(result);
+                                    saveResult(result)
+                                            .doOnSuccess(savedResult -> log.info("Result saved: " + savedResult))
+                                                    .subscribe();
+
                                     log.info("save result : "+result);
                                     break;
                                 default:
@@ -258,6 +276,65 @@ public class ResultService implements ApplicationRunner {
                 .doOnError(e -> log.error("Error receiving: " + e))
                 .subscribe();
     }
+
+    //=============== test ================//
+    public Mono<Result> createResultTemp() {
+        Random random = new Random();
+
+        ClientRequest bluePlayer1 = createRandomClientRequest(1L, "Blue", "BluePlayer1");
+        ClientRequest bluePlayer2 = createRandomClientRequest(2L, "Blue", "BluePlayer2");
+
+        ClientRequest redPlayer1 = createRandomClientRequest(3L, "Red", "RedPlayer1");
+        ClientRequest redPlayer2 = createRandomClientRequest(4L, "Red", "RedPlayer2");
+
+        ResultRequest dummyResult = ResultRequest.builder()
+                .spaceId("dummy-space-id")
+                .state("success")
+                .channel(random.nextInt(100))
+                .room(random.nextInt(100))
+                .winTeam("Blue")
+                .loseTeam("Red")
+                .blueTeams(List.of(bluePlayer1, bluePlayer2))
+                .redTeams(List.of(redPlayer1, redPlayer2))
+                .dateTime(String.valueOf(LocalDateTime.now()))
+                .gameDuration(random.nextInt(7200))
+                .build();
+
+        return saveResult(dummyResult);
+    }
+
+    private ClientRequest createRandomClientRequest(Long membershipId, String team, String userName) {
+        Random random = new Random();
+
+        return ClientRequest.builder()
+                .membershipId(membershipId)
+                .socket(random.nextInt(100))
+                .champindex(random.nextInt(100))
+                .user_name(userName)
+                .team(team)
+                .channel(random.nextInt(5))
+                .room(random.nextInt(10))
+                .kill(random.nextInt(20))
+                .death(random.nextInt(20))
+                .assist(random.nextInt(20))
+                .gold(random.nextInt(10000))
+                .level(random.nextInt(18) + 1)
+                .maxhp(random.nextInt(5000))
+                .maxmana(random.nextInt(2000))
+                .attack(random.nextInt(300))
+                .critical(random.nextInt(100))
+                .criProbability(random.nextInt(100))
+                .attrange(random.nextInt(1000))
+                .attspeed(random.nextFloat() * 2)
+                .movespeed(random.nextInt(500))
+                .itemList(List.of(random.nextInt(100), random.nextInt(100), random.nextInt(100))) // 3개의 랜덤 아이템
+                .build();
+    }
+
+    public Flux<Result> getResultList(){
+        return resultRepository.findAll();
+    }
+
 }
 
 

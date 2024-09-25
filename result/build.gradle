@@ -4,6 +4,9 @@ plugins {
     id 'io.spring.dependency-management' version '1.1.4'
     id 'com.palantir.docker' version '0.35.0'
 }
+ext{
+    axonVersion = "4.8.0"
+}
 
 group = 'com.ns.result'
 version = '0.0.1'

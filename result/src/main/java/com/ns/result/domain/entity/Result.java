@@ -1,6 +1,6 @@
 package com.ns.result.domain.entity;
 
-import com.ns.result.domain.ClientRequest;
+import com.ns.common.ClientRequest;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
