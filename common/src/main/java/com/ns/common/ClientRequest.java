@@ -14,7 +14,7 @@ import java.util.List;
 public class ClientRequest {
     private Long membershipId;
     private int socket;
-    private int champindex;
+    private Long champindex;
     private String user_name;
     private String team;
     private int channel;

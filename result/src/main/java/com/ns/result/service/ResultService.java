@@ -16,7 +16,9 @@ import org.springframework.kafka.core.reactive.ReactiveKafkaProducerTemplate;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -50,64 +52,137 @@ public class ResultService implements ApplicationRunner {
         return taskProducerTemplate.send(topic, key, task).then();
     }
 
-    private Map<Long ,Long> requestTeamElo(List<Long> membershipIds){
-        return new HashMap<>();
+    public Mono<Void> dodge(ResultRequest result) {
+
+        List<ClientRequest> allTeams = new ArrayList<>();
+        allTeams.addAll(result.getBlueTeams());
+        allTeams.addAll(result.getRedTeams());
+
+        if (allTeams.isEmpty()) {
+            log.warn("Win과 lose 팀이 비어 있습니다!");
+            return Mono.empty();
+        }
+
+        return Flux.fromIterable(allTeams)
+                .flatMap(client -> {
+                    Long index = client.getMembershipId();
+
+                    return Mono.just(
+                            taskUseCase.createSubTask("Dodge",
+                                    String.valueOf(index),
+                                    SubTask.TaskType.result,
+                                    SubTask.TaskStatus.ready,
+                                    index));
+
+                })
+                .collectList()
+                .flatMap(subTasks -> sendTask("task.membership.response", taskUseCase.createTask(
+                        "Dodge Request",
+                        null,
+                        subTasks))
+                );
     }
 
-//    public Mono<Void> receiveTeamElo(ResultRequest resultRequest) {
-//        List<ClientRequest> blueTeams = resultRequest.getBlueTeams();
-//        List<ClientRequest> redTeams = resultRequest.getRedTeams();
-//
-//        List<Long> blueMembershipIds = blueTeams.stream()
-//                .map(ClientRequest::getMembershipId).toList();
-//
-//        List<Long> redMembershipIds = redTeams.stream()
-//                .map(ClientRequest::getMembershipId).toList();
-//
-//        return Mono.zip(
-//                requestTeamElo(blueMembershipIds),
-//                requestTeamElo(redMembershipIds),
-//                (blueEloMap, redEloMap) -> {
-//                    boolean blueTeamWins = resultRequest.getWinTeam().equalsIgnoreCase("Blue");
-//
-//                    Task blueTeamTask = createTaskForTeam("Blue Team ELO Update", blueTeams, blueEloMap, blueTeamWins);
-//                    Task redTeamTask = createTaskForTeam("Red Team ELO Update", redTeams, redEloMap, !blueTeamWins);
-//
-//                    return Flux.concat(
-//                            sendTask(blueTeamTask),
-//                            sendTask(redTeamTask)
-//                    ).then();
-//                }
-//        );
-//    }
+    public Mono<Void> updateElo(ResultRequest resultRequest) {
+        List<ClientRequest> blueTeams = resultRequest.getBlueTeams();
+        List<ClientRequest> redTeams = resultRequest.getRedTeams();
 
+        // requestMemberElo의 리스트를 통해 membershipId,elo 형태로 membership-service로부터 요청을 받는다.
+        return Mono.zip(requestMembershipElos(blueTeams),  requestMembershipElos(redTeams))
+                .flatMap(tuple -> {
+                    List<MembershipEloRequest> blueEloRequests = tuple.getT1();
+                    List<MembershipEloRequest> redEloRequests = tuple.getT2();
+                    log.info("[test] blue MembershipEloRequest : "+ blueEloRequests);
+                    log.info("[test] red MembershipEloRequest : "+ redEloRequests);
 
+                    // 받은 내용을 가지고, 각 팀 별로 TeamElo를 계산한다.
+                    Long blueTeamEloSum = blueEloRequests.stream().mapToLong(MembershipEloRequest::getElo).sum();
+                    Long redTeamEloSum = redEloRequests.stream().mapToLong(MembershipEloRequest::getElo).sum();
 
-    private long calculateTotalElo(Map<Long,Long> team) {
-        return team.values().stream()
-                .mapToLong(Long::longValue)
-                .sum();
-    }
+                    log.info("[test] 각 팀별 EloSum(blue, red) : "+ blueTeamEloSum+", "+redTeamEloSum);
+                    boolean isWin = resultRequest.getWinTeam().equalsIgnoreCase("blue"); //todo. blue 문자열로 받았었나? 치맨가;;;
 
-    private Mono<Void> updateTeamElo(List<ClientRequest> team, boolean isWinner) {
-        return Flux.fromIterable(team)
-                .collectMap(
-                        ClientRequest::getMembershipId,
-                        client -> {
-                            Long currentElo = client.getMembershipId();
-                            Long opposingTeamElo = (long) team.stream().mapToLong(ClientRequest::getMembershipId).average().orElse(0);
+                    // TeamElo를 통해 승패에 따른 Elo 점수 변동값을 연산한다.
+                    Mono<List<MembershipEloRequest>> blueTeamNewEloRequests = updateTeamElo(blueEloRequests, redTeamEloSum, isWin);
+                    Mono<List<MembershipEloRequest>> redTeamNewEloRequests = updateTeamElo(redEloRequests, blueTeamEloSum, !isWin);
 
-                            return calculateElo(currentElo, opposingTeamElo, isWinner);
-                        }
-                )
-                .flatMap(updatedEloMap -> {
-                    List<SubTask> subTasks = createSubTasksUpdateElo(updatedEloMap);
+                    // 각 membershipId,newElo 를 requestMemberElo 형태로 membership-service에 다시 전달한다.
+                    return Mono.zip(blueTeamNewEloRequests, redTeamNewEloRequests)
+                            .flatMap(newEloTuple -> {
+                                List<MembershipEloRequest> combinedNewEloRequests = new ArrayList<>();
+                                combinedNewEloRequests.addAll(newEloTuple.getT1());
+                                combinedNewEloRequests.addAll(newEloTuple.getT2());
 
-                    return sendTask("task.membership.response", taskUseCase.createTask(
-                            "Elo Update",
-                            null,
-                            subTasks));
+                                log.info("[test] 최종 combinedNewEloRequests : "+ combinedNewEloRequests);
+
+                                Task task = sendMembershipNewEloRequests(combinedNewEloRequests);
+                                return sendTask("task.membership.response", task);
+                            });
                 });
+    }
+
+
+    // requestMemberElo의 리스트를 통해 membershipId,elo 형태로 membership-service로부터 요청을 받는다.
+    private Mono<List<MembershipEloRequest>> requestMembershipElos(List<ClientRequest> teams){
+        List<SubTask> subTasks = teams.stream()
+                .map(ClientRequest::getMembershipId)
+                .map(membershipId -> taskUseCase.createSubTask(
+                        "RequestMembershipElo",
+                        String.valueOf(membershipId),
+                        SubTask.TaskType.result,
+                        SubTask.TaskStatus.ready,
+                        membershipId)
+                )
+                .toList();
+
+        Task task = taskUseCase.createTask(
+                "Result Response",
+                null,
+                subTasks
+        );
+
+        return sendTask("task.membership.response", task)
+                .then(waitForMembershipEloTaskResult(task.getTaskID()));
+    }
+
+    private Mono<List<MembershipEloRequest>> waitForMembershipEloTaskResult(String taskId) {
+        return Mono.defer(() -> {
+            return Mono.fromCallable(() -> {
+                        while (true) {
+                            Task resultTask = taskResults.get(taskId);
+                            if (resultTask != null) {
+                                List<MembershipEloRequest> membershipEloRequests = convertToMembershipEloRequest(resultTask);
+                                return membershipEloRequests;
+                            }
+                            Thread.sleep(500);
+                        }
+                    })
+                    .subscribeOn(Schedulers.boundedElastic())
+                    .timeout(Duration.ofSeconds(3))
+                    .onErrorResume(e -> Mono.error(new RuntimeException("waitForMembershipEloTaskResult error : ", e)));
+        });
+    }
+
+    private List<MembershipEloRequest> convertToMembershipEloRequest(Task task){
+        return task.getSubTaskList().stream()
+                .filter(subTaskItem -> subTaskItem.getStatus().equals(SubTask.TaskStatus.success))
+                .map(subTaskItem -> objectMapper.convertValue(subTaskItem.getData(), MembershipEloRequest.class))
+                .toList();
+    }
+
+    // TeamElo를 통해 승패에 따른 Elo 점수 변동값을 연산한다.
+    private Mono<List<MembershipEloRequest>> updateTeamElo(List<MembershipEloRequest> team, Long opposingTeamEloSum, boolean isWinner) {
+        // OpposeTeam의 EloSum으로 승패 여부에 따라 연산해야함
+        return Mono.fromCallable(() -> {
+            return team.stream()
+                    .map(membershipEloRequest -> {
+                        long currentElo = membershipEloRequest.getElo();
+                        long newElo = calculateElo(currentElo, opposingTeamEloSum, isWinner);
+                        membershipEloRequest.setElo(newElo);
+                        return membershipEloRequest;
+                    })
+                    .toList();
+        });
     }
 
     private long calculateElo(long currentElo, long opposingTeamElo, boolean isWinner) {
@@ -117,40 +192,22 @@ public class ResultService implements ApplicationRunner {
         return (long) (currentElo + K * (SA - EA));
     }
 
-    private Task createTaskForTeam(String taskName, List<ClientRequest> team, Map<Long, Long> teamEloMap, boolean isWinner) {
-        List<SubTask> subTasks = team.stream()
-                .map(client -> {
-                    Long currentElo = teamEloMap.getOrDefault(client.getMembershipId(), 0L);
-                    Long opposingTeamElo = calculateTotalElo(teamEloMap) / team.size();
-                    Long newElo = calculateElo(currentElo, opposingTeamElo, isWinner);
-
+    private Task sendMembershipNewEloRequests(List<MembershipEloRequest> membershipEloRequests) {
+        List<SubTask> subTasks = membershipEloRequests.stream()
+                .map(membershipEloRequest -> {
                     return  taskUseCase.createSubTask("Elo Update",
-                            String.valueOf(client.getMembershipId()),
+                            String.valueOf(membershipEloRequest.getMembershipId()),
                             SubTask.TaskType.membership,
                             SubTask.TaskStatus.ready,
-                            newElo);
+                            membershipEloRequest.getElo());
 
                 })
                 .toList();
 
         return taskUseCase.createTask(
-                taskName,
+                "Result NewElo Request",
                 null,
                 subTasks);
-    }
-
-
-    private List<SubTask> createSubTasksUpdateElo(Map<Long, Long> updatedEloMap) {
-        List<SubTask> subTasks = new ArrayList<>();
-        updatedEloMap.forEach((membershipId, newElo) -> {
-            subTasks.add(
-                    taskUseCase.createSubTask("Elo Update",
-                    String.valueOf(membershipId),
-                    SubTask.TaskType.membership,
-                    SubTask.TaskStatus.ready,
-                    newElo));
-        });
-        return subTasks;
     }
 
 
@@ -189,37 +246,6 @@ public class ResultService implements ApplicationRunner {
                 .build();
     }
 
-    public Mono<Void> dodge(ResultRequest result) {
-
-        List<ClientRequest> allTeams = new ArrayList<>();
-        allTeams.addAll(result.getBlueTeams());
-        allTeams.addAll(result.getRedTeams());
-
-        if (allTeams.isEmpty()) {
-            log.warn("Win과 lose 팀이 비어 있습니다!");
-            return Mono.empty();
-        }
-
-        return Flux.fromIterable(allTeams)
-                .flatMap(client -> {
-                    Long index = client.getMembershipId();
-
-                    return Mono.just(
-                            taskUseCase.createSubTask("Dodge",
-                            String.valueOf(index),
-                            SubTask.TaskType.result,
-                            SubTask.TaskStatus.ready,
-                            index));
-
-                })
-                .collectList()
-                .flatMap(subTasks -> sendTask("task.membership.response", taskUseCase.createTask(
-                            "Dodge Request",
-                            null,
-                            subTasks))
-                );
-    }
-
 
     public Flux<Result> getGameResultsByName(String name) {
         return resultRepository.searchByUserName(name);
@@ -242,12 +268,26 @@ public class ResultService implements ApplicationRunner {
                             switch (subtask.getSubTaskName()) {
                                 case "ReceivedResult":
                                     ResultRequest result = objectMapper.convertValue(subtask.getData(),ResultRequest.class);
-                                    saveResult(result)
-                                            .doOnSuccess(savedResult -> log.info("Result saved: " + savedResult))
-                                                    .subscribe();
 
-                                    log.info("save result : "+result);
+                                    if ("success".equals(result.getState())) {
+                                        updateElo(result)
+                                                .doOnSuccess(resultId -> log.info("Updated Elo : "+ resultId));
+                                        saveResult(result)
+                                                .doOnSuccess(savedResult -> log.info("Result saved: " + savedResult))
+                                                .subscribe();
+
+                                    } else if ("dodge".equals(result.getState())) {
+                                        dodge(result)
+                                                .doOnSuccess(dodgedResult -> log.info("Result dodged: " + dodgedResult))
+                                                .subscribe();
+                                    } else {
+                                        log.warn("Unknown state: " + result.getState());
+                                    }
+
+
+
                                     break;
+
                                 default:
                                     log.warn("Unknown subtask: {}", subtask.getSubTaskName());
                                     break;
@@ -281,17 +321,17 @@ public class ResultService implements ApplicationRunner {
     public Mono<Result> createResultTemp() {
         Random random = new Random();
 
-        ClientRequest bluePlayer1 = createRandomClientRequest(1L, "Blue", "BluePlayer1");
-        ClientRequest bluePlayer2 = createRandomClientRequest(2L, "Blue", "BluePlayer2");
+        ClientRequest bluePlayer1 = createRandomClientRequest(1L, 1L, "Blue", "BluePlayer1");
+        ClientRequest bluePlayer2 = createRandomClientRequest(2L, 2L, "Blue", "BluePlayer2");
 
-        ClientRequest redPlayer1 = createRandomClientRequest(3L, "Red", "RedPlayer1");
-        ClientRequest redPlayer2 = createRandomClientRequest(4L, "Red", "RedPlayer2");
+        ClientRequest redPlayer1 = createRandomClientRequest(3L, 3L, "Red", "RedPlayer1");
+        ClientRequest redPlayer2 = createRandomClientRequest(4L, 4L, "Red", "RedPlayer2");
 
         ResultRequest dummyResult = ResultRequest.builder()
                 .spaceId("dummy-space-id")
                 .state("success")
-                .channel(random.nextInt(100))
-                .room(random.nextInt(100))
+                .channel(random.nextInt(10))
+                .room(random.nextInt(10))
                 .winTeam("Blue")
                 .loseTeam("Red")
                 .blueTeams(List.of(bluePlayer1, bluePlayer2))
@@ -303,30 +343,30 @@ public class ResultService implements ApplicationRunner {
         return saveResult(dummyResult);
     }
 
-    private ClientRequest createRandomClientRequest(Long membershipId, String team, String userName) {
+    private ClientRequest createRandomClientRequest(Long membershipId, Long champIndex, String team, String userName) {
         Random random = new Random();
 
         return ClientRequest.builder()
                 .membershipId(membershipId)
                 .socket(random.nextInt(100))
-                .champindex(random.nextInt(100))
+                .champindex(champIndex)
                 .user_name(userName)
                 .team(team)
                 .channel(random.nextInt(5))
                 .room(random.nextInt(10))
-                .kill(random.nextInt(20))
-                .death(random.nextInt(20))
-                .assist(random.nextInt(20))
+                .kill(random.nextInt(10))
+                .death(random.nextInt(10))
+                .assist(random.nextInt(10))
                 .gold(random.nextInt(10000))
                 .level(random.nextInt(18) + 1)
-                .maxhp(random.nextInt(5000))
-                .maxmana(random.nextInt(2000))
-                .attack(random.nextInt(300))
+                .maxhp(random.nextInt(100))
+                .maxmana(random.nextInt(100))
+                .attack(random.nextInt(30))
                 .critical(random.nextInt(100))
                 .criProbability(random.nextInt(100))
                 .attrange(random.nextInt(1000))
                 .attspeed(random.nextFloat() * 2)
-                .movespeed(random.nextInt(500))
+                .movespeed(random.nextInt(100))
                 .itemList(List.of(random.nextInt(100), random.nextInt(100), random.nextInt(100))) // 3개의 랜덤 아이템
                 .build();
     }

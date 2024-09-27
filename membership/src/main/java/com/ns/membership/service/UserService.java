@@ -2,6 +2,7 @@ package com.ns.membership.service;
 
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ns.common.MembershipEloRequest;
 import com.ns.common.SubTask;
 import com.ns.common.Task;
 import com.ns.common.TaskUseCase;
@@ -224,8 +225,8 @@ public class UserService implements ApplicationRunner {
                                 case "MatchUserResponseByMembershipId":
                                     handleMatchUserResponse(task.getTaskID(), subtask);
                                     break;
-                                case "ResultTeamEloRequest":
-                                    handleResultTeamElo(subtask);
+                                case "RequestMembershipElo":
+                                    handleResultMembershipElo(task.getTaskID(), subtask);
                                     break;
                                 case "ResultUserEloUpdate":
                                     handleResultUserEloUpdate(subtask);
@@ -346,6 +347,7 @@ public class UserService implements ApplicationRunner {
         Long membershipId = Long.parseLong(subtask.getMembershipId());
 
         log.info("userRepso.findByid("+membershipId+") match");
+
         userRepository.findById(membershipId)
                 .flatMap(user -> {
                     List<SubTask> subTasks = new ArrayList<>();
@@ -384,10 +386,34 @@ public class UserService implements ApplicationRunner {
                 .subscribe();
     }
 
-    private void handleResultTeamElo(SubTask subtask) {
+    private void handleResultMembershipElo(String taskId, SubTask subtask) {
         Long membershipId = Long.parseLong(subtask.getMembershipId());
-        Long teamElo = (Long) subtask.getData();
-        // todo.
+
+        userRepository.findById(membershipId)
+                .flatMap(user -> {
+                    List<SubTask> subTasks = new ArrayList<>();
+
+                    MembershipEloRequest membershipEloRequest = MembershipEloRequest.builder()
+                            .membershipId(user.getId())
+                            .elo(user.getElo()).build();
+
+                    subTasks.add(
+                            taskUseCase.createSubTask("ResultMembershipElo",
+                                    String.valueOf(membershipId),
+                                    SubTask.TaskType.result,
+                                    SubTask.TaskStatus.success,
+                                    membershipEloRequest));
+
+                    log.info("membershipEloRequest result : "+membershipEloRequest);
+                    return sendTask("task.result.request", taskUseCase.createTask(
+                            taskId,
+                            "Result Request - membershipEloRequest",
+                            String.valueOf(membershipId),
+                            subTasks));
+
+                })
+                .doOnError(e -> log.error("Error handling handleResultMembershipElo for membershipId {}: {}", membershipId, e.getMessage()))
+                .subscribe();
     }
 
     private void handleResultUserEloUpdate(SubTask subtask) {
