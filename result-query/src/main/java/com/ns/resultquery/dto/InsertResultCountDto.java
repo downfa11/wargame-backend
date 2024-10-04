@@ -6,13 +6,13 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Data
-@Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class ResultEventDto {
+@Builder
+public class InsertResultCountDto {
     private Long champIndex;
     private String champName;
-    private Long resultCount;
-    private Long winCount;
-    private Long loseCount;
+    private Long resultCount, winCount, loseCount;
+    private Long champResult, champWin, champLose;
+
 }

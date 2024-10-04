@@ -9,7 +9,9 @@ import lombok.NoArgsConstructor;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class ResultEventDto {
+public class MembershipResultEventDto {
+    private Long membershipId;
+    private String userName;
     private Long champIndex;
     private String champName;
     private Long resultCount;

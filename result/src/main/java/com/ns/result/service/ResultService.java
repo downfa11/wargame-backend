@@ -247,8 +247,18 @@ public class ResultService implements ApplicationRunner {
     }
 
 
-    public Flux<Result> getGameResultsByName(String name) {
-        return resultRepository.searchByUserName(name);
+    public Flux<Result> getGameResultsByName(String name, int offset) {
+        int size = 30;
+        return resultRepository.searchByUserName(name, size, offset);
+    }
+
+    public Flux<Result> getGameResultsByMembershipId(Long membershipId, int offset) {
+        int size = 30;
+        return resultRepository.searchByMembershipId(membershipId, size, offset);
+    }
+
+    public Flux<Result> getResultList(){
+        return resultRepository.findAll();
     }
 
     @Override
@@ -327,13 +337,16 @@ public class ResultService implements ApplicationRunner {
         ClientRequest redPlayer1 = createRandomClientRequest(3L, 3L, "Red", "RedPlayer1");
         ClientRequest redPlayer2 = createRandomClientRequest(4L, 4L, "Red", "RedPlayer2");
 
+        String winningTeam = random.nextBoolean() ? "Blue" : "Red";
+        String losingTeam = winningTeam.equals("Blue") ? "Red" : "Blue";
+
         ResultRequest dummyResult = ResultRequest.builder()
                 .spaceId("dummy-space-id")
                 .state("success")
                 .channel(random.nextInt(10))
                 .room(random.nextInt(10))
-                .winTeam("Blue")
-                .loseTeam("Red")
+                .winTeam(winningTeam)
+                .loseTeam(losingTeam)
                 .blueTeams(List.of(bluePlayer1, bluePlayer2))
                 .redTeams(List.of(redPlayer1, redPlayer2))
                 .dateTime(String.valueOf(LocalDateTime.now()))
@@ -369,10 +382,6 @@ public class ResultService implements ApplicationRunner {
                 .movespeed(random.nextInt(100))
                 .itemList(List.of(random.nextInt(100), random.nextInt(100), random.nextInt(100))) // 3개의 랜덤 아이템
                 .build();
-    }
-
-    public Flux<Result> getResultList(){
-        return resultRepository.findAll();
     }
 
 }

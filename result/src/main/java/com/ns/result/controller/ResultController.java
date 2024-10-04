@@ -17,9 +17,9 @@ public class ResultController {
 
     private final ResultService resultService;
 
-    @GetMapping("/elastic/search")
-    public Flux<Result> getGameResultsByName(@RequestParam String name) {
-        return resultService.getGameResultsByName(name);
+    @GetMapping("/search/name/{name}")
+    public Flux<Result> getGameResultsByName(@PathVariable String name, @RequestParam int offset) {
+        return resultService.getGameResultsByName(name, offset);
     }
 
     @PostMapping("/temp")
@@ -32,5 +32,9 @@ public class ResultController {
         return resultService.getResultList();
     }
 
+    @GetMapping("/search/id/{membershipId}")
+    public Flux<Result> getGameResultsByMembershipId(@PathVariable Long membershipId,  @RequestParam int offset) {
+        return resultService.getGameResultsByMembershipId(membershipId, offset);
+    }
 }
 

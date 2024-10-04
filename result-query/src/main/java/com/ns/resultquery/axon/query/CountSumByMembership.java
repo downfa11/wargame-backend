@@ -11,13 +11,11 @@ import java.util.List;
 @Builder
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 public class CountSumByMembership {
-    private final String membershipId;
-    private final String name;
+    private final String username;
 
-    private final long entireCount;
-    private final long winCount;
-    private final long loseCount;
-    private final long percent;
+    private final Long entireCount;
+    private final Long winCount;
+    private final Long loseCount;
 
     private final List<ChampStat> champStatList;
 }
