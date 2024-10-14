@@ -18,6 +18,8 @@ import java.time.LocalDateTime;
 public class User {
     @Id
     private Long id;
+    private String aggregateIdentifier;
+
     private String account;
     private String email;
     private String password;

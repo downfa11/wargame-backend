@@ -9,16 +9,21 @@ import com.ns.common.TaskUseCase;
 import com.ns.membership.Utils.JwtTokenProvider;
 import com.ns.membership.Utils.Vault.VaultAdapter;
 import com.ns.membership.Utils.jwtToken;
+import com.ns.membership.axon.common.CreateMemberCommand;
+import com.ns.membership.axon.common.ModifyMemberCommand;
+import com.ns.membership.axon.common.ModifyMemberEloCommand;
 import com.ns.membership.entity.User;
 import com.ns.membership.entity.dto.*;
 import com.ns.membership.repository.UserR2dbcRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.axonframework.commandhandling.gateway.CommandGateway;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.kafka.core.reactive.ReactiveKafkaConsumerTemplate;
 import org.springframework.kafka.core.reactive.ReactiveKafkaProducerTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
@@ -27,6 +32,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Service
@@ -46,6 +52,7 @@ public class UserService implements ApplicationRunner {
     private final TaskUseCase taskUseCase;
     private final ObjectMapper objectMapper;
 
+    private final CommandGateway commandGateway;
     private final ConcurrentHashMap<String, Task> taskResults = new ConcurrentHashMap<>();
     private final int MAX_TASK_RESULT_SIZE = 5000;
 
@@ -56,7 +63,7 @@ public class UserService implements ApplicationRunner {
     }
     public Mono<User> create(UserCreateRequest request) {
 
-        String encryptedPassword = vaultAdapter.encrypt(request.getPassword());
+        // String encryptedPassword = vaultAdapter.encrypt(request.getPassword());
 
         // name, email의 중복 여부를 확인
         Flux<User> existingUsers = Flux.concat(
@@ -68,8 +75,9 @@ public class UserService implements ApplicationRunner {
                 .flatMap(existingUserList -> {
                     if (existingUserList.isEmpty()) {
                         return userRepository.save(User.builder()
+                                .aggregateIdentifier("")
                                 .account(request.getAccount())
-                                .password(encryptedPassword)
+                                .password(request.getPassword())
                                 .name(request.getName())
                                 .email(request.getEmail())
                                         .elo(2000L)
@@ -82,11 +90,43 @@ public class UserService implements ApplicationRunner {
                     }
                 });
     }
-    public Mono<UserResponse> login(UserRequest request) {
-        String encryptedPassword = vaultAdapter.encrypt(request.getPassword());
-        log.info("encrypt password : " + encryptedPassword);
 
-        return userRepository.findByAccountAndPassword(request.getAccount(), encryptedPassword)
+    public Mono<User> create(UserCreateRequest request, String aggregateIdentifier){
+
+        // String encryptedPassword = vaultAdapter.encrypt(request.getPassword());
+
+        // name, email의 중복 여부를 확인
+        Flux<User> existingUsers = Flux.concat(
+                userRepository.findByName(request.getName()),
+                userRepository.findByEmail(request.getEmail())
+        );
+
+        return existingUsers.collectList()
+                .flatMap(existingUserList -> {
+                    if (existingUserList.isEmpty()) {
+                        return userRepository.save(User.builder()
+                                .aggregateIdentifier(aggregateIdentifier)
+                                .account(request.getAccount())
+                                .password(request.getPassword())
+                                .name(request.getName())
+                                .email(request.getEmail())
+                                .elo(2000L)
+                                .code("")
+                                .createdAt(LocalDateTime.now())
+                                .updatedAt(LocalDateTime.now())
+                                .build());
+                    } else {
+                        log.info("Duplicated data.");
+                        return Mono.error(new RuntimeException("Duplicated data."));
+                    }
+                });
+    }
+
+    public Mono<UserResponse> login(UserRequest request) {
+        // String encryptedPassword = vaultAdapter.encrypt(request.getPassword());
+        // log.info("encrypt password : " + encryptedPassword);
+
+        return userRepository.findByAccountAndPassword(request.getAccount(), request.getPassword())
                 .flatMap(user -> {
                     String id = user.getId().toString();
                     Mono<String> jwtMono = jwtTokenProvider.generateJwtToken(id);
@@ -123,28 +163,60 @@ public class UserService implements ApplicationRunner {
         return userRepository.deleteByName(name)
                 .then(Mono.empty());
     }
+
+    public Mono<User> findByAccount(String account){
+        return userRepository.findByAccount(account);
+    }
+
     public Mono<User> update(Long id,String account, String name, String email,String password){
-        String encryptedPassword = vaultAdapter.encrypt(password);
+        // String encryptedPassword = vaultAdapter.encrypt(password);
 
         return userRepository.findById(id)
                 .flatMap(u -> {
                     u.setName(name);
                     u.setEmail(email);
                     u.setAccount(account);
-                    u.setPassword(encryptedPassword);
+                    u.setPassword(password);
                     u.setUpdatedAt(LocalDateTime.now());
                     return userRepository.save(u);
                 });
                 // map으로 하면 Mono<Mono<User>>를 반환
     }
+
+    public Mono<User> update(Long id,String account, String name, String email,String password, String aggregateIdentifier){
+        // String encryptedPassword = vaultAdapter.encrypt(password);
+
+        return userRepository.findById(id)
+                .flatMap(u -> {
+                    u.setName(name);
+                    u.setAggregateIdentifier(aggregateIdentifier);
+                    u.setEmail(email);
+                    u.setAccount(account);
+                    u.setPassword(password);
+                    u.setUpdatedAt(LocalDateTime.now());
+                    return userRepository.save(u);
+                });
+        // map으로 하면 Mono<Mono<User>>를 반환
+    }
+
+    public Mono<User> updateElo(Long id,Long elo, String aggregateIdentifer){
+        return userRepository.findById(id)
+                .flatMap(u -> {
+                    u.setAggregateIdentifier(aggregateIdentifer);
+                    u.setElo(elo);
+                    u.setUpdatedAt(LocalDateTime.now());
+                    return userRepository.save(u);
+                });
+    }
+
     private Mono<User> decryptUserData(User user) {
-        String decryptedPassword = vaultAdapter.decrypt(user.getPassword());
+        // String decryptedPassword = vaultAdapter.decrypt(user.getPassword());
 
         User decryptedUser = new User();
         decryptedUser.setId(user.getId());
         decryptedUser.setAccount(user.getAccount());
         decryptedUser.setEmail(user.getEmail());
-        decryptedUser.setPassword(decryptedPassword);
+        decryptedUser.setPassword(user.getPassword());
         decryptedUser.setName(user.getName());
         decryptedUser.setElo(user.getElo());
         decryptedUser.setCode(user.getCode());
@@ -420,13 +492,7 @@ public class UserService implements ApplicationRunner {
         Long membershipId = Long.parseLong(subtask.getMembershipId());
         Long updatedElo = (Long) subtask.getData();
 
-        userRepository.findById(membershipId)
-                .flatMap(user -> {
-                    user.setElo(updatedElo);
-                    return userRepository.save(user);
-                })
-                .doOnError(e -> log.error("Error handling ResultUserEloUpdate for membershipId {}: {}", membershipId, e.getMessage()))
-                .subscribe();
+        modifyMemberEloByEvent(String.valueOf(membershipId), updatedElo).subscribe();
     }
 
     private void handleResultUserDodge(SubTask subtask) {
@@ -470,17 +536,6 @@ public class UserService implements ApplicationRunner {
 
     }
 
-//    private Flux<Task> waitForTaskResult(String taskId) {
-//        return TaskRequestConsumerTemplate
-//                .receiveAutoAck()
-//                .filter(record -> taskId.equals(record.key()))
-//                .map(record -> record.value())
-//                .onErrorResume(throwable -> {
-//                    log.error("Error occurred: {}", throwable.getMessage());
-//                    return Flux.empty();
-//                });
-//    }
-
     private Mono<List<PostSummary>> waitForUserPostsTaskResult(String taskId) {
         return Mono.defer(() -> {
             return Mono.fromCallable(() -> {
@@ -515,4 +570,62 @@ public class UserService implements ApplicationRunner {
 
     }
 
+    public Mono<Void> createMemberByEvent(UserCreateRequest request) {
+        CreateMemberCommand axonCommand = new CreateMemberCommand(request.getAccount(), request.getName(), request.getEmail(), request.getPassword());
+
+        return Mono.fromFuture(() -> commandGateway.send(axonCommand))
+                .doOnSuccess(result -> create(request, result.toString()).subscribe())
+                .doOnError(throwable -> {
+                    log.error("createMemberByEvent throwable : ", throwable);
+                })
+                .then();
+
+    }
+
+
+    public Mono<Void> modifyMemberEloByEvent(String membershipId, Long elo) {
+        // command를 만들어서 axon-server로 보낼거야
+
+        return userRepository.findById(Long.parseLong(membershipId))
+                .flatMap(user -> {
+                    String memberAggregateIdentifier = user.getAggregateIdentifier();
+                    ModifyMemberEloCommand axonCommand = new ModifyMemberEloCommand(memberAggregateIdentifier, membershipId, elo);
+
+                    return Mono.fromFuture(() -> commandGateway.send(axonCommand))
+                                    .doOnSuccess(result -> updateElo(Long.parseLong(membershipId), elo, result.toString()).subscribe())
+                                    .doOnError(throwable -> {
+                                        log.error("modifyMemberEloByEvent throwable : ", throwable);
+                                    })
+                                    .then();
+                });
+    }
+
+    public Mono<User> modifyMemberElo(String membershipId, Long elo) {
+        return userRepository.findById(Long.parseLong(membershipId))
+                .flatMap(u -> {
+                    u.setElo(elo);
+                    u.setUpdatedAt(LocalDateTime.now());
+                    return userRepository.save(u);
+                });
+    }
+
+    public Mono<Void> modifyMemberByEvent(String membershipId, UserUpdateRequest request) {
+        String account = request.getAccount();
+        String name = request.getName();
+        String email = request.getEmail();
+        String password = request.getPassword();
+
+        return userRepository.findById(Long.parseLong(membershipId))
+                .flatMap(user -> {
+                    String memberAggregateIdentifier = user.getAggregateIdentifier();
+                    ModifyMemberCommand axonCommand = new ModifyMemberCommand(memberAggregateIdentifier, membershipId, account, name, email, password);
+                    return Mono.fromFuture(() -> commandGateway.send(axonCommand))
+                            .doOnSuccess(result -> {
+                                update(Long.parseLong(membershipId), account,name , email, password, result.toString()).subscribe();
+                            })
+                            .doOnError(throwable -> {
+                                log.error("modifyMemberByEvent throwable : ", throwable);
+                            }).then();
+                });
+    }
 }

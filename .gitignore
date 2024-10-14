@@ -697,3 +697,10 @@ db/data/binlog.000132
 db/data/binlog.000134
 db/data/binlog.000135
 db/initdb.d/initdb.sql
+axon-server-se/data/_diagnostics/logfile.log
+axon-server-se/data/axonserver-configdb.mv.db
+axon-server-se/data/axonserver-configdb.trace.db
+axon-server-se/events/default/00000000000000000000.events
+axon-server-se/events/default/00000000000000000000.snapshots
+wargame/.vs/wargame/FileContentIndex/6a490cfb-11a5-44ab-937f-d4381426ae64.vsidx
+axon-server-se/data/_diagnostics/logfile-2024-10-13-0.log.gz

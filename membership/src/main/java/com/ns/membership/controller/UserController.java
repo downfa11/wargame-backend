@@ -2,6 +2,7 @@ package com.ns.membership.controller;
 
 import com.ns.common.messageEntity;
 import com.ns.membership.Utils.JwtTokenProvider;
+import com.ns.membership.entity.User;
 import com.ns.membership.entity.dto.*;
 import com.ns.membership.service.MailService;
 import com.ns.membership.service.UserService;
@@ -255,23 +256,49 @@ public class UserController {
                                 .body("인증 코드가 유효하지 않거나 일치하지 않습니다."));
                     }
 
-                    if (!membershipId.equals(request.getMembershipId())) {
-                        return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                                .body("membershipId가 유효하지 않습니다."));
-                    }
-
-                    return userService.findById(membershipId)
-                            .flatMap(membership -> {
-                                if (membership == null) {
+                    return userService.findByAccount(request.getAccount())
+                            .flatMap(user -> {
+                                if(user == null){
                                     return Mono.just(ResponseEntity.status(HttpStatus.NOT_FOUND)
                                             .body("해당하는 membershipId를 찾을 수 없습니다."));
                                 }
 
+                                if (!membershipId.equals(user.getId())) {
+                                    return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                                            .body("membershipId가 유효하지 않습니다."));
+                                }
+
                                 return Mono.fromCallable(() -> {
-                                    userService.update(membership.getId(),membership.getAccount(),membership.getName(),membership.getEmail(),membership.getPassword());
+                                    userService.update(user.getId(),user.getAccount(),user.getName(),user.getEmail(),user.getPassword());
                                     return ResponseEntity.ok("비밀번호가 성공적으로 변경되었습니다.");
                                 });
                             });
                 });
     }
+
+    @PostMapping(path="/create-member")
+    Mono<Void> createMemberMoney(@RequestBody UserCreateRequest request){
+        return userService.createMemberByEvent(request);
+    }
+
+    @PostMapping(path="/increase-elo-test-eda")
+    Mono<Void> ModifyMemberEloByEvent(@RequestParam String membershipId){
+        Random random = new Random();
+        Long elo = random.nextLong(2000);
+        return userService.modifyMemberEloByEvent(membershipId, elo);
+        // 임시로 createMemberMoneyUserCase에서 balance의 증감도 같이 하는중
+    }
+
+    @PostMapping(path="/increase-elo-test")
+    Mono<User> ModifyMemberElo(@RequestParam String membershipId){
+        Random random = new Random();
+        Long elo = random.nextLong(2000);
+        return userService.modifyMemberElo(membershipId, elo);
+    }
+
+    @PostMapping(path="/modify-eda")
+    Mono<Void> ModifyMemberByEvent(@RequestParam String membershipId, @RequestBody UserUpdateRequest request){
+        return userService.modifyMemberByEvent(membershipId, request);
+    }
+
 }
