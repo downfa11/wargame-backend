@@ -6,7 +6,7 @@ import lombok.Data;
 @Data
 @AllArgsConstructor
 public class PasswordResetRequest {
-    private String membershipId;
+    private String account;
     private String newPassword;
     private String verify;
 }

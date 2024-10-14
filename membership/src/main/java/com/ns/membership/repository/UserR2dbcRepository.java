@@ -12,7 +12,7 @@ import java.util.List;
 public interface UserR2dbcRepository extends ReactiveCrudRepository<User, Long> {
     Flux<User> findByName(String name);
     Flux<User> findByEmail(String email);
-    Flux<User> findByAccount(String account);
+    Mono<User> findByAccount(String account);
     Mono<User> findByAccountAndPassword(String account,String password);
     Flux<User> findByNameOrderByIdDesc(String name);
 
