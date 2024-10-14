@@ -362,31 +362,6 @@ public class MatchQueueService implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args){
-
-        this.TaskResponseConsumerTemplate
-                .receiveAutoAck()
-                .doOnNext(r -> {
-                    Task task = r.value();
-
-                    List<SubTask> subTasks = task.getSubTaskList();
-
-                    for(var subtask : subTasks){
-
-                        log.info("TaskResponseConsumerTemplate received : "+subtask.toString());
-                        try {
-                            switch (subtask.getSubTaskName()) {
-                                default:
-                                    log.warn("Unknown subtask: {}", subtask.getSubTaskName());
-                                    break;
-                            }
-                        } catch (Exception e) {
-                            log.error("Error processing subtask {}: {}", subtask.getSubTaskName(), e.getMessage());
-                        }
-                    }
-                })
-                .doOnError(e -> log.error("Error receiving: " + e))
-                .subscribe();
-
         this.TaskRequestConsumerTemplate
                 .receiveAutoAck()
                 .doOnNext(r -> {

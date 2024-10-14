@@ -3,8 +3,8 @@
 #include "kafka.h"
 
 const string kafkaMessage::brokers = "localhost:9094";
-const Topic kafkaMessage::resultTopic = "result";
-const Topic kafkaMessage::matchTopic = "match";
+const Topic kafkaMessage::resultTopic = "task.result.response";
+const Topic kafkaMessage::matchTopic = "task.match.response";
 
 Properties kafkaMessage::props({ {"bootstrap.servers", kafkaMessage::brokers} });
 
