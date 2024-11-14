@@ -7,6 +7,7 @@
 
 #include <tchar.h>
 #include <DbgHelp.h> 
+#include <asio.hpp>
 
 using namespace kafka;
 using namespace kafka::clients::consumer;
@@ -663,10 +664,25 @@ void CommendInput()
 			int size = input.size();
 			memcpy(packet_data, input.c_str(), size);
 
-			for (auto cli : GameManager::client_channel[channelIndex].client_list_room[roomIndex])
-				PacketManger::Send(cli->socket, H_NOTICE, packet_data, size);
+			if (channelIndex == -1 && roomIndex == -1) {
 
-			cout << "UTF-8 Encoded Notice ch." << channelIndex << " Room #" << roomIndex << " : " << input << endl;
+				for (size_t i = 0; i < MAX_CHANNEL_COUNT; i++)
+				{
+					for (size_t j = 0; j < MAX_ROOM_COUNT_PER_CHANNEL; j++)
+					{
+						for (auto cli : GameManager::client_channel[i].client_list_room[j])
+							PacketManger::Send(cli->socket, H_NOTICE, packet_data, size);
+					}
+				}
+
+				cout << "UTF-8 Encoded Notice All channels and rooms" << " : " << input << endl;
+			}
+			else {
+				for (auto cli : GameManager::client_channel[channelIndex].client_list_room[roomIndex])
+					PacketManger::Send(cli->socket, H_NOTICE, packet_data, size);
+
+				cout << "UTF-8 Encoded Notice ch." << channelIndex << " Room #" << roomIndex << " : " << input << endl;
+			}
 			what = true;
 		}
 
@@ -703,7 +719,7 @@ vector<UserData> parseTeamData(const string& teamData) {
 	return team;
 }
 
-roomData matchParsing(const string& request) {
+RoomData matchParsing(const string& request) {
 	size_t jsonStart = request.find("(");
 	size_t jsonEnd = request.find_last_of(")");
 
@@ -728,7 +744,7 @@ roomData matchParsing(const string& request) {
 			size_t blueTeamEnd = teamsData.find("]", blueTeamStart);
 			string blueTeamData = teamsData.substr(blueTeamStart - 1, blueTeamEnd - blueTeamStart + 2);
 
-			roomData curRoom;
+			RoomData curRoom;
 			curRoom.spaceId = spaceId;
 			curRoom.redTeam = parseTeamData(redTeamData);
 			cout << redTeamData << " parsing red team : " << (curRoom.redTeam.size()) << endl;
@@ -743,7 +759,7 @@ roomData matchParsing(const string& request) {
 	}
 	else cerr << "Data not found in request." << endl;
 
-	return roomData(); // 파싱 실패 시 빈 객체 반환
+	return RoomData(); // 파싱 실패 시 빈 객체 반환
 }
 
 void KafkaConsumerThread() {
@@ -759,7 +775,7 @@ void KafkaConsumerThread() {
 				string message = record.value().toString();
 
 				cout << "kafka message : " << message << endl;
-				roomData curRoom = matchParsing(message);
+				RoomData curRoom = matchParsing(message);
 				if (curRoom.spaceId.empty()) {
 					cout << "room create fail." << endl;
 				}
@@ -794,7 +810,10 @@ int main()
 	thread time_out_thread(TimeOutCheckThread);
 
 	EndDump();
+
+
 	CommendInput();
+	
 
 	accept_thread.join();
 	time_out_thread.join();

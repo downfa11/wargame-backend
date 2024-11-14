@@ -4,6 +4,7 @@
 #include "Resource.h"
 #include "Timer.h"
 #include "kafka.h"
+#include <asio.hpp>
 
 //#include <nlohmann/json.hpp>
 
@@ -21,7 +22,8 @@ using ChatLog = vector<vector<ChatEntry>>;
 struct ClientChannel
 {
 	list<Client*> client_list_room[MAX_ROOM_COUNT_PER_CHANNEL];
-	list<structure*> structure_list_room[MAX_ROOM_COUNT_PER_CHANNEL];
+	list<Structure*> structure_list_room[MAX_ROOM_COUNT_PER_CHANNEL];
+	list<Unit*> unit_list_room[MAX_ROOM_COUNT_PER_CHANNEL];
 
 	chrono::time_point<chrono::system_clock> startTime[MAX_ROOM_COUNT_PER_CHANNEL];
 	ChatLog chat_log;
@@ -35,12 +37,20 @@ class GameManager
 {
 public:
 	static list<Client*> client_list_all;
-	static vector<roomData> auth_data;
+	static vector<RoomData> auth_data;
 	static ClientChannel client_channel[MAX_CHANNEL_COUNT];
 	static Client* clients_info[MAX_CLIENT];
 
 	static bool exit_connect;
 	static int timeout_check_time;
+
+
+	static asio::io_context io_context;
+
+	GameManager() {
+		asio::io_context io_context;
+		io_context.run();
+	};
 
 	static void TimeOutCheck();
 	static void NewClient(SOCKET client_socket, LPPER_HANDLE_DATA handle, LPPER_IO_DATA ioinfo);
@@ -48,6 +58,8 @@ public:
 	static void ClientChat(int client_socket, int size, void* data);
 	static void ClientChanMove(int client_socket, void* data);
 	static void ClientRoomMove(int client_socket, void* data);
+
+	static bool IsPositionValid(const Client& currentPos, const ClientInfo& newPos);
 	static void ClientMove(int client_socket, void* data);
 	static void ClientMoveStart(int client_socket, void* data);
 	static void ClientMoveStop(int client_socket, void* data);
@@ -69,11 +81,11 @@ public:
 	static void NotifyAttackResulttoClient(int client_socket, int chan, int room, int attacked_socket);
 	static void NotifyAttackResulttoStructure(int client_socket, int chan, int room, int attacked_index);
 
-	static void NewStructure(int index, int team, int kind, int chan, int room,int x, int y, int z);
-	static void StructureDie(int index, int team, int kind, int chan, int room);
-	static void StructureStat(int index, int team, int kind, int chan, int room);
+	static void NewStructure(int index, int team, int struct_kind, int chan, int room,int x, int y, int z);
+	static void StructureDie(int index, int team, int struct_kind, int chan, int room);
+	static void StructureStat(int index, int team, int struct_kind, int chan, int room);
 	static void TurretSearch(int index, int chan, int room);
-	static void TurretShot(int index, bullet* newBullet, int attacked_, int chan, int room);
+	static void TurretShot(int index, Bullet* newBullet, int attacked_, int chan, int room);
 	static void ClientDie(int client_socket, int killer, int kind);
 	static void WaitAndRespawn(int client_socket, int respawnTime);
 	static void TurretSearchWorker(int index, int chan, int room);
@@ -100,9 +112,21 @@ public:
 	static void handleDodgeResult(int channel, int room);
 
 
-	static bool findEmptyRoom(roomData curRoom);
+	static bool findEmptyRoom(RoomData curRoom);
 	static string clientToJson(const Client* client);
 	static string matchResultToJson(const MatchResult& result);
 
 	static void champ1Passive(void* data);
+	static void tempConnection(int client_socket, int channel, int room);
+	static void tempClientCreate(int client_socket);
+
+	static void NewUnit();
+	static void UnitDie();
+	static void UnitStat();
+
+
+private:
+
+
+	static void MoveBulletAsync(Bullet* newBullet, BulletInfo bulletInfo, Client* attacked, Structure* attacker);
 };

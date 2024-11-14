@@ -18,6 +18,7 @@
 #include <random>
 #include <sstream>
 #include<shared_mutex>
+#include <asio.hpp>
 
 #pragma comment(lib,"ws2_32.lib")
 
@@ -253,20 +254,22 @@ struct nsHeader
 #pragma pack(pop)
 
 #pragma pack(push,1)
-struct mouseInfo
+struct MouseInfo
 {
 	float x;
 	float y;
 	float z;
+	int kind=-1; /// 0: Player, 1:Structure, 2:Unit
 
 };
 #pragma pack(pop)
 
 #pragma pack(push,1)
-struct attinfo {
+struct AttInfo {
 	int attacker;
 	int attacked;
 	int kind;
+	int object_kind;
 	int assist1=-1;
 	int assist2 = -1;
 	int assist3 = -1;
@@ -275,11 +278,11 @@ struct attinfo {
 };
 #pragma pack(pop)
 
-class structure
+class Structure
 {
 public:
 	int index = 0;
-	int kind = -1; // nexus:0, turret:1, gate:2
+	int struct_kind = -1; // nexus:0, turret:1, gate:2
 	float x = 0;
 	float y = 0;
 	float z = 0;
@@ -292,13 +295,15 @@ public:
 	float bulletspeed;
 	int team = -1; // 0 for blue team, 1 for red team
 	chrono::high_resolution_clock::time_point lastUpdateTime;
+	std::shared_ptr<asio::steady_timer> timer;
 };
 
+
 #pragma pack(push,1)
-struct structureInfo
+struct StructureInfo
 {
 	int index;
-	int kind;
+	int struct_kind;
 	int curhp;
 	int maxhp;
 	float x;
@@ -312,7 +317,7 @@ struct structureInfo
 #pragma pack(pop)
 
 #pragma pack(push,1)
-struct bullet {
+struct Bullet {
 	double x;
 	double y;
 	double z;
@@ -339,7 +344,7 @@ struct MatchResult {
 
 
 #pragma pack(push,1)
-struct itemSlots {
+struct ItemSlots {
 	int socket;
 	int id_0;
 	int id_1;
@@ -355,7 +360,7 @@ struct UserData {
 	string user_name;
 };
 
-struct roomData {
+struct RoomData {
 	string spaceId;
 	int isGame=-1; // -1:empty room, 0:pick room, 1:game room
 
@@ -365,4 +370,50 @@ struct roomData {
 	vector<UserData> redTeam;
 	vector<UserData> blueTeam;
 
+};
+
+
+struct Unit {
+	int index;
+	int unit_kind=-1; // 병종 종류
+	int team=-1; // red, blue
+	int curhp=0;
+	int maxhp=0;
+	float x=0;
+	float y=0;
+	float z=0;
+	float maxdelay=0;
+	float curdelay=0;
+	int attrange=0;
+	int bulletdmg=0;
+	float bulletspeed=0;
+
+};
+
+struct UnitInfo {
+	int index;
+	int kind = -1; // 병종 종류
+	int team = -1; // red, blue
+	int curhp = 0;
+	int maxhp = 0;
+	float x = 0;
+	float y = 0;
+	float z = 0;
+	int attrange = 0;
+	int bulletdmg = 0;
+	float bulletspeed = 0;
+
+};
+
+struct BulletInfo {
+	float targetX;
+	float targetY;
+	float targetZ;
+
+	float directionX;
+	float directionY;
+	float directionZ;
+
+	float moveDistance;
+	std::shared_ptr<asio::steady_timer> timer;
 };

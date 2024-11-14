@@ -1,7 +1,7 @@
 ﻿#include "GameManager.h"
 
 list<Client*> GameManager::client_list_all;
-vector<roomData> GameManager::auth_data;
+vector<RoomData> GameManager::auth_data;
 
 ClientChannel GameManager::client_channel[MAX_CHANNEL_COUNT];
 Client* GameManager::clients_info[MAX_CLIENT];
@@ -10,6 +10,7 @@ bool GameManager::exit_connect = false;
 int GameManager::timeout_check_time = 0;
 
 unordered_map<int, atomic<bool>> turretSearchStopMap;
+asio::io_context GameManager::io_context;
 
 mutex kafka_mutex;
 shared_mutex client_list_mutex;
@@ -17,12 +18,15 @@ shared_mutex clients_info_mutex;
 shared_mutex chat_mutex[MAX_CHANNEL_COUNT][MAX_ROOM_COUNT_PER_CHANNEL];
 shared_mutex room_mutex[MAX_CHANNEL_COUNT][MAX_ROOM_COUNT_PER_CHANNEL];
 shared_mutex structure_mutex[MAX_CHANNEL_COUNT][MAX_ROOM_COUNT_PER_CHANNEL];
+shared_mutex unit_mutex[MAX_CHANNEL_COUNT][MAX_ROOM_COUNT_PER_CHANNEL];
 
 //  level 마다 지정된 maxexp (전체 공통)
 //  성장 능력치 상승치 grow* (챔프 개인)
 
-
 #define PICK_TIME 10
+#define TEST_CLIENT_SOCKET 1000
+#define MAX_MOUSE_SEARCH 50 
+#define MAX_MOVE_DISTANCE 10
 
 
 float DistancePosition(float x1, float y1, float z1, float x2, float y2, float z2)
@@ -46,6 +50,8 @@ void GameManager::TimeOutCheck()
 		}
 		for (auto inst : des_cli)
 		{
+			if (inst->socket == TEST_CLIENT_SOCKET) // test
+				continue;
 			printf("Time out %d \n", inst->socket);
 			ClientClose(inst->socket);
 		}
@@ -60,6 +66,7 @@ void GameManager::NewClient(SOCKET client_socket, LPPER_HANDLE_DATA handle, LPPE
 	temp_cli->out_time = time(NULL) + 10;
 	temp_cli->channel = 0;
 	temp_cli->room = 0;
+
 	temp_cli->handle = handle;
 	temp_cli->ioinfo = ioinfo;
 
@@ -91,6 +98,8 @@ void GameManager::NewClient(SOCKET client_socket, LPPER_HANDLE_DATA handle, LPPE
 
 
 	cout << "Connect " << client_socket << endl;
+
+	GameManager::tempConnection(client_socket, 0, 0);
 }
 
 void GameManager::ClientClose(int client_socket)
@@ -346,6 +355,13 @@ void GameManager::ClientMoveStart(int client_socket, void* data)
 	}
 }
 
+bool GameManager::IsPositionValid(const Client& currentPos, const ClientInfo& newPos) {
+	float distSquared = (newPos.x - currentPos.x) * (newPos.x - currentPos.x) +
+		(newPos.y - currentPos.y) * (newPos.y - currentPos.y) +
+		(newPos.z - currentPos.z) * (newPos.z - currentPos.z);
+	return distSquared <= MAX_MOVE_DISTANCE * MAX_MOVE_DISTANCE;
+}
+
 void GameManager::ClientMove(int client_socket, void* data)
 {
 	ClientInfo info;
@@ -353,7 +369,7 @@ void GameManager::ClientMove(int client_socket, void* data)
 
 
 	int chan = -1, room = -1;
-
+	bool positionValid = false;
 	{
 		unique_lock<shared_mutex> lock(clients_info_mutex);
 		auto& client_info = clients_info[client_socket];
@@ -369,13 +385,20 @@ void GameManager::ClientMove(int client_socket, void* data)
 			return;
 		}
 
-		client_info->x = info.x;
-		client_info->y = info.y;
-		client_info->z = info.z;
+		if (IsPositionValid(*client_info, info)) {
+			client_info->x = info.x;
+			client_info->y = info.y;
+			client_info->z = info.z;
+			positionValid = true;
+		}
+		else {
+			cout << "ClientMove 위치 검증 실패: 비정상적 이동 탐지됨" << endl;
+			return;
+		}
 	}
 
 
-	{
+	if (positionValid) {
 		shared_lock<shared_mutex> lock(room_mutex[chan][room]);
 		for (auto inst : client_channel[chan].client_list_room[room])
 		{
@@ -392,7 +415,7 @@ void GameManager::ClientMoveStop(int client_socket, void* data)
 	memcpy(&info, data, sizeof(ClientInfo));
 
 	int chan = -1, room = -1;
-
+	bool positionValid = false;
 	{
 		unique_lock<shared_mutex> lock(clients_info_mutex);
 		auto& client_info = clients_info[client_socket];
@@ -408,13 +431,20 @@ void GameManager::ClientMoveStop(int client_socket, void* data)
 			return;
 		}
 
-		client_info->x = info.x;
-		client_info->y = info.y;
-		client_info->z = info.z;
+		if (IsPositionValid(*client_info, info)) {
+			client_info->x = info.x;
+			client_info->y = info.y;
+			client_info->z = info.z;
+			positionValid = true;
+		}
+		else {
+			cout << "ClientMoveStop 위치 검증 실패: 비정상적 이동 탐지됨" << endl;
+			return;
+		}
 	}
 
 
-	{
+	if (positionValid) {
 		shared_lock<shared_mutex> lock(room_mutex[chan][room]);
 		for (auto inst : client_channel[chan].client_list_room[room])
 		{
@@ -587,7 +617,7 @@ void GameManager::SendVictory(int winTeam, int channel, int room)
 	cout << "dateTime : " << result.dateTime << endl;
 
 
-	roomData curRoom;
+	RoomData curRoom;
 
 	{
 		for (auto& inst : auth_data) {
@@ -639,7 +669,7 @@ void GameManager::SendVictory(int winTeam, int channel, int room)
 	SaveMatchResult(result);
 
 	//clear
-	auto condition = [channel, room](roomData& roomInfo) {
+	auto condition = [channel, room](RoomData& roomInfo) {
 		return roomInfo.channel == channel && roomInfo.room == room; };
 	auth_data.erase(std::remove_if(auth_data.begin(), auth_data.end(), condition), auth_data.end());
 
@@ -660,10 +690,9 @@ void GameManager::SaveMatchResult(const MatchResult& result) {
 }
 
 void GameManager::ClientStat(int client_socket) {
-
 	int chan = -1, room = -1;
 	ClientInfo info{};
-	itemSlots slots{};
+	ItemSlots slots{};
 
 	{
 		shared_lock<shared_mutex> lock(clients_info_mutex);
@@ -721,7 +750,7 @@ void GameManager::ClientStat(int client_socket) {
 		for (auto inst : client_channel[chan].client_list_room[room])
 		{
 			PacketManger::Send(inst->socket, H_CLIENT_STAT, &info, sizeof(ClientInfo));
-			PacketManger::Send(inst->socket, H_ITEM_STAT, &slots, sizeof(itemSlots));
+			PacketManger::Send(inst->socket, H_ITEM_STAT, &slots, sizeof(ItemSlots));
 		}
 	}
 }
@@ -789,7 +818,7 @@ void GameManager::ClientChampInit(int client_socket) {
 
 
 	ClientInfo info;
-	itemSlots slots;
+	ItemSlots slots;
 	{
 		unique_lock<shared_mutex> lock(clients_info_mutex);
 		auto& client_info = clients_info[client_socket];
@@ -823,7 +852,7 @@ void GameManager::ClientChampInit(int client_socket) {
 		for (auto inst : client_channel[chan].client_list_room[room])
 		{
 			PacketManger::Send(inst->socket, H_CHAMPION_INIT, &info, sizeof(ClientInfo));
-			PacketManger::Send(inst->socket, H_ITEM_STAT, &slots, sizeof(itemSlots));
+			PacketManger::Send(inst->socket, H_ITEM_STAT, &slots, sizeof(ItemSlots));
 		}
 	}
 }
@@ -877,11 +906,10 @@ void GameManager::ClientChampInit(Client* client) {
 
 void GameManager::MouseSearch(int client_socket, void* data)
 {
+	MouseInfo info;
+	memcpy(&info, data, sizeof(MouseInfo));
 
-	mouseInfo info;
-	memcpy(&info, data, sizeof(mouseInfo));
-
-	int chan = -1, room = -1, teamClient = -1;
+	int chan = -1, room = -1, teamClient = -1, kind = info.kind;
 
 	{
 		shared_lock<shared_mutex> lock(clients_info_mutex);
@@ -897,48 +925,99 @@ void GameManager::MouseSearch(int client_socket, void* data)
 
 	double minDistance = FLT_MAX * 2;
 	void* closestTarget = nullptr;
-	bool isClient = false;
 
+	if(kind==0) // Player
 	{
 		shared_lock<shared_mutex> lockRoom(room_mutex[chan][room]);
-		shared_lock<shared_mutex> lockStruct(structure_mutex[chan][room]);
 
 		for (auto& inst : client_channel[chan].client_list_room[room]) {
 			if (inst->socket != client_socket && teamClient != inst->team) {
 				float distance = DistancePosition(info.x, info.y, info.z, inst->x, inst->y, inst->z);
-				if (distance < minDistance) {
+				if (distance >= MAX_MOUSE_SEARCH)
+				{
+					cout << "너무 멀어. 근처에 없어 :" << distance << "\n";
+				}
+				else if (distance < minDistance) {
 					closestTarget = static_cast<void*>(inst);
 					minDistance = distance;
-					isClient = true;
 				}
 			}
 		}
-
+	}
+	else if(kind==1) // Structure
+	{		
+		shared_lock<shared_mutex> lockStruct(structure_mutex[chan][room]);
 			for (auto& inst : client_channel[chan].structure_list_room[room]) {
 				if (teamClient != inst->team) {
 					float distance = DistancePosition(info.x, info.y, info.z, inst->x, inst->y, inst->z);
-					if (distance < minDistance) {
+					if (distance >= MAX_MOUSE_SEARCH)
+					{
+						cout << "너무 멀어. 근처에 없어 :" << distance << "\n";
+					}
+					else if (distance < minDistance) {
 						closestTarget = static_cast<void*>(inst);
 						minDistance = distance;
-						isClient = false;
 					}
 				}
 			}
-		
-
+	}
+	else if (kind == 2) { // Unit
+		shared_lock<shared_mutex> lockStruct(unit_mutex[chan][room]);
+		for (auto& inst : client_channel[chan].unit_list_room[room]) {
+			if (teamClient != inst->team) {
+				float distance = DistancePosition(info.x, info.y, info.z, inst->x, inst->y, inst->z);
+				if (distance >= MAX_MOUSE_SEARCH)
+				{
+					cout << "너무 멀어. 근처에 없어 :" << distance << "\n";
+				}
+				else if (distance < minDistance) {
+					closestTarget = static_cast<void*>(inst);
+					minDistance = distance;
+				}
+			}
+		}
+	}
+	else {
+		cout << " 어휴.. 넌 또 뭘 클릭한거냐... 이 위치로 이동시켜줘?" << "\n";
+		return;
 	}
 
 	if (closestTarget != nullptr)
 	{
-		int team = isClient ? static_cast<Client*>(closestTarget)->team : static_cast<structure*>(closestTarget)->team;
-		int kind = isClient ? -1 : static_cast<structure*>(closestTarget)->kind;
-		int value = isClient ? static_cast<Client*>(closestTarget)->socket : static_cast<structure*>(closestTarget)->index;
-		int isClienttoInt = isClient;
+		int team=-1, value=-1, object_kind=-1;
+		switch (kind) {
+		case 0: // Player
+			team = static_cast<Client*>(closestTarget)->team;
+			kind = 0;
+			object_kind = -1;
+			value = static_cast<Client*>(closestTarget)->socket;
+			break;
+		case 1: // Structure
+			team = static_cast<Structure*>(closestTarget)->team;
+			kind = 1;
+			object_kind = static_cast<Structure*>(closestTarget)->struct_kind;
+			value = static_cast<Structure*>(closestTarget)->index;
+			break;
+		case 2: // Unit
+			team = static_cast<Unit*>(closestTarget)->team;
+			kind = 2;
+			object_kind = static_cast<Unit*>(closestTarget)->unit_kind;
+			value = static_cast<Unit*>(closestTarget)->index;
+			break;
+		}
+
+		cout << "kind: " << kind <<", team : " << team << ", object_kind: " << object_kind << ", value: " << value << endl;
+
+		if (team == -1 || kind == -1 || value == -1) {
+			cout << "뭔가 잘못되었어. 안보여 team,kind, value" << endl;
+			return;
+		}
+		
 
 		BYTE* packet_data = new BYTE[sizeof(int) * 5];
 		memcpy(packet_data, &client_socket, sizeof(int));
 		memcpy(packet_data + sizeof(int), &team, sizeof(int));
-		memcpy(packet_data + sizeof(int) * 2, &isClienttoInt, sizeof(int));
+		memcpy(packet_data + sizeof(int) * 2, &object_kind, sizeof(int));
 		memcpy(packet_data + sizeof(int) * 3, &kind, sizeof(int));
 		memcpy(packet_data + sizeof(int) * 4, &value, sizeof(int));
 		PacketManger::Send(client_socket, H_ATTACK_TARGET, packet_data, sizeof(int) * 5);
@@ -946,12 +1025,13 @@ void GameManager::MouseSearch(int client_socket, void* data)
 		delete[] packet_data;
 
 	}
+	else cout << "closestTarget 없어임마" << endl;
 
 }
 
 void GameManager::AttackClient(int client_socket, void* data) {
-	attinfo info;
-	memcpy(&info, data, sizeof(attinfo));
+	AttInfo info;
+	memcpy(&info, data, sizeof(AttInfo));
 
 	int chan = -1, room = -1;
 	{
@@ -986,12 +1066,14 @@ void GameManager::AttackClient(int client_socket, void* data) {
 
 		float distance = DistancePosition(attacker->x, attacker->y, attacker->z, attacked->x, attacked->y, attacked->z);
 
-		if (distance > attacker->attrange) {
-			mouseInfo info{};
+		if (distance > attacker->attrange + 1) {
+			MouseInfo info{};
 			info.x = attacked->x;
 			info.y = attacked->y;
 			info.z = attacked->z;
+			info.kind = 0;
 			MouseSearch(client_socket, &info);
+			cout << "range? distance: " << distance << ", attrange: " << attacker->attrange << endl;
 			return;
 		}
 
@@ -1000,9 +1082,9 @@ void GameManager::AttackClient(int client_socket, void* data) {
 			return;
 		}
 
+
 		int damage = CalculateDamage(attacker);
 		attacked->curhp -= damage;
-
 		attacker->curdelay = 0;
 
 		NotifyAttackResulttoClient(client_socket, chan, room, attacked->socket);
@@ -1022,8 +1104,13 @@ void GameManager::AttackClient(int client_socket, void* data) {
 //todo
 void GameManager::AttackStructure(int client_socket, void* data)
 {
-	attinfo info;
-	memcpy(&info, data, sizeof(attinfo));
+	AttInfo info;
+	memcpy(&info, data, sizeof(AttInfo));
+
+	if (info.kind != 1) {
+		cout << "왜 AttackStructure에 오신건가요? "<<info.kind <<", object_kind: "<<info.object_kind << endl;
+		return;
+	}
 
 	int chan = -1, room = -1, team =-1;
 	{
@@ -1039,7 +1126,7 @@ void GameManager::AttackStructure(int client_socket, void* data)
 	}
 
 	Client* attacker = nullptr;
-	structure* attacked = nullptr;
+	Structure* attacked = nullptr;
 
 	{
 		shared_lock<shared_mutex> lock(room_mutex[chan][room]);
@@ -1052,9 +1139,9 @@ void GameManager::AttackStructure(int client_socket, void* data)
 			[client_socket](Client* client) { return client->socket == client_socket; });
 
 		auto attacked_it = find_if(structures_in_room.begin(), structures_in_room.end(),
-			[&info,&team](structure* struc) { return (struc->team != team && struc->index == info.attacked && struc->kind == info.kind); });
+			[&info,&team](Structure* struc) { return (struc->team != team && struc->index == info.attacked && struc->struct_kind == info.object_kind); });
 		if (attacker_it == clients_in_room.end() || attacked_it == structures_in_room.end()) {
-			cout << "none struc :"<<info.attacked<<", struc kind :"<<info.kind << endl;
+			cout << "none struc :"<<info.attacked<<", struc kind :"<<info.object_kind << endl;
 			return;
 		}
 		attacked = *attacked_it;
@@ -1064,13 +1151,15 @@ void GameManager::AttackStructure(int client_socket, void* data)
 		attacker = *attacker_it;
 		float distance = DistancePosition(attacker->x, attacker->y, attacker->z, attacked->x, attacked->y, attacked->z);
 
-		if (distance > attacker->attrange)
+		if (distance > attacker->attrange + 1)
 		{
-			mouseInfo info{};
+			MouseInfo info{};
 			info.x = attacked->x;
 			info.y = attacked->y;
 			info.z = attacked->z;
+			info.kind = 1;
 			MouseSearch(client_socket, &info);
+			cout << "range? distance: "<<distance<<", attrange: "<<attacker->attrange << endl;
 			return;
 		}
 
@@ -1091,7 +1180,7 @@ void GameManager::AttackStructure(int client_socket, void* data)
 		return;
 	}
 
-	StructureStat(attacked->index,attacked->team,attacked->kind, chan, room);
+	StructureStat(attacked->index,attacked->team,attacked->struct_kind, chan, room);
 }
 
 void GameManager::UpdateClientDelay(Client* client)
@@ -1154,8 +1243,8 @@ void GameManager::ClientDie(int client_socket, int killer, int kind) {
 		ClientStat(killer);
 	}
 	else if (kind == 1) {
-		list<structure*>& structures_in_room = client_channel[chan].structure_list_room[room];
-		auto attacker = find_if(structures_in_room.begin(), structures_in_room.end(), [killer](structure* struc) {
+		list<Structure*>& structures_in_room = client_channel[chan].structure_list_room[room];
+		auto attacker = find_if(structures_in_room.begin(), structures_in_room.end(), [killer](Structure* struc) {
 			return struc->index == killer;
 			});
 		cout << (*attacker)->index << "의 킬 : 포탑의 킬 수는 카운트하지 않습니다." << endl;
@@ -1172,7 +1261,7 @@ void GameManager::ClientDie(int client_socket, int killer, int kind) {
 		SendVictory(clients_info[killer]->team, chan, room);
 		return;
 	}
-	attinfo info;
+	AttInfo info;
 	info.attacked = client_socket;
 	info.attacker = killer;
 
@@ -1248,9 +1337,9 @@ void GameManager::ClientDie(int client_socket, int killer, int kind) {
 	int respawnTime = 3 + (gameMinutes * 3); //min 3s
 
 	for (auto inst : client_channel[chan].client_list_room[room]) {
-		BYTE* packet_data = new BYTE[sizeof(attinfo)];
-		memcpy(packet_data, &info, sizeof(attinfo));
-		PacketManger::Send(inst->socket, H_KILL_LOG, packet_data, sizeof(attinfo));
+		BYTE* packet_data = new BYTE[sizeof(AttInfo)];
+		memcpy(packet_data, &info, sizeof(AttInfo));
+		PacketManger::Send(inst->socket, H_KILL_LOG, packet_data, sizeof(AttInfo));
 
 		delete[] packet_data;
 
@@ -1330,24 +1419,24 @@ void GameManager::ClientRespawn(int client_socket) {
 	}
 }
 
-void GameManager::NewStructure(int index, int team, int kind, int chan, int room, int x, int y, int z)
+void GameManager::NewStructure(int index, int team, int struct_kind, int chan, int room, int x, int y, int z)
 {
-	structure* temp_ = new structure;
+	Structure* temp_ = new Structure;
 	temp_->index = index;
-	temp_->kind = kind;
+	temp_->struct_kind = struct_kind;
 	temp_->x = x;
 	temp_->y = y;
 	temp_->z = z;
 	temp_->team = team;
 
-	if (temp_->kind == 2) {//gate
+	if (temp_->struct_kind == 2) {//gate
 		temp_->maxhp = 1500;
 		temp_->curhp = temp_->maxhp;
 		temp_->attrange = 0;
 		temp_->bulletspeed = 0;
 		temp_->bulletdmg = 0;
 	}
-	else if (temp_->kind == 1) { //turret
+	else if (temp_->struct_kind == 1) { //turret
 		temp_->maxhp = 1500;
 		temp_->curhp = temp_->maxhp;
 		temp_->attrange = 30;
@@ -1355,8 +1444,10 @@ void GameManager::NewStructure(int index, int team, int kind, int chan, int room
 		temp_->bulletdmg = 50;
 		temp_->curdelay = 0;
 		temp_->maxdelay = 2;
+		temp_->timer = std::make_shared<asio::steady_timer>(io_context, std::chrono::milliseconds(20));
+
 	}
-	else if (temp_->kind == 0) {//nexus
+	else if (temp_->struct_kind == 0) {//nexus
 		temp_->maxhp = 2000;
 		temp_->curhp = temp_->maxhp;
 		temp_->attrange = 0;
@@ -1369,9 +1460,9 @@ void GameManager::NewStructure(int index, int team, int kind, int chan, int room
 		client_channel[chan].structure_list_room[room].push_back(temp_);
 	}
 
-	structureInfo info;
+	StructureInfo info;
 	info.index = temp_->index;
-	info.kind = temp_->kind;
+	info.struct_kind = temp_->struct_kind;
 	info.team = temp_->team;
 	info.x = temp_->x;
 	info.y = temp_->y;
@@ -1386,28 +1477,24 @@ void GameManager::NewStructure(int index, int team, int kind, int chan, int room
 	{
 		shared_lock<shared_mutex> lock(room_mutex[chan][room]);
 		for (Client* inst : client_channel[chan].client_list_room[room])
-			PacketManger::Send(inst->socket, H_STRUCTURE_CREATE, &info, sizeof(structureInfo));
+			PacketManger::Send(inst->socket, H_STRUCTURE_CREATE, &info, sizeof(StructureInfo));
 	}
 
-
-	if (temp_->kind == 2) {
-		thread turretSearchThread(&TurretSearchWorker, index, chan, room);
-		turretSearchThread.detach();
-		//TurretSearch
+	if (temp_->struct_kind == 1) {
+		TurretSearch(index, chan, room);
 	}
 }
 
-void GameManager::StructureDie(int index, int team, int kind, int chan, int room)
+void GameManager::StructureDie(int index, int team, int struct_kind, int chan, int room)
 {
-	{
-		unique_lock<shared_mutex> lock(structure_mutex[chan][room]);
+
 		auto structure_list = client_channel[chan].structure_list_room[room];
 		for (auto inst : structure_list)
 		{
-			if (inst->team==team && inst->kind == kind && inst->index == index)
+			if (inst->team==team && inst->struct_kind == struct_kind && inst->index == index)
 				client_channel[chan].structure_list_room[room].remove(inst);
 		}
-	}
+	
 
 	{
 		shared_lock<shared_mutex> lock(room_mutex[chan][room]);
@@ -1415,18 +1502,18 @@ void GameManager::StructureDie(int index, int team, int kind, int chan, int room
 			PacketManger::Send(inst->socket, H_STRUCTURE_DIE, &index, sizeof(int));
 	}
 
-	if (kind == 1)
+	if (struct_kind == 1)
 		StopTurretSearch(index);
 }
 
-void GameManager::StructureStat(int index, int team, int kind, int chan, int room) {
-	structure* stru_ = nullptr;
+void GameManager::StructureStat(int index, int team, int struct_kind, int chan, int room) {
+	Structure* stru_ = nullptr;
 
 	{
 		unique_lock<shared_mutex> lock(structure_mutex[chan][room]);
 		for (auto inst : client_channel[chan].structure_list_room[room])
 		{
-			if (inst->team==team && inst-> kind==kind && inst->index == index)
+			if (inst->team==team && inst->struct_kind == struct_kind && inst->index == index)
 			{
 
 				stru_ = inst;
@@ -1435,7 +1522,7 @@ void GameManager::StructureStat(int index, int team, int kind, int chan, int roo
 				{
 					inst->curhp = 0;
 					inst->index = -1;
-					StructureDie(index, inst->team,inst->kind, chan, room);
+					StructureDie(index, inst->team,inst->struct_kind, chan, room);
 					return;
 				}
 
@@ -1449,10 +1536,10 @@ void GameManager::StructureStat(int index, int team, int kind, int chan, int roo
 		return;
 	}
 
-	structureInfo info;
+	StructureInfo info;
 	info.index = stru_->index;
 	info.team = stru_->team;
-	info.kind = stru_->kind;
+	info.struct_kind = stru_->struct_kind;
 	info.curhp = stru_->curhp;
 	info.maxhp = stru_->maxhp;
 	info.attrange = stru_->attrange;
@@ -1463,26 +1550,32 @@ void GameManager::StructureStat(int index, int team, int kind, int chan, int roo
 	{
 		shared_lock<shared_mutex> lock(room_mutex[chan][room]);
 		for (Client* inst : client_channel[chan].client_list_room[room])
-			PacketManger::Send(inst->socket, H_STRUCTURE_STAT, &info, sizeof(structureInfo));
+			PacketManger::Send(inst->socket, H_STRUCTURE_STAT, &info, sizeof(StructureInfo));
 	}
 }
 //-----------------------------------------------------------------------------------
 void GameManager::TurretSearch(int index, int chan, int room) {
+	cout << "ew  " << endl;
 	list<Client*>& clients_in_room = client_channel[chan].client_list_room[room];
-	list<structure*>& structures_in_room = client_channel[chan].structure_list_room[room];
-	auto attacker = find_if(structures_in_room.begin(), structures_in_room.end(), [index](structure* struc) {
+	list<Structure*>& structures_in_room = client_channel[chan].structure_list_room[room];
+	auto attacker = find_if(structures_in_room.begin(), structures_in_room.end(), [index](Structure* struc) {
 		return struc->index == index;
 		});
 
 	if (attacker != structures_in_room.end()) {
 		for (auto client : clients_in_room) {
-			if (client->team == (*attacker)->team)
+			if (client->team == (*attacker)->team) {
+				// cout << "Turret's team in client." << endl;
 				continue;
+			}
 
-			if (turretSearchStopMap[index])
+			if (turretSearchStopMap[index]) {
+				cout << "turretSearchStopMap[index] is none." << endl;
 				break;
+			}
 
 			if (client == nullptr) {
+				cout << "StopTurretSearch" << endl;
 				StopTurretSearch(index);
 				break;
 			}
@@ -1501,7 +1594,7 @@ void GameManager::TurretSearch(int index, int chan, int room) {
 				auto elapsedTime = chrono::duration_cast<chrono::milliseconds>(currentTime - (*attacker)->lastUpdateTime).count();
 
 				if (elapsedTime >= (*attacker)->maxdelay) {
-					bullet* newBullet = new bullet;
+					Bullet* newBullet = new Bullet;
 					newBullet->x = (*attacker)->x;
 					newBullet->y = (*attacker)->y;
 					newBullet->z = (*attacker)->z;
@@ -1512,17 +1605,27 @@ void GameManager::TurretSearch(int index, int chan, int room) {
 			}
 		}
 	}
+
+	(*attacker)->timer->expires_after(std::chrono::seconds(1));
+	(*attacker)->timer->async_wait([index, chan, room](const std::error_code& error) mutable {
+		std::cout << "Timer expired, error: " << error.message() << std::endl;
+		if (!error) {
+			TurretSearch(index, chan, room);
+		} else {
+			std::cerr << "Timer error: " << error.message() << std::endl; 
+		}
+		});
 }
 
-void GameManager::TurretShot(int index, bullet* newBullet, int attacked_, int chan, int room) {
+void GameManager::TurretShot(int index, Bullet* newBullet, int attacked_, int chan, int room) {
 	list<Client*>& clients_in_room = client_channel[chan].client_list_room[room];
-	list<structure*>& structures_in_room = client_channel[chan].structure_list_room[room];
+	list<Structure*>& structures_in_room = client_channel[chan].structure_list_room[room];
 
 	auto attacked = find_if(clients_in_room.begin(), clients_in_room.end(), [attacked_](Client* client) {
 		return client->socket == attacked_;
 		});
 
-	auto attacker = find_if(structures_in_room.begin(), structures_in_room.end(), [index](structure* struc) {
+	auto attacker = find_if(structures_in_room.begin(), structures_in_room.end(), [index](Structure* struc) {
 		return struc->index == index;
 		});
 
@@ -1543,39 +1646,47 @@ void GameManager::TurretShot(int index, bullet* newBullet, int attacked_, int ch
 		directionY /= distance;
 		directionZ /= distance;
 
-		float moveDistance = (*attacker)->bulletspeed / 500.0;  // 프레임 시간 간격 (단위: s)
+		float moveDistance = (*attacker)->bulletspeed;
 
-		if (clients_info[attacked_] == nullptr)
-		{
+		if (clients_info[attacked_] == nullptr) {
 			ClientClose(attacked_);
 			return;
 		}
 
-		while (DistancePosition(newBullet->x, newBullet->y, newBullet->z, targetX, targetY, targetZ) > 2) {
-			newBullet->x += directionX * moveDistance;
-			newBullet->y += directionY * moveDistance;
-			newBullet->z += directionZ * moveDistance;
-			//cout << " Bullet position : (" << newBullet->x << ", " << newBullet->y << ", " << newBullet->z <<")"<< endl;
-		}
-		//cout << (*attacker)->index << " 의 공격 :: " << (*attacked)->socket << "'s Hp : " << (*attacked)->curhp << " -> ";
-		(*attacked)->curhp -= newBullet->dmg;
-		ClientStat((*attacked)->socket);
-		(*attacker)->curdelay = 0;
-		//cout << (*attacked)->curhp << endl;
-
-		if ((*attacked)->curhp <= 0)
-			ClientDie((*attacked)->socket, (*attacker)->index, 1);
-
+		cout << "x: "<<targetX<<", y: "<<targetY<<", z: "<<targetZ<<", dirX: "<<directionX<<", dirY: "<<directionY<<", dirZ: "<<directionZ << endl;
+		BulletInfo bulletInfo{ targetX, targetY, targetZ, directionX, directionY, directionZ, moveDistance, std::make_shared<asio::steady_timer>(io_context, std::chrono::milliseconds(20)) };
+		MoveBulletAsync(newBullet, bulletInfo, *attacked, *attacker);
 	}
-
-	delete newBullet;
 }
 
-void GameManager::TurretSearchWorker(int index, int chan, int room) {
-	while (!turretSearchStopMap[index]) {
-		this_thread::sleep_for(chrono::seconds(1));
+void GameManager::MoveBulletAsync(Bullet* newBullet, BulletInfo bulletInfo, Client* attacked, Structure* attacker) {
+	cout << "distance : " << DistancePosition(newBullet->x, newBullet->y, newBullet->z, attacked->x, attacked->y, attacked->z )<< endl;
+	if (DistancePosition(newBullet->x, newBullet->y, newBullet->z, attacked->x, attacked->y, attacked->z) <= 10) { //23error
+		int prev_curhp = attacked->curhp;
+		attacked->curhp -= newBullet->dmg;
+		ClientStat(attacked->socket);
 
-		TurretSearch(index, chan, room);
+		std::cout << attacker->index << "번 포탑의 공격 :: " << attacked->socket << "'s Hp : " << prev_curhp << " -> " << attacked->curhp << std::endl;
+		attacker->curdelay = 0;
+
+		if (attacked->curhp <= 0) {
+			ClientDie(attacked->socket, attacker->index, 1);
+		}
+		delete newBullet;
+	}
+	else {
+		cout << "Shot Async - x:"<<newBullet->x << ", y: "<<newBullet->y<<", z: "<<newBullet->z << endl;
+		newBullet->x += bulletInfo.directionX * bulletInfo.moveDistance;
+		newBullet->y += bulletInfo.directionY * bulletInfo.moveDistance;
+		newBullet->z += bulletInfo.directionZ * bulletInfo.moveDistance;
+		cout << "next Position - x:" << newBullet->x << ", y: " << newBullet->y << ", z: " << newBullet->z << endl;
+
+		bulletInfo.timer->expires_after(std::chrono::milliseconds(20));
+		bulletInfo.timer->async_wait([newBullet, bulletInfo, attacked, attacker](const std::error_code& error) mutable {
+			if (!error) {
+				MoveBulletAsync(newBullet, bulletInfo, attacked, attacker);
+			}
+			});
 	}
 }
 
@@ -1608,7 +1719,8 @@ void GameManager::ItemStat(int client_socket, void* data)
 	int index = 0;
 
 	{
-		unique_lock<shared_mutex> lock(clients_info_mutex);
+		// ClientStat에서 데드락 
+		// unique_lock<shared_mutex> lock(clients_info_mutex);
 		auto nonZeroIt = find_if(clients_info[client_socket]->itemList.begin(), clients_info[client_socket]->itemList.end(),
 			[](int item) { return item == 0; });
 
@@ -1692,12 +1804,12 @@ void GameManager::Well(int client_socket, void* data) {
 	ClientInfo info;
 	memcpy(&info, data, sizeof(ClientInfo));
 
-	structure* stru_ = nullptr;
+	Structure* stru_ = nullptr;
 
 	{
 		shared_lock<shared_mutex> lock(structure_mutex[chan][room]);
 		for (auto inst : client_channel[chan].structure_list_room[room])
-			if (inst->kind == 0 && inst->team == team)
+			if (inst->struct_kind == 0 && inst->team == team)
 				stru_ = inst;
 	}
 
@@ -1743,7 +1855,7 @@ void GameManager::RoomAuth(int socket, int size, void* data) {
 	cout << socket << "의 " << code << "번 방 접속 허용." << endl;
 
 
-	roomData curRoom;
+	RoomData curRoom;
 	for (auto roomData : auth_data) {
 
 		if (roomData.spaceId == code) {
@@ -1782,7 +1894,7 @@ void GameManager::ClientAuth(int socket, void* data) {
 	string code = "";
 
 	int chan = -1, room = -1;
-	roomData curRoom;
+	RoomData curRoom;
 
 	{
 		unique_lock<shared_mutex> lock(clients_info_mutex);
@@ -2102,9 +2214,9 @@ void GameManager::handleBattleStart(int channel, int room) {
 	client_channel[channel].startTime[room] = chrono::system_clock::now();
 
 	// [kind] nexus: 0, turret: 1, gate: 2
-	NewStructure(0,0, 0, channel, room,  30, 7, 30); // nexus
+	NewStructure(0,0, 0, channel, room,  30, 0, 30); // nexus
 	NewStructure(1,1, 1, channel, room,  30, 0, -30); // turret
-	NewStructure(2,1, 0, channel, room,  60, 7, -60); // nexus
+	NewStructure(2,1, 0, channel, room,  60, 0, -60); // nexus
 }
 
 void GameManager::handleDodgeResult(int channel, int room) {
@@ -2143,7 +2255,7 @@ void GameManager::handleDodgeResult(int channel, int room) {
 
 	string json = matchResultToJson(result);
 
-	auto condition = [channel, room](roomData& roomInfo) {
+	auto condition = [channel, room](RoomData& roomInfo) {
 		return roomInfo.channel == channel && roomInfo.room == room; };
 	auth_data.erase(remove_if(auth_data.begin(), auth_data.end(), condition), auth_data.end());
 
@@ -2220,7 +2332,7 @@ void GameManager::ReConnection(int socket, int chan, int room) {
 	}
 
 	for (auto structure : client_channel[chan].structure_list_room[room]) {
-		structureInfo info;
+		StructureInfo info;
 
 		info.index = structure->index;
 		info.team = structure->team;
@@ -2233,13 +2345,13 @@ void GameManager::ReConnection(int socket, int chan, int room) {
 		info.bulletspeed = structure->bulletspeed;
 		info.bulletdmg = structure->bulletdmg;
 
-		PacketManger::Send(socket, H_STRUCTURE_CREATE, &info, sizeof(structureInfo));
+		PacketManger::Send(socket, H_STRUCTURE_CREATE, &info, sizeof(StructureInfo));
 	}
 
 	delete[] packet_data;
 }
 
-bool GameManager::findEmptyRoom(roomData curRoom) {
+bool GameManager::findEmptyRoom(RoomData curRoom) {
 	int empty_room = -1, empty_room_channel = -1;
 
 	for (int i = 0; i < MAX_CHANNEL_COUNT; i++) {
@@ -2358,8 +2470,8 @@ string GameManager::clientToJson(const Client* client) {
 }
 
 void GameManager::champ1Passive(void* data) {
-	attinfo info;
-	memcpy(&info, data, sizeof(attinfo));
+	AttInfo info;
+	memcpy(&info, data, sizeof(AttInfo));
 	int attacker_socket = info.attacker;
 
 	int chan = -1, room = -1;
@@ -2419,7 +2531,7 @@ void GameManager::champ1Passive(void* data) {
 			ClientStat(attacked->socket);
 		}
 		else {
-			structure* attacked = nullptr;
+			Structure* attacked = nullptr;
 
 			{
 				shared_lock<shared_mutex> lock(room_mutex[chan][room]);
@@ -2430,7 +2542,7 @@ void GameManager::champ1Passive(void* data) {
 				int team = attacker->team;
 
 				auto attacked_it = find_if(structures_in_room.begin(), structures_in_room.end(),
-					[&info, &team](structure* struc) { return (struc->team != team && struc->index == info.attacked && struc->kind == info.kind); });
+					[&info, &team](Structure* struc) { return (struc->team != team && struc->index == info.attacked && struc->struct_kind == info.kind); });
 				if (attacker_it == clients_in_room.end() || attacked_it == structures_in_room.end()) {
 					cout << "none struc :" << info.attacked << ", struc kind :" << info.kind << endl;
 					return;
@@ -2454,7 +2566,77 @@ void GameManager::champ1Passive(void* data) {
 				return;
 			}
 
-			StructureStat(attacked->index, attacked->team, attacked->kind, chan, room);
+			StructureStat(attacked->index, attacked->team, attacked->struct_kind, chan, room);
 		}
 	}
+}
+
+void GameManager::tempConnection(int client_socket, int channel, int room) {
+	clients_info[client_socket]->champindex = 0;
+	clients_info[client_socket]->team = 0;
+	clients_info[client_socket]->user_name = "test";
+	clients_info[client_socket]->clientindex = 0;
+
+
+	tempClientCreate(TEST_CLIENT_SOCKET);
+
+	handleBattleStart(channel, room);
+}
+
+void GameManager::tempClientCreate(int client_socket) {
+	Client* temp_cli = new Client;
+	temp_cli->socket = client_socket;
+	temp_cli->out_time = time(NULL) + 10;
+	temp_cli->channel = 0;
+	temp_cli->room = 0;
+	temp_cli->champindex = 1;
+	temp_cli->clientindex = 1;
+	temp_cli->user_name = "Test Player";
+	temp_cli->team = 1;
+
+	temp_cli->x = 18;
+	temp_cli->y = 0;
+	temp_cli->z = -55;
+
+	int chan = -1, room = -1;
+	{
+		unique_lock<shared_mutex> lock(clients_info_mutex);
+		clients_info[client_socket] = temp_cli;
+		chan = clients_info[client_socket]->channel;
+		room = clients_info[client_socket]->room;
+	}
+
+	if (chan == -1 || room == -1) {
+		cout << "lock error" << endl;
+		return;
+	}
+
+	PacketManger::Send(client_socket, H_START, &temp_cli->socket, sizeof(int));
+
+	{
+		unique_lock<shared_mutex> lock(client_list_mutex);
+		client_list_all.push_back(temp_cli);
+	}
+
+	{
+		unique_lock<shared_mutex> lock(room_mutex[chan][room]);
+		client_channel[chan].client_list_room[room].push_back(temp_cli);
+	}
+
+	for (auto inst : client_channel[chan].client_list_room[room])
+	{
+
+		if (inst->socket == client_socket)
+			continue;
+
+		ClientInfo info;
+		info.socket = client_socket;
+		info.champindex = clients_info[client_socket]->champindex;
+		info.x = clients_info[client_socket]->x;
+		info.y = clients_info[client_socket]->y;
+		info.z = clients_info[client_socket]->z;
+		PacketManger::Send(inst->socket, H_NEWBI, &info, sizeof(ClientInfo));
+	}
+
+	cout << "Connect " << client_socket << endl;
 }
