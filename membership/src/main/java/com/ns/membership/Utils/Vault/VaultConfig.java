@@ -19,11 +19,11 @@ public class VaultConfig {
     @Value("${spring.cloud.vault.port}")
     private int vaultPort;
 
-    @Bean
-    public VaultTemplate vaultTemplate() {
-        VaultEndpoint endpoint = VaultEndpoint.create(vaultHost, vaultPort);
-        endpoint.setScheme(vaultUrl);
-        return new VaultTemplate(endpoint, () -> VaultToken.of(vaultToken));
-    }
+//    @Bean
+//    public VaultTemplate vaultTemplate() {
+//        VaultEndpoint endpoint = VaultEndpoint.create(vaultHost, vaultPort);
+//        endpoint.setScheme(vaultUrl);
+//        return new VaultTemplate(endpoint, () -> VaultToken.of(vaultToken));
+//    }
 }
 
