@@ -21,7 +21,7 @@ import java.util.UUID;
 
 import static org.axonframework.modelling.command.AggregateLifecycle.apply;
 
-@Aggregate
+@Aggregate(snapshotTriggerDefinition = "snapshotTrigger", cache = "snapshotCache")
 @Data
 @Slf4j
 @NoArgsConstructor
