@@ -1,18 +1,15 @@
 #pragma once
 
+#include<mysql.h>
+
 #include<iostream>
 #include <string>
 #include <vector>
-#include<mysql.h>
-
-#pragma comment(lib,"libmysql.lib")
-
-using namespace std;
 
 class ChampionStats {
 public:
 	int index;
-	string name;
+	std::string name;
 	int attack;
 	int maxhp;
 	int maxmana;
@@ -42,7 +39,7 @@ struct Item {
 #pragma pack(push,1)
 struct itemStats {
 	int id;
-	string name;
+	std::string name;
 	int gold;
 	int attack;
 	int maxhp;
@@ -54,15 +51,16 @@ struct itemStats {
 #pragma pack(pop)
 
 class ItemSystem {
-
 public:
-	static vector<itemStats> items;
+	static std::vector<itemStats> items;
 
 	static void ItemInit();
+	static void getItemData(MYSQL_ROW row);
 };
 
 class ChampionSystem {
 public:
-	static vector<ChampionStats> champions;
+	static std::vector<ChampionStats> champions;
 	static void ChampionInit();
+	static void getChampionData(MYSQL_ROW row);
 };

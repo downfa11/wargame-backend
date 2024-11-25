@@ -13,28 +13,49 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="헤더 파일\utils">
+      <UniqueIdentifier>{8ca14ac1-0836-4c0b-afd3-5c8c38d2a658}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\utils">
+      <UniqueIdentifier>{5c7eacea-fbae-4958-8226-5021b8baed3f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="헤더 파일\session">
+      <UniqueIdentifier>{82511403-e667-4990-8d1e-db6ca016776d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\session">
+      <UniqueIdentifier>{996992a3-395f-44cd-894c-493c0947682c}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="base.h">
-      <Filter>헤더 파일</Filter>
-    </ClInclude>
     <ClInclude Include="GameManager.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="PacketManager.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
-    <ClInclude Include="Resource.h">
-      <Filter>헤더 파일</Filter>
-    </ClInclude>
     <ClInclude Include="Collection.h">
-      <Filter>헤더 파일</Filter>
+      <Filter>헤더 파일\utils</Filter>
+    </ClInclude>
+    <ClInclude Include="Resource.h">
+      <Filter>헤더 파일\utils</Filter>
     </ClInclude>
     <ClInclude Include="Timer.h">
-      <Filter>헤더 파일</Filter>
+      <Filter>헤더 파일\utils</Filter>
     </ClInclude>
-    <ClInclude Include="kafka.h">
-      <Filter>헤더 파일</Filter>
+    <ClInclude Include="Utility.h">
+      <Filter>헤더 파일\utils</Filter>
+    </ClInclude>
+    <ClInclude Include="MatchManager.h">
+      <Filter>헤더 파일\session</Filter>
+    </ClInclude>
+    <ClInclude Include="StructureManager.h">
+      <Filter>헤더 파일\session</Filter>
+    </ClInclude>
+    <ClInclude Include="GameSession.h">
+      <Filter>헤더 파일\session</Filter>
+    </ClInclude>
+    <ClInclude Include="base.h">
+      <Filter>헤더 파일\utils</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -47,11 +68,23 @@
     <ClCompile Include="PacketManager.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
-    <ClCompile Include="Resource.cpp">
-      <Filter>소스 파일</Filter>
+    <ClCompile Include="DBManager.cpp">
+      <Filter>소스 파일\utils</Filter>
     </ClCompile>
-    <ClCompile Include="kafka.cpp">
-      <Filter>소스 파일</Filter>
+    <ClCompile Include="DBManager.h">
+      <Filter>헤더 파일\utils</Filter>
+    </ClCompile>
+    <ClCompile Include="GameSession.cpp">
+      <Filter>소스 파일\session</Filter>
+    </ClCompile>
+    <ClCompile Include="MatchManager.cpp">
+      <Filter>소스 파일\session</Filter>
+    </ClCompile>
+    <ClCompile Include="StructureManager.cpp">
+      <Filter>소스 파일\session</Filter>
+    </ClCompile>
+    <ClCompile Include="Utility.cpp">
+      <Filter>소스 파일\utils</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>
