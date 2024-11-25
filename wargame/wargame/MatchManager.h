@@ -59,7 +59,6 @@ public:
 	static bool AllClientsReady(int chan, int room);
 
 private:
-	static GameSession session;
 	const char* MESSAGE_MAX_SIZE_FIELD = "message.max.bytes";
 	const std::string MESSAGE_MAX_SIZE_VALUE = std::to_string(8192);
 

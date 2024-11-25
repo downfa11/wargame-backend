@@ -59,9 +59,15 @@ void MatchManager::handleBattleStart(int channel, int room) {
 
 	std::vector<Client*> clientList;
 
+	GameSession* session = GameManager::getGameSession(channel, room);
+	if (!session) {
+		std::cout << "GameSession not found for channel " << channel << ", room " << room << std::endl;
+		return;
+	}
+
 	{
-		std::shared_lock<std::shared_mutex> lock(session.room_mutex);
-		auto& client_room = session.client_list_room;
+		std::shared_lock<std::shared_mutex> lock(session->room_mutex);
+		auto& client_room = session->client_list_room;
 		clientList.resize(client_room.size());
 		std::copy(client_room.begin(), client_room.end(), clientList.begin());
 	}
@@ -87,7 +93,7 @@ void MatchManager::handleBattleStart(int channel, int room) {
 	delete[] packetData;
 
 
-	session.startTime = std::chrono::system_clock::now();
+	session->startTime = std::chrono::system_clock::now();
 
 	// [kind] nexus: 0, turret: 1, gate: 2
 	StructureManager::NewStructure(0, 0, 0, channel, room, 30, 0, 30); // nexus
@@ -131,23 +137,29 @@ void MatchManager::handleDodgeResult(int channel, int room) {
 
 	std::string json = UtilityManager::matchResultToJson(result);
 
+	GameSession* session = GameManager::getGameSession(channel, room);
+	if (!session) {
+		std::cout << "GameSession not found for channel " << channel << ", room " << room << std::endl;
+		return;
+	}
+
 	auto condition = [channel, room](RoomData& roomInfo) {
 		return roomInfo.channel == channel && roomInfo.room == room; };
 	GameManager::auth_data.erase(std::remove_if(GameManager::auth_data.begin(), GameManager::auth_data.end(), condition), GameManager::auth_data.end());
 
-	session.startTime = std::chrono::time_point<std::chrono::system_clock>();
+	session->startTime = std::chrono::time_point<std::chrono::system_clock>();
 
 	MatchManager::KafkaSend(MatchManager::resultTopic, json);
 
 
 	{
-		std::unique_lock<std::shared_mutex> lock(session.structure_mutex);
-		session.structure_list_room.clear();
+		std::unique_lock<std::shared_mutex> lock(session->structure_mutex);
+		session->structure_list_room.clear();
 	}
 
 	{
-		std::unique_lock<std::shared_mutex> lock(session.room_mutex);
-		for (auto& client : session.client_list_room)
+		std::unique_lock<std::shared_mutex> lock(session->room_mutex);
+		for (auto& client : session->client_list_room)
 		{
 			if (client == nullptr)
 				continue;
@@ -155,7 +167,7 @@ void MatchManager::handleDodgeResult(int channel, int room) {
 			GameManager::ClientClose(client->socket);
 		}
 
-		session.client_list_room.clear();
+		session->client_list_room.clear();
 	}
 
 }
@@ -166,6 +178,12 @@ void MatchManager::waitForPickTime(int channel, int room) {
 	std::chrono::time_point<std::chrono::system_clock> currentTime;
 	std::chrono::duration<double> elapsedTime;
 
+	GameSession* session = GameManager::getGameSession(channel, room);
+	if (!session) {
+		std::cout << "GameSession not found for channel " << channel << ", room " << room << std::endl;
+		return;
+	}
+
 	while (elapsedTime.count() < PICK_TIME) {
 		std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 		currentTime = std::chrono::system_clock::now();
@@ -174,8 +192,8 @@ void MatchManager::waitForPickTime(int channel, int room) {
 		int remainingTime = PICK_TIME - elapsedTime.count();
 
 		{
-			std::shared_lock<std::shared_mutex> lock(session.room_mutex);
-			for (auto currentClient : session.client_list_room)
+			std::shared_lock<std::shared_mutex> lock(session->room_mutex);
+			for (auto currentClient : session->client_list_room)
 				PacketManger::Send(currentClient->socket, H_PICK_TIME, &remainingTime, sizeof(int));
 		}
 	}
@@ -184,9 +202,15 @@ void MatchManager::waitForPickTime(int channel, int room) {
 void MatchManager::sendTeamPackets(int channel, int room) {
 	std::vector<Client*> clientList;
 
+	GameSession* session = GameManager::getGameSession(channel, room);
+	if (!session) {
+		std::cout << "GameSession not found for channel " << channel << ", room " << room << std::endl;
+		return;
+	}
+
 	{
-		std::shared_lock<std::shared_mutex> lock(session.room_mutex);
-		auto& client_room = session.client_list_room;
+		std::shared_lock<std::shared_mutex> lock(session->room_mutex);
+		auto& client_room = session->client_list_room;
 		clientList.resize(client_room.size());
 		std::copy(client_room.begin(), client_room.end(), clientList.begin());
 	}
@@ -232,8 +256,14 @@ void MatchManager::sendTeamPackets(int client_socket) {
 		return;
 	}
 
+	GameSession* session = GameManager::getGameSession(chan, room);
+	if (!session) {
+		std::cout << "GameSession not found for channel " << chan << ", room " << room << std::endl;
+		return;
+	}
+
 	{
-		std::shared_lock<std::shared_mutex> lock(session.room_mutex);
+		std::shared_lock<std::shared_mutex> lock(session->room_mutex);
 		auto& client_list_room = GameSession::client_list_room;
 
 		std::vector<Client*> clientList(client_list_room.begin(), client_list_room.end());
@@ -275,9 +305,16 @@ void MatchManager::ChampPickTimeOut(int channel, int room) {
 	RoomStateUpdate(channel, room, -1);
 
 	std::cout << "set game space." << std::endl;
+
+	GameSession* session = GameManager::getGameSession(channel, room);
+	if (!session) {
+		std::cout << "GameSession not found for channel " << channel << ", room " << room << std::endl;
+		return;
+	}
+
 	{
-		std::shared_lock<std::shared_mutex> lock(session.room_mutex);
-		auto client_list = session.client_list_room;
+		std::shared_lock<std::shared_mutex> lock(session->room_mutex);
+		auto client_list = session->client_list_room;
 		for (auto inst : client_list)
 		{
 			for (auto inst2 : client_list)

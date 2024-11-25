@@ -78,6 +78,34 @@ void GameManager::NewClient(SOCKET client_socket, LPPER_HANDLE_DATA handle, LPPE
 		client_list_all.push_back(temp_cli);
 	}
 
+	GameSession* session = createGameSession(chan, room);
+	if (!session) {
+		std::cout << "GameSession not found for channel " << chan << ", room " << room << std::endl;
+		return;
+	}
+
+	{
+		std::unique_lock<std::shared_mutex> lock(session->room_mutex);
+		session->client_list_room.push_back(temp_cli);
+	}
+
+	for (auto inst : session->client_list_room)
+	{
+
+		if (inst->socket == client_socket)
+			continue;
+
+		ClientInfo info;
+		info.socket = client_socket;
+		info.champindex = clients_info[client_socket]->champindex;
+		info.x = clients_info[client_socket]->x;
+		info.y = clients_info[client_socket]->y;
+		info.z = clients_info[client_socket]->z;
+		PacketManger::Send(inst->socket, H_NEWBI, &info, sizeof(ClientInfo));
+	}
+
+
+
 //	{
 //		std::unique_lock<std::shared_mutex> lock(room_mutex);
 //		client_channel[chan].client_list_room[room].push_back(temp_cli);
@@ -125,10 +153,9 @@ void GameManager::ClientClose(int client_socket)
 	GameSession* session = getGameSession(chan, room);
 	if (!session) {
 		std::cout << "GameSession not found for channel " << chan << ", room " << room << std::endl;
-		return;
 	}
 
-	{
+	else {
 		std::unique_lock<std::shared_mutex> lock(session->room_mutex);
 		for (Client* inst : session->client_list_room) {
 
@@ -561,11 +588,20 @@ bool GameManager::findEmptyRoom(RoomData curRoom) {
 
 GameSession* GameManager::getGameSession(int channel, int room) {
 	std::unique_lock<std::shared_mutex> lock(GameManager::session_mutex);
-	if (!GameManager::sessions[channel][room]) {
-		GameManager::sessions[channel][room] = new GameSession(channel, room);
-	}
+//	if (!GameManager::sessions[channel][room])
+//		GameManager::sessions[channel][room] = new GameSession(channel, room);
+	
 	return GameManager::sessions[channel][room];
 }
+
+GameSession* GameManager::createGameSession(int channel, int room) {
+	std::unique_lock<std::shared_mutex> lock(GameManager::session_mutex);
+	GameManager::sessions[channel][room] = new GameSession(channel, room);
+	
+	return GameManager::sessions[channel][room];
+}
+
+
 
 void GameManager::removeGameSession(int channel, int room) {
 	std::unique_lock<std::shared_mutex> lock(GameManager::session_mutex);

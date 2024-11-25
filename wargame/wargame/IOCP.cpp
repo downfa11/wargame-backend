@@ -4,8 +4,6 @@
 #include "PacketManager.h"
 #include "GameSession.h"
 #include "GameManager.h"
-#include "DBManager.h"
-#include "MatchManager.h"
 #include "Utility.h"
 
 #include <kafka/KafkaConsumer.h>
@@ -22,7 +20,6 @@ using namespace kafka::clients::consumer;
 SOCKET hServSock;
 HANDLE hComPort;
 
-DatabaseManager dbManager;
 
 VOID ShowDumpLastError(DWORD error = GetLastError()) {
 	TCHAR* lpOSMsg;
@@ -733,18 +730,6 @@ void KafkaConsumerThread() {
 		}
 	}
 	consumer.close();
-}
-
-void ChampionSystem::ChampionInit() {
-	const std::string query = "SELECT * FROM champion_stats";
-	dbManager.ExecuteQuery(query, ChampionSystem::getChampionData);
-	std::cout << "Champion init." << std::endl;
-}
-
-void ItemSystem::ItemInit() {
-	const std::string query = "SELECT * FROM item_stats";
-	dbManager.ExecuteQuery(query, ItemSystem::getItemData);
-	std::cout << "Item init." << std::endl;
 }
 
 int main()

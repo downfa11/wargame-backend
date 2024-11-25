@@ -30,9 +30,6 @@
     <ClInclude Include="GameManager.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
-    <ClInclude Include="PacketManager.h">
-      <Filter>헤더 파일</Filter>
-    </ClInclude>
     <ClInclude Include="Collection.h">
       <Filter>헤더 파일\utils</Filter>
     </ClInclude>
@@ -45,9 +42,6 @@
     <ClInclude Include="Utility.h">
       <Filter>헤더 파일\utils</Filter>
     </ClInclude>
-    <ClInclude Include="MatchManager.h">
-      <Filter>헤더 파일\session</Filter>
-    </ClInclude>
     <ClInclude Include="StructureManager.h">
       <Filter>헤더 파일\session</Filter>
     </ClInclude>
@@ -57,15 +51,18 @@
     <ClInclude Include="base.h">
       <Filter>헤더 파일\utils</Filter>
     </ClInclude>
+    <ClInclude Include="PacketManager.h">
+      <Filter>헤더 파일\utils</Filter>
+    </ClInclude>
+    <ClInclude Include="MatchManager.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="GameManger.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
     <ClCompile Include="IOCP.cpp">
-      <Filter>소스 파일</Filter>
-    </ClCompile>
-    <ClCompile Include="PacketManager.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
     <ClCompile Include="DBManager.cpp">
@@ -77,14 +74,20 @@
     <ClCompile Include="GameSession.cpp">
       <Filter>소스 파일\session</Filter>
     </ClCompile>
-    <ClCompile Include="MatchManager.cpp">
-      <Filter>소스 파일\session</Filter>
-    </ClCompile>
     <ClCompile Include="StructureManager.cpp">
       <Filter>소스 파일\session</Filter>
     </ClCompile>
     <ClCompile Include="Utility.cpp">
       <Filter>소스 파일\utils</Filter>
+    </ClCompile>
+    <ClCompile Include="Resource.cpp">
+      <Filter>소스 파일\utils</Filter>
+    </ClCompile>
+    <ClCompile Include="PacketManager.cpp">
+      <Filter>소스 파일\utils</Filter>
+    </ClCompile>
+    <ClCompile Include="MatchManager.cpp">
+      <Filter>소스 파일</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

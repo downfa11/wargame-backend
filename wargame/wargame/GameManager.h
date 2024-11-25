@@ -45,6 +45,7 @@ public:
 	static void tempClientCreate(int client_socket);
 
 	static GameSession* getGameSession(int channel, int room);
+	static GameSession* createGameSession(int channel, int room);
 	static void removeGameSession(int channelm, int room);
 
 	static std::map<int, std::map<int, GameSession*>> sessions;

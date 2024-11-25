@@ -150,6 +150,7 @@
     <ClCompile Include="MatchManager.cpp" />
     <ClCompile Include="PacketManager.cpp" />
     <ClCompile Include="DBManager.cpp" />
+    <ClCompile Include="Resource.cpp" />
     <ClCompile Include="StructureManager.cpp" />
     <ClCompile Include="Utility.cpp" />
   </ItemGroup>
