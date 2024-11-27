@@ -3,6 +3,7 @@
 #include "Utility.h"
 #include "GameSession.h"
 #include "GameManager.h"
+#include "Timer.h"
 
 #include<unordered_map>
 #include<atomic>
@@ -38,8 +39,6 @@ void StructureManager::NewStructure(int index, int team, int struct_kind, int ch
 		temp_->bulletdmg = 50;
 		temp_->curdelay = 0;
 		temp_->maxdelay = 2;
-		temp_->timer = std::make_shared<asio::steady_timer>(GameSession::io_context, std::chrono::milliseconds(20));
-
 	}
 	else if (temp_->struct_kind == 0) {//nexus
 		temp_->maxhp = 2000;
@@ -200,16 +199,9 @@ void StructureManager::TurretSearch(int index, int chan, int room) {
 		}
 	}
 
-	(*attacker)->timer->expires_after(std::chrono::seconds(1));
-	(*attacker)->timer->async_wait([index, chan, room](const std::error_code& error) mutable {
-		std::cout << "Timer expired, error: " << error.message() << std::endl;
-		if (!error) {
-			TurretSearch(index, chan, room);
-		}
-		else {
-			std::cerr << "Timer error: " << error.message() << std::endl;
-		}
-		});
+	Timer::AddTimer(index, [index, chan, room]() {
+		TurretSearch(index, chan, room);
+	}, 1000);
 }
 
 void StructureManager::TurretShot(int index, TurretBullet* newBullet, int attacked_, int chan, int room) {
@@ -249,7 +241,7 @@ void StructureManager::TurretShot(int index, TurretBullet* newBullet, int attack
 		}
 
 		std::cout << "x: " << targetX << ", y: " << targetY << ", z: " << targetZ << ", dirX: " << directionX << ", dirY: " << directionY << ", dirZ: " << directionZ << std::endl;
-		BulletInfo bulletInfo{ targetX, targetY, targetZ, directionX, directionY, directionZ, moveDistance, std::make_shared<asio::steady_timer>(GameSession::io_context, std::chrono::milliseconds(20)) };
+		BulletInfo bulletInfo{ targetX, targetY, targetZ, directionX, directionY, directionZ, moveDistance };
 		StructureManager::MoveBulletAsync(newBullet, bulletInfo, *attacked, *attacker);
 	}
 }
@@ -276,12 +268,10 @@ void StructureManager::MoveBulletAsync(TurretBullet* newBullet, BulletInfo bulle
 		newBullet->z += bulletInfo.directionZ * bulletInfo.moveDistance;
 		std::cout << "next Position - x:" << newBullet->x << ", y: " << newBullet->y << ", z: " << newBullet->z << std::endl;
 
-		bulletInfo.timer->expires_after(std::chrono::milliseconds(20));
-		bulletInfo.timer->async_wait([newBullet, bulletInfo, attacked, attacker](const std::error_code& error) mutable {
-			if (!error) {
-				StructureManager::MoveBulletAsync(newBullet, bulletInfo, attacked, attacker);
-			}
-			});
+
+		Timer::AddTimer(reinterpret_cast<intptr_t>(newBullet), [newBullet, bulletInfo, attacked, attacker]() mutable {
+			StructureManager::MoveBulletAsync(newBullet, bulletInfo, attacked, attacker);
+			}, 20);
 	}
 }
 

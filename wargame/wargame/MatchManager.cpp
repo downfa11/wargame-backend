@@ -5,6 +5,7 @@
 #include "StructureManager.h"
 #include "GameManager.h"
 #include "Utility.h"
+#include "Timer.h"
 
 #include <iostream>
 #include <string>
@@ -173,31 +174,41 @@ void MatchManager::handleDodgeResult(int channel, int room) {
 }
 
 void MatchManager::waitForPickTime(int channel, int room) {
-
-	std::chrono::time_point<std::chrono::system_clock> startTime = std::chrono::system_clock::now();
-	std::chrono::time_point<std::chrono::system_clock> currentTime;
-	std::chrono::duration<double> elapsedTime;
-
+	auto startTime = std::chrono::system_clock::now();
 	GameSession* session = GameManager::getGameSession(channel, room);
+
 	if (!session) {
 		std::cout << "GameSession not found for channel " << channel << ", room " << room << std::endl;
 		return;
 	}
 
-	while (elapsedTime.count() < PICK_TIME) {
-		std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-		currentTime = std::chrono::system_clock::now();
-		elapsedTime = currentTime - startTime;
+	intptr_t timerId = reinterpret_cast<intptr_t>(session);
 
-		int remainingTime = PICK_TIME - elapsedTime.count();
+	Timer::AddTimer(timerId, [startTime, channel, room, session, timerId]() mutable {
+		auto currentTime = std::chrono::system_clock::now();
+		auto elapsedTime = std::chrono::duration_cast<std::chrono::seconds>(currentTime - startTime).count();
 
-		{
-			std::shared_lock<std::shared_mutex> lock(session->room_mutex);
-			for (auto currentClient : session->client_list_room)
-				PacketManger::Send(currentClient->socket, H_PICK_TIME, &remainingTime, sizeof(int));
+		if (elapsedTime < PICK_TIME) {
+			int remainingTime = PICK_TIME - elapsedTime;
+
+			{
+				std::shared_lock<std::shared_mutex> lock(session->room_mutex);
+				for (auto currentClient : session->client_list_room) {
+					PacketManger::Send(currentClient->socket, H_PICK_TIME, &remainingTime, sizeof(int));
+				}
+			}
+
+			Timer::AddTimer(timerId, [startTime, channel, room, session, timerId]() mutable {
+				MatchManager::waitForPickTime(channel, room);
+				}, 1000);
 		}
-	}
+		else {
+			std::cout << "Pick time ended for channel " << channel << ", room " << room << std::endl;
+			Timer::RemoveTimer(timerId);
+		}
+		}, 0);
 }
+
 
 void MatchManager::sendTeamPackets(int channel, int room) {
 	std::vector<Client*> clientList;
@@ -285,60 +296,46 @@ void MatchManager::sendTeamPackets(int client_socket) {
 }
 
 void MatchManager::ChampPickTimeOut(int channel, int room) {
-
-	std::chrono::time_point<std::chrono::system_clock> fTime = std::chrono::system_clock::now(), cTime;
-	std::chrono::duration<double> delay;
-
-	while (delay.count() < 3) {
-		std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-		cTime = std::chrono::system_clock::now();
-		delay = cTime - fTime;
-	}
-
-	/*
-		cout << "timer start" << endl;
-		Timer timer;
-		timer.StartTimer(3000, [channel, room]() {
-			cout << "d?" << endl;
-	*/
-
-	RoomStateUpdate(channel, room, -1);
-
-	std::cout << "set game space." << std::endl;
-
 	GameSession* session = GameManager::getGameSession(channel, room);
 	if (!session) {
 		std::cout << "GameSession not found for channel " << channel << ", room " << room << std::endl;
 		return;
 	}
 
-	{
-		std::shared_lock<std::shared_mutex> lock(session->room_mutex);
-		auto client_list = session->client_list_room;
-		for (auto inst : client_list)
-		{
-			for (auto inst2 : client_list)
-			{
-				if (inst->socket == inst2->socket)
-					continue;
+	intptr_t timerId = reinterpret_cast<intptr_t>(session);
+	Timer::AddTimer(timerId, [channel, room, session, timerId]() {
+		RoomStateUpdate(channel, room, -1);
+		std::cout << "set game space." << std::endl;
 
-				ClientInfo info;
-				info.socket = inst->socket;
-				info.champindex = inst->champindex;
-				PacketManger::Send(inst2->socket, H_NEWBI, &info, sizeof(ClientInfo));
+		{
+			std::shared_lock<std::shared_mutex> lock(session->room_mutex);
+			auto client_list = session->client_list_room;
+			for (auto inst : client_list) {
+				for (auto inst2 : client_list) {
+					if (inst->socket == inst2->socket)
+						continue;
+
+					ClientInfo info;
+					info.socket = inst->socket;
+					info.champindex = inst->champindex;
+					PacketManger::Send(inst2->socket, H_NEWBI, &info, sizeof(ClientInfo));
+				}
 			}
 		}
-	}
 
-	sendTeamPackets(channel, room);
-	waitForPickTime(channel, room);
+		sendTeamPackets(channel, room);
+		waitForPickTime(channel, room);
 
-	if (AllClientsReady(channel, room))
-		handleBattleStart(channel, room);
-	else
-		handleDodgeResult(channel, room);
+		if (AllClientsReady(channel, room)) {
+			handleBattleStart(channel, room);
+		}
+		else {
+			handleDodgeResult(channel, room);
+		}
 
-	//});
+		Timer::RemoveTimer(timerId);
+		
+		}, 3000);
 }
 
 

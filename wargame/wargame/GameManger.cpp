@@ -1,6 +1,6 @@
 ﻿#include "GameManager.h"
-
 #include "MatchManager.h"
+#include "PacketManager.h"
 
 
 #include<mutex>
@@ -11,7 +11,6 @@ std::vector<RoomData> GameManager::auth_data;
 
 Client* GameManager::clients_info[MAX_CLIENT];
 
-int GameManager::timeout_check_time = 0;
 
 std::shared_mutex GameManager::client_list_mutex;
 std::shared_mutex GameManager::clients_info_mutex;
@@ -26,26 +25,6 @@ std::map<int, std::map<int, GameSession*>> GameManager::sessions;
 #define TEST_CLIENT_SOCKET 1000
 
 
-void GameManager::TimeOutCheck()
-{
-	if (time(NULL) > timeout_check_time)
-	{
-		std::list<Client*> des_cli;
-		for (auto inst : client_list_all)
-		{
-			if (inst->socket != -1 && time(NULL) > inst->out_time)
-				des_cli.push_back(inst);
-		}
-		for (auto inst : des_cli)
-		{
-			if (inst->socket == TEST_CLIENT_SOCKET) // test
-				continue;
-			printf("Time out %d \n", inst->socket);
-			ClientClose(inst->socket);
-		}
-		timeout_check_time = time(NULL) + 10;
-	}
-}
 
 void GameManager::NewClient(SOCKET client_socket, LPPER_HANDLE_DATA handle, LPPER_IO_DATA ioinfo)
 {
@@ -300,7 +279,6 @@ void GameManager::ClientRoomMove(int client_socket, void* data)
 void GameManager::ClientTimeOutSet(int client_socket)
 {
 	{
-
 		std::unique_lock<std::shared_mutex> lock(clients_info_mutex);
 		auto& client_info = clients_info[client_socket];
 		if (client_info == nullptr)

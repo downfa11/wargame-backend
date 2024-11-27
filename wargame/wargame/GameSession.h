@@ -108,7 +108,6 @@ public:
 
 	static std::chrono::time_point <std::chrono::system_clock> startTime;
 
-	static asio::io_context io_context;
 
 	static void ClientChat(int client_socket, int size, void* data);
 	static bool IsPositionValid(const Client& currentPos, const ClientInfo& newPos);
@@ -116,7 +115,7 @@ public:
 	static void ClientMoveStart(int client_socket, void* data);
 	static void ClientMoveStop(int client_socket, void* data);
 
-	static std::vector<ChatEntry> GetChatLog(int channelIndex, int roomIndex);
+	static std::vector<ChatEntry> GetChatLog();
 	static void ClientReady(int client_socket, int size, void* data);
 	static bool AllClientsReady(int chan, int room);
 	static void SendVictory(int winTeam, int channel, int room);

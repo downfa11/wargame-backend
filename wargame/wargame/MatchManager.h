@@ -1,8 +1,9 @@
 #pragma once
 
-#include <kafka/KafkaProducer.h>
+
 #include "base.h"
-#include "GameSession.h"
+
+#include <kafka/KafkaProducer.h>
 
 #include <string>
 

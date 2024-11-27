@@ -2,11 +2,7 @@
 
 #include "base.h"
 #include "GameSession.h"
-#include "PacketManager.h"
-#include "Resource.h"
-#include "Timer.h"
 
-#include <asio.hpp>
 #include <shared_mutex>
 #include <map>
 
@@ -21,8 +17,6 @@ public:
 	static std::shared_mutex client_list_mutex;
 	static std::shared_mutex session_mutex;
 
-	static int timeout_check_time;
-
 
 	static void NewClient(SOCKET client_socket, LPPER_HANDLE_DATA handle, LPPER_IO_DATA ioinfo);
 	static void ClientClose(int client_socket);
@@ -31,7 +25,6 @@ public:
 	static void ClientRoomMove(int client_socket, void* data);
 
 	static void ClientTimeOutSet(int client_socket);
-	static void TimeOutCheck();
 
 	static void ClientAuth(int socket, void* data);
 	static void RoomAuth(int socket, int size, void* data);

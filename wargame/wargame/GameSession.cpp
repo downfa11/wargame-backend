@@ -1,9 +1,11 @@
 #include "GameSession.h"
+
 #include "GameManager.h"
-#include "StructureManager.h"
-#include "DBManager.h"
+
+#include "PacketManager.h"
 #include "Resource.h"
 #include "Utility.h"
+#include "Timer.h"
 
 #include<shared_mutex>
 
@@ -22,7 +24,6 @@ std::shared_mutex GameSession::unit_mutex;
 
 std::chrono::time_point<std::chrono::system_clock> GameSession::startTime;
 
-asio::io_context GameSession::io_context;
 
 std::vector<ChampionStats> ChampionSystem::champions;
 std::vector<itemStats> ItemSystem::items;
@@ -214,20 +215,8 @@ void GameSession::ClientMoveStop(int client_socket, void* data)
 	}
 }
 
-std::vector<ChatEntry> GameSession::GetChatLog(int channelIndex, int roomIndex)
+std::vector<ChatEntry> GameSession::GetChatLog()
 {
-	if (channelIndex < 0 || channelIndex >= MAX_CHANNEL_COUNT)
-	{
-		cerr << "Error: Invalid channel index " << channelIndex << endl;
-		return chat_log;
-	}
-
-	if (roomIndex < 0 || roomIndex >= MAX_ROOM_COUNT_PER_CHANNEL)
-	{
-		cerr << "Error: Invalid room index " << roomIndex << " in channel " << channelIndex << endl;
-		return chat_log;
-	}
-
 	return chat_log;
 }
 
@@ -1067,30 +1056,25 @@ void GameSession::ClientDie(int client_socket, int killer, int kind) {
 }
 
 void GameSession::WaitAndRespawn(int client_socket, int respawnTime) {
-
-	/*
-	chrono::time_point<chrono::system_clock> currentTime = chrono::system_clock::now();
-	chrono::duration<double> elapsed_seconds = currentTime - diedtTime;
-
-	while (elapsed_seconds.count() < respawnTime) {
-
-		if (GameManager::clients_info[client_socket] == nullptr)
-			return;
-
-		this_thread::sleep_for(chrono::milliseconds(1000));
-		currentTime = chrono::system_clock::now();
-		elapsed_seconds = currentTime - diedtTime;
+	if (GameManager::clients_info[client_socket] == nullptr) {
+		std::cout << "Client not found: " << client_socket << std::endl;
+		return;
 	}
-	ClientRespawn(client_socket);
 
-	*/
+	intptr_t timerId = static_cast<intptr_t>(client_socket);
 
-	Timer timer;
-	timer.StartTimer(respawnTime, [client_socket]() {
-		if (GameManager::clients_info[client_socket] != nullptr)
-			ClientRespawn(client_socket);
+	Timer::AddTimer(timerId, [client_socket]() {
+		if (GameManager::clients_info[client_socket] == nullptr) {
+			std::cout << "Client disconnected during respawn wait: " << client_socket << std::endl;
+			Timer::RemoveTimer(static_cast<intptr_t>(client_socket));
+			return;
+		}
 
-		});
+		std::cout << "Respawning client: " << client_socket << std::endl;
+		ClientRespawn(client_socket);
+
+		Timer::RemoveTimer(static_cast<intptr_t>(client_socket));
+		}, respawnTime * 1000);
 }
 
 void GameSession::ClientRespawn(int client_socket) {

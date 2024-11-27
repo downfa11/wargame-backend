@@ -1,4 +1,5 @@
 ﻿#include "base.h"
+#include "Timer.h"
 #include "Resource.h"
 
 #include "PacketManager.h"
@@ -369,7 +370,8 @@ void TimeOutCheckThread()
 {
 	while (true)
 	{
-		GameManager::TimeOutCheck();
+		Timer::TimeOutCheck();
+		Timer::ProcessTimers();
 		Sleep(1000);
 	}
 }
@@ -588,6 +590,7 @@ void CommendInput()
 
 			what = true;
 		}
+		
 		m = "alive";
 		if (!strcmp(val, m.c_str())) {
 
@@ -636,7 +639,13 @@ void CommendInput()
 			int channelIndex, roomIndex;
 			std::cin >> channelIndex >> roomIndex;
 
-			auto chatLog = GameSession::GetChatLog(channelIndex, roomIndex);
+			GameSession* session = GameManager::getGameSession(channelIndex, roomIndex);
+			if (!session) {
+				std::cout << "해당 채널/룸을 찾을 수 없습니다." << std::endl;
+				return;
+			}
+
+			auto chatLog = session->GetChatLog();
 			printf("CHAT LOG in channel %d room %d\n", channelIndex, roomIndex);
 			std::cout << "size : " << chatLog.size() << std::endl;
 			for (auto& chat : chatLog)

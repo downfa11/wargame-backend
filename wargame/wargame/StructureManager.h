@@ -1,7 +1,6 @@
 #pragma once
 #include "base.h"
 
-#include "asio.hpp"
 #include <shared_mutex>
 #include <memory>
 #include <chrono>
@@ -24,7 +23,6 @@ public:
 	float bulletspeed;
 	int team = -1; // 0 for blue team, 1 for red team
 	std::chrono::high_resolution_clock::time_point lastUpdateTime;
-	std::shared_ptr<asio::steady_timer> timer;
 };
 
 
@@ -65,7 +63,6 @@ struct BulletInfo {
 	float directionZ;
 
 	float moveDistance;
-	std::shared_ptr<asio::steady_timer> timer;
 };
 #pragma pack(pop)
 
