@@ -21,7 +21,6 @@ using namespace kafka::clients::consumer;
 SOCKET hServSock;
 HANDLE hComPort;
 
-
 VOID ShowDumpLastError(DWORD error = GetLastError()) {
 	TCHAR* lpOSMsg;
 	// TCHAR은 자동으로 char와 유니코드의 wchar_t로 변환해주는 매크로
@@ -243,7 +242,7 @@ unsigned WINAPI EchoThreadMain(LPVOID pComPort)
 
 				if (number == H_CHAT)
 				{
-					GameSession::ClientChat(sock, size, data);
+					GameManager::ClientChat(sock, size, data);
 				}
 				else if (number == H_CHANNEL_MOVE)
 				{
@@ -251,15 +250,15 @@ unsigned WINAPI EchoThreadMain(LPVOID pComPort)
 				}
 				else if (number == H_MOVE)
 				{
-					GameSession::ClientMove(sock, data);
+					GameManager::ClientMove(sock, data);
 				}
 				else if (number == H_MOVESTART)
 				{
-					GameSession::ClientMoveStart(sock, data);
+					GameManager::ClientMoveStart(sock, data);
 				}
 				else if (number == H_MOVESTOP)
 				{
-					GameSession::ClientMoveStop(sock, data);
+					GameManager::ClientMoveStop(sock, data);
 				}
 				else if (number == H_RAUTHORIZATION) {
 					GameManager::RoomAuth(sock,size, data);
@@ -275,31 +274,34 @@ unsigned WINAPI EchoThreadMain(LPVOID pComPort)
 					GameManager::ClientRoomMove(sock, data);
 				}
 				else if (number == H_IS_READY) {
-					GameSession::ClientReady(sock, size, data);
+					GameManager::ClientReady(sock, size, data);
 				}
 				else if (number == H_CLIENT_STAT) {
-					GameSession::ClientStat(sock);
+					GameManager::ClientStat(sock);
 				}
 				else if (number == H_ATTACK_TARGET) {
-					GameSession::MouseSearch(sock, data);
+					GameManager::MouseSearch(sock, data);
 				}
 				else if (number == H_ATTACK_CLIENT) {
-					GameSession::AttackClient(sock, data);
+					GameManager::AttackClient(sock, data);
 				}
 				else if (number == H_ATTACK_STRUCT) {
-					GameSession::AttackStructure(sock, data);
+					GameManager::AttackStructure(sock, data);
 				}
 				else if (number == H_CLIENT_STAT) {
-					GameSession::ClientChampInit(sock);
+					GameManager::ClientChampInit(sock);
 				}
 				else if (number == H_BUY_ITEM) {
-					GameSession::ItemStat(sock, data);
+					GameManager::ItemStat(sock, data);
 				}
 				else if (number == H_WELL) {
-					GameSession::Well(sock, data);
+					GameManager::Well(sock, data);
 				}
 				else if (number == H_CHAMP1_PASSIVE) {
-					GameSession::champ1Passive(data);
+					GameManager::champ1Passive(data);
+				}
+				else if (number == H_BULLET_STAT) {
+					GameManager::BulletStat(sock, data);
 				}
 
 				ioInfo->header_broken = false;

@@ -2,8 +2,9 @@
 
 #include "MatchManager.h"
 #include "PacketManager.h"
-#include "StructureManager.h"
 #include "GameManager.h"
+#include "GameSession.h"
+#include "StructureManager.h"
 #include "Utility.h"
 #include "Timer.h"
 
@@ -83,23 +84,32 @@ void MatchManager::handleBattleStart(int channel, int room) {
 		std::cout << clientList[i]->clientindex << "님(" << clientList[i]->socket << ")은 " << (clientList[i]->team == 0 ? "blue" : "red") << "팀입니다." << std::endl;
 	}
 
+	session->unitManager = std::make_unique<UnitManager>(session);
+
 	for (auto currentClient : clientList) {
-		GameSession::ClientChampInit(currentClient->socket);
+
+		for (size_t i = 0; i < 3; i++)
+		{
+			session->unitManager->NewUnit(currentClient->socket, 0);
+		}
+		session->ClientChampInit(currentClient, currentClient->champindex);
 		PacketManger::Send(currentClient->socket, H_BATTLE_START, packetData, packetSize);
 	}
 
 	for (auto currentClient : clientList)
-		GameSession::ClientStat(currentClient->socket);
+		session->ClientStat(currentClient->socket);
 
 	delete[] packetData;
 
 
 	session->startTime = std::chrono::system_clock::now();
+	session->structureManager = std::make_unique<StructureManager>(session);
 
 	// [kind] nexus: 0, turret: 1, gate: 2
-	StructureManager::NewStructure(0, 0, 0, channel, room, 30, 0, 30); // nexus
-	StructureManager::NewStructure(1, 1, 1, channel, room, 30, 0, -30); // turret
-	StructureManager::NewStructure(2, 1, 0, channel, room, 60, 0, -60); // nexus
+	session->structureManager->NewStructure(0, 0, 0, channel, room, 30, 0, 30); // nexus
+	session->structureManager->NewStructure(1, 1, 1, channel, room, 30, 0, -30); // turret
+	session->structureManager->NewStructure(2, 1, 0, channel, room, 60, 0, -60); // nexus
+
 }
 
 void MatchManager::handleDodgeResult(int channel, int room) {
@@ -191,6 +201,11 @@ void MatchManager::waitForPickTime(int channel, int room) {
 		if (elapsedTime < PICK_TIME) {
 			int remainingTime = PICK_TIME - elapsedTime;
 
+			if (!AllClientsReady(channel, room)) {
+				std::cout << "픽중에도 지체없이 바로 닷지쳐버립니다." << std::endl;
+				handleDodgeResult(channel, room);
+			}
+
 			{
 				std::shared_lock<std::shared_mutex> lock(session->room_mutex);
 				for (auto currentClient : session->client_list_room) {
@@ -275,7 +290,7 @@ void MatchManager::sendTeamPackets(int client_socket) {
 
 	{
 		std::shared_lock<std::shared_mutex> lock(session->room_mutex);
-		auto& client_list_room = GameSession::client_list_room;
+		auto& client_list_room = session->client_list_room;
 
 		std::vector<Client*> clientList(client_list_room.begin(), client_list_room.end());
 
@@ -351,13 +366,19 @@ void MatchManager::RoomStateUpdate(int channel, int room, int curState) {
 }
 
 bool MatchManager::AllClientsReady(int chan, int room) {
-	{
-		std::shared_lock<std::shared_mutex> lock(GameSession::room_mutex);
+	GameSession* session = GameManager::getGameSession(chan, room);
+	if (!session) {
+		std::cout << "GameSession not found for channel " << chan << ", room " << room << std::endl;
+		return false;
+	}
 
-		if (GameSession::client_list_room.size() != MAX_CLIENT_PER_ROOM)
+	{
+		std::shared_lock<std::shared_mutex> lock(session->room_mutex);
+
+		if (session->client_list_room.size() != MAX_CLIENT_PER_ROOM)
 			return false;
 
-		for (auto inst : GameSession::client_list_room) {
+		for (auto inst : session->client_list_room) {
 			if (!inst->ready)
 				return false;
 		}

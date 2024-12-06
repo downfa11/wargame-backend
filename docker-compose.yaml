@@ -1,6 +1,25 @@
 version: '3'
 services:
 
+  mysql:
+    image: mysql:8.0
+    networks:
+      - wargame_network
+    volumes:
+      - ./db/conf.d:/etc/mysql/conf.d
+      - ./db/data:/var/lib/mysql
+      - ./db/initdb.d:/docker-entrypoint-initdb.d
+    ports:
+      - "3306:3306"
+    environment:
+      - TZ=Asia/Seoul
+      - MYSQL_HOST=localhost
+      - MYSQL_PORT=3306
+      - MYSQL_DATABASE=wargame
+      - MYSQL_ROOT_PASSWORD=rootpassword
+      - MYSQL_USER=mysqluser
+      - MYSQL_PASSWORD=mysqlpw
+
   kafka:
     image: bitnami/kafka:3.7.0
     restart: always
@@ -23,7 +42,7 @@ services:
     networks:
       - wargame_network
     volumes:
-      - "kafka:/bitnami/kafka"
+     - "kafka:/bitnami/kafka"
 
   kafka-ui:
     image: provectuslabs/kafka-ui
@@ -41,145 +60,222 @@ services:
     networks:
       - wargame_network
 
-#  mysql:
-#    image: mysql:8.0
+#  axon-server:
+#    container_name: axon-server
+#    image: axoniq/axonserver:latest-jdk-17-nonroot
 #    networks:
 #      - wargame_network
-#    volumes:
-#      - ./db/conf.d:/etc/mysql/conf.d
-#      - ./db/data:/var/lib/mysql
-#      - ./db/initdb.d:/docker-entrypoint-initdb.d
 #    ports:
-#      - "3306:3306"
+#      - "8024:8024"
+#      - "8124:8124"
+#    volumes:
+#      - axonserver-data:/axonserver/data
+#      - axonserver-events:/axonserver/events
+#      - axonserver-config:/axonserver/config:ro
+#
+#  redis:
+#    image: redis:6.2
+#    networks:
+#      - wargame_network
+#    ports:
+#      - "6379:6379"
 #    environment:
-#      - TZ=Asia/Seoul
-#      - MYSQL_HOST=localhost
-#      - MYSQL_PORT=3306
-#      - MYSQL_DATABASE=wargame
-#      - MYSQL_ROOT_PASSWORD=rootpassword
-#      - MYSQL_USER=mysqluser
-#      - MYSQL_PASSWORD=mysqlpw
+#      - REDIS_PASSWORD=1116
+#
+#  postgres:
+#    image: postgres:latest
+#    networks:
+#      - wargame_network
+#    environment:
+#      POSTGRES_USER: postgresuser
+#      POSTGRES_PASSWORD: postgrespw
+#      POSTGRES_DB: wargame
+#    ports:
+#      - "5432:5432"
+#    volumes:
+#      - ./db/initdb.d:/docker-entrypoint-initdb.d
+#      - postgres:/var/lib/postgresql/data
+#
+#  elasticsearch:
+#    image: elasticsearch:8.11.0
+#    container_name: elasticsearch
+#    networks:
+#      - wargame_network
+#    environment:
+#      - node.name=elasticsearch
+#      - discovery.type=single-node
+#      - cluster.name=docker-cluster
+#      - bootstrap.memory_lock=true
+#      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+#      - xpack.security.enabled=false # false for dev
+#    ulimits:
+#      memlock:
+#        soft: -1
+#        hard: -1
+#    volumes:
+#      - elastic:/usr/share/elasticsearch/data
+#    ports:
+#      - "9300:9300"
+#      - "9200:9200"
+#
+#  feed:
+#    image: feed:latest
+#    networks:
+#      - wargame_network
+#    ports:
+#      - "8080:8080"
+#    depends_on:
+#      - postgres
+#      - redis
+#      - kafka
+#    environment:
+#      - SPRING_R2DBC_URL=r2dbc:postgresql://postgres:5432/wargame
+#      - SPRING_R2DBC_USERNAME=postgresuser
+#      - SPRING_R2DBC_PASSWORD=postgrespw
+#      #- SPRING_R2DBC_URL=r2dbc:mysql://mysql:3306/wargame?serverTimezone=Asia/Seoul
+#      - KAFKA_CLUSTERS_BOOTSTRAPSERVERS=kafka:9092
+#      - TASK_REQUEST_TOPIC=task.post.request
+#      - TASK_RESPONSE_TOPIC=task.post.response
+#      - TASK_REQUEST_CONSUMER_GROUP=post-request-consumer-group
+#      - TASK_RESPONSE_CONSUMER_GROUP=post-response-consumer-group
+#      - SPRING_DATA_REDIS_HOST=redis
+#      - SPRING_DATA_REDIS_PORT=6379
+#      - SPRING_DATA_REDIS_PASSWORD=1116
+#      - SPRING_REDIS_REACTIVE_ENABLED=true
+#
+#  match:
+#    image: match:latest
+#    networks:
+#      - wargame_network
+#    ports:
+#      - "8081:8080"
+#    depends_on:
+#      - redis
+#      - kafka
+#    environment:
+#      - KAFKA_CLUSTERS_BOOTSTRAPSERVERS=kafka:9092
+#      - TASK_REQUEST_TOPIC=task.match.request
+#      - TASK_RESPONSE_TOPIC=task.match.response
+#      - TASK_REQUEST_CONSUMER_GROUP=match-request-consumer-group
+#      - TASK_RESPONSE_CONSUMER_GROUP=match-response-consumer-group
+#      - SPRING_DATA_REDIS_HOST=redis
+#      - SPRING_DATA_REDIS_PORT=6379
+#      - SPRING_DATA_REDIS_PASSWORD=1116
+#      - SPRING_REDIS_REACTIVE_ENABLED=true
+#      - WAITING_VALUE_MAXALLOW=3
+#      - SCHEDULER_ENABLED=true
+#      - SPRING_VAR_MATCHEXPIRETIME=3600
+#
+#
+#  membership:
+#    image: membership:latest
+#    networks:
+#      - wargame_network
+#    ports:
+#      - "8082:8080"
+#    depends_on:
+#      - postgres
+#      - kafka
+#    environment:
+#      - AXON_AXONSERVER_SERVERS=axon-server:8124
+#      - AXON_SERIALIZER_EVENTS=jackson
+#      - AXON_SERIALIZER_MESSAGES=jackson
+#      - AXON_SERIALIZER_GENERAL=xstream
+#      - SPRING_R2DBC_URL=r2dbc:postgresql://postgres:5432/wargame
+#      - SPRING_R2DBC_USERNAME=postgresuser
+#      - SPRING_R2DBC_PASSWORD=postgrespw
+#      #- SPRING_R2DBC_URL=r2dbc:mysql://mysql:3306/wargame?serverTimezone=Asia/Seoul
+#      - KAFKA_CLUSTERS_BOOTSTRAPSERVERS=kafka:9092
+#      - TASK_REQUEST_TOPIC=task.membership.request
+#      - TASK_RESPONSE_TOPIC=task.membership.response
+#      - TASK_REQUEST_CONSUMER_GROUP=membership-request-consumer-group
+#      - TASK_RESPONSE_CONSUMER_GROUP=membership-response-consumer-group
+#      - SPRING_CLOUD_VAULT_TOKEN=
+#      - SPRING_CLOUD_VAULT_SCHEME=http
+#      - SPRING_CLOUD_VAULT_HOST=
+#      - SPRING_CLOUD_VAULT_PORT=8200
+#      - SPRING_MAIL_HOST=smtp.gmail.com
+#      - SPRING_MAIL_PORT=587
+#      - SPRING_MAIL_USERNAME=namseok0920@gmail.com
+#      - SPRING_MAIL_PASSWORD=dcsq tjqh gzsp bzfq
+#      - SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH=true
+#      - SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE=true
+#      - SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_REQUIRED=true
+#      - SPRING_MAIL_PROPERTIES_MAIL_SMTP_CONNECTIONTIMEOUT=5000
+#      - SPRING_MAIL_PROPERTIES_MAIL_SMTP_TIMEOUT=5000
+#      - SPRING_MAIL_PROPERTIES_MAIL_SMTP_WRITETIMEOUT=5000
+#      - SPRING_MAIL_AUTH_CODE_EXPIRATION_MILLIS=1800000
+#
+#  result:
+#    image: result:latest
+#    networks:
+#      - wargame_network
+#    ports:
+#      - "8083:8080"
+#    depends_on:
+#      - kafka
+#      - elasticsearch
+#    environment:
+#      - KAFKA_CLUSTERS_BOOTSTRAPSERVERS=kafka:9092
+#      - TASK_REQUEST_TOPIC=task.result.request
+#      - TASK_RESPONSE_TOPIC=task.result.response
+#      - TASK_REQUEST_CONSUMER_GROUP=result-request-consumer-group
+#      - TASK_RESPONSE_CONSUMER_GROUP=result-response-consumer-group
+#      - EVENT_PRODUCE_TOPIC=event.result
+#      - SPRING_DATA_ELASTICSEARCH_CLIENT_REACTIVE_ENDPOINTS=elasticsearch:9200
+#      - SPRING_ELASTICSEARCH_REST_URIS=http://elasticsearch:9200
+#
+#  result-query:
+#    image: result-query:latest
+#    networks:
+#      - wargame_network
+#    ports:
+#      - "8084:8080"
+#    depends_on:
+#      - kafka
+#    environment:
+#      - DYNAMODB_ACCESSKEY=AKIAW4TNOP3EXTCLFA5P
+#      - DYNAMODB_SECRETKEY=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
+#      - KAFKA_CLUSTERS_BOOTSTRAPSERVERS=kafka:9092
+#      - EVENT_CONSUMER_TOPIC=event.result
+#      - EVENT_CONSUMER_GROUP=event-result-consumer-group
+#      - AXON_AXONSERVER_ENABLED=false
+#
+volumes:
+  kafka:
+    driver: local
+#  elastic:
+#    driver: local
+#
+#  postgres:
+#    driver: local
+#
+#  axonserver-data:
+#    driver: local
+#    driver_opts:
+#      o: bind
+#      type: none
+#      device: /axon-server-se/data
+#
+#  axonserver-events:
+#    driver: local
+#    driver_opts:
+#      o: bind
+#      type: none
+#      device: /axon-server-se/events
+#
+#  axonserver-config:
+#    driver: local
+#    driver_opts:
+#      o: bind
+#      type: none
+#      device: /axon-server-se/config
+#
 
 
-
-  redis:
-    image: redis:6.2
-    networks:
-      - wargame_network
-    ports:
-      - "6379:6379"
-    environment:
-      - REDIS_PASSWORD=1116
-
-  postgres:
-    image: postgres:latest
-    networks:
-      - wargame_network
-    environment:
-      POSTGRES_USER: postgresuser
-      POSTGRES_PASSWORD: postgrespw
-      POSTGRES_DB: wargame
-    ports:
-      - "5432:5432"
-    volumes:
-      - ./db/initdb.d:/docker-entrypoint-initdb.d
-
-  feed:
-    image: feed:latest
-    networks:
-      - wargame_network
-    ports:
-      - "8080:8080"
-    depends_on:
-      - postgres
-      - redis
-      - kafka
-    environment:
-      - SPRING_R2DBC_URL=r2dbc:postgresql://postgres:5432/wargame
-      - SPRING_R2DBC_USERNAME=postgresuser
-      - SPRING_R2DBC_PASSWORD=postgrespw
-      #- SPRING_R2DBC_URL=r2dbc:mysql://mysql:3306/wargame?serverTimezone=Asia/Seoul
-      - KAFKA_CLUSTERS_BOOTSTRAPSERVERS=kafka:9092
-      - SPRING_DATA_REDIS_HOST=redis
-      - SPRING_DATA_REDIS_PORT=6379
-      - SPRING_DATA_REDIS_PASSWORD=1116
-      - SPRING_REDIS_REACTIVE_ENABLED=true
-
-  match:
-    image: match:latest
-    networks:
-      - wargame_network
-    ports:
-      - "8081:8080"
-    depends_on:
-      - redis
-      - kafka
-    environment:
-      - KAFKA_CLUSTERS_BOOTSTRAPSERVERS=kafka:9092
-      - SPRING_DATA_REDIS_HOST=redis
-      - SPRING_DATA_REDIS_PORT=6379
-      - SPRING_DATA_REDIS_PASSWORD=1116
-      - SPRING_REDIS_REACTIVE_ENABLED=true
-      - WAITING_VALUE_MAXALLOW=3
-      - SCHEDULER_ENABLED=true
-      - SPRING_VAR_MATCHEXPIRETIME=3600
-
-
-  membership:
-    image: membership:latest
-    networks:
-      - wargame_network
-    ports:
-      - "8082:8080"
-    depends_on:
-      - postgres
-      - kafka
-    environment:
-      - SPRING_R2DBC_URL=r2dbc:postgresql://postgres:5432/wargame
-      - SPRING_R2DBC_USERNAME=postgresuser
-      - SPRING_R2DBC_PASSWORD=postgrespw
-      #- SPRING_R2DBC_URL=r2dbc:mysql://mysql:3306/wargame?serverTimezone=Asia/Seoul
-      - KAFKA_CLUSTERS_BOOTSTRAPSERVERS=kafka:9092
-
-
-  elasticsearch:
-    image: elasticsearch:8.11.0
-    container_name: elasticsearch
-    networks:
-      - wargame_network
-    environment:
-      - node.name=elasticsearch
-      - discovery.type=single-node
-      - cluster.name=docker-cluster
-      - bootstrap.memory_lock=true
-      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
-      - xpack.security.enabled=false # false for dev
-    ulimits:
-      memlock:
-        soft: -1
-        hard: -1
-    volumes:
-      - elastic:/usr/share/elasticsearch/data
-    ports:
-      - "9300:9300"
-      - "9200:9200"
-
-  result:
-    image: result:latest
-    networks:
-      - wargame_network
-    ports:
-      - "8083:8080"
-    depends_on:
-      - kafka
-      - elasticsearch
-    environment:
-      - KAFKA_CLUSTERS_BOOTSTRAPSERVERS=kafka:9092
-      - spring.data.elasticsearch.client.reactive.endpoints=elasticsearch:9200
-      - SPRING_ELASTICSEARCH_REST_URIS=http://elasticsearch:9200
-      - logging.level.org.springframework.data.elasticsearch=DEBUG
-      - logging.level.org.elasticsearch=DEBUG
-
+networks:
+  wargame_network:
+    driver: bridge
 
 #  prometheus:
 #    image: prom/prometheus
@@ -204,13 +300,3 @@ services:
 #      - 3090:3090
 #    restart: always
 #    user: root
-
-networks:
-  wargame_network:
-    driver: bridge
-
-volumes:
-  elastic:
-    driver: local
-  kafka:
-    driver: local

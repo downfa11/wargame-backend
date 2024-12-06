@@ -5,18 +5,15 @@
 
 DatabaseManager dbManager;
 
-DatabaseManager::DatabaseManager() {
+std::vector<ChampionStats> ChampionSystem::champions;
+std::vector<itemStats> ItemSystem::items;
+
+bool DatabaseManager::ExecuteQuery(const std::string& query, void (*processRow)(MYSQL_ROW)) {
     mysql_init(&mysql);
     if (!mysql_real_connect(&mysql, HOST, DB_USER, DB_PASSWORD, DB_NAME, PORT, NULL, 0)) {
         std::cerr << "Database connection error: " << mysql_error(&mysql) << std::endl;
     }
-}
 
-DatabaseManager::~DatabaseManager() {
-    mysql_close(&mysql);
-}
-
-bool DatabaseManager::ExecuteQuery(const std::string& query, void (*processRow)(MYSQL_ROW)) {
     if (mysql_query(&mysql, query.c_str()) == 0) {
         MYSQL_RES* result = mysql_store_result(&mysql);
         if (result) {
@@ -30,6 +27,7 @@ bool DatabaseManager::ExecuteQuery(const std::string& query, void (*processRow)(
         else {
             std::cerr << "Failed to store result: " << mysql_error(&mysql) << std::endl;
         }
+        mysql_close(&mysql);
     }
     else {
         std::cerr << "Failed to execute query: " << mysql_error(&mysql) << std::endl;
@@ -41,6 +39,8 @@ void ChampionSystem::ChampionInit() {
     const std::string query = "SELECT * FROM champion_stats";
     dbManager.ExecuteQuery(query, ChampionSystem::getChampionData);
     std::cout << "Champion init." << std::endl;
+
+
 }
 
 void ItemSystem::ItemInit() {

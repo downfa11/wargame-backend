@@ -1,8 +1,8 @@
 #include "StructureManager.h"
-#include "PacketManager.h"
-#include "Utility.h"
 #include "GameSession.h"
 #include "GameManager.h"
+#include "PacketManager.h"
+#include "Utility.h"
 #include "Timer.h"
 
 #include<unordered_map>
@@ -10,12 +10,12 @@
 #include<mutex>
 #include <thread>
 
-std::unordered_map<int, std::atomic<bool>> turretSearchStopMap;
-std::shared_mutex StructureManager::structure_mutex;
-
+#define COLLISION_BULLET 3
+#define TURRET_ATTACK_TIMEER 100
 
 void StructureManager::NewStructure(int index, int team, int struct_kind, int chan, int room, int x, int y, int z)
 {
+
 	Structure* temp_ = new Structure;
 	temp_->index = index;
 	temp_->struct_kind = struct_kind;
@@ -37,8 +37,7 @@ void StructureManager::NewStructure(int index, int team, int struct_kind, int ch
 		temp_->attrange = 30;
 		temp_->bulletspeed = 20;
 		temp_->bulletdmg = 50;
-		temp_->curdelay = 0;
-		temp_->maxdelay = 2;
+		temp_->maxdelay = 5;
 	}
 	else if (temp_->struct_kind == 0) {//nexus
 		temp_->maxhp = 2000;
@@ -49,8 +48,8 @@ void StructureManager::NewStructure(int index, int team, int struct_kind, int ch
 	}
 
 	{
-		std::unique_lock<std::shared_mutex> lock(structure_mutex);
-		GameSession::structure_list_room.push_back(temp_);
+		std::unique_lock<std::shared_mutex> lock(session->structure_mutex);
+		session->structure_list_room.push_back(temp_);
 	}
 
 	StructureInfo info;
@@ -68,8 +67,8 @@ void StructureManager::NewStructure(int index, int team, int struct_kind, int ch
 	info.bulletdmg = temp_->bulletdmg;
 
 	{
-		std::shared_lock<std::shared_mutex> lock(GameSession::room_mutex);
-		for (Client* inst : GameSession::client_list_room)
+		std::shared_lock<std::shared_mutex> lock(session->room_mutex);
+		for (Client* inst : session->client_list_room)
 			PacketManger::Send(inst->socket, H_STRUCTURE_CREATE, &info, sizeof(StructureInfo));
 	}
 
@@ -81,30 +80,28 @@ void StructureManager::NewStructure(int index, int team, int struct_kind, int ch
 void StructureManager::StructureDie(int index, int team, int struct_kind, int chan, int room)
 {
 
-	auto structure_list = GameSession::structure_list_room;
+	auto structure_list = session->structure_list_room;
 	for (auto inst : structure_list)
 	{
 		if (inst->team == team && inst->struct_kind == struct_kind && inst->index == index)
-			GameSession::structure_list_room.remove(inst);
+			session->structure_list_room.remove(inst);
 	}
 
 
 	{
-		std::shared_lock<std::shared_mutex> lock(GameSession::room_mutex);
-		for (auto inst : GameSession::client_list_room)
+		std::shared_lock<std::shared_mutex> lock(session->room_mutex);
+		for (auto inst : session->client_list_room)
 			PacketManger::Send(inst->socket, H_STRUCTURE_DIE, &index, sizeof(int));
 	}
 
-	if (struct_kind == 1)
-		StopTurretSearch(index);
 }
 
 void StructureManager::StructureStat(int index, int team, int struct_kind, int chan, int room) {
 	Structure* stru_ = nullptr;
 
 	{
-		std::unique_lock<std::shared_mutex> lock(structure_mutex);
-		for (auto inst : GameSession::structure_list_room)
+		std::unique_lock<std::shared_mutex> lock(session->structure_mutex);
+		for (auto inst : session->structure_list_room)
 		{
 			if (inst->team == team && inst->struct_kind == struct_kind && inst->index == index)
 			{
@@ -141,140 +138,284 @@ void StructureManager::StructureStat(int index, int team, int struct_kind, int c
 
 
 	{
-		std::shared_lock<std::shared_mutex> lock(GameSession::room_mutex);
-		for (Client* inst : GameSession::client_list_room)
+		std::shared_lock<std::shared_mutex> lock(session->room_mutex);
+		for (Client* inst : session->client_list_room)
 			PacketManger::Send(inst->socket, H_STRUCTURE_STAT, &info, sizeof(StructureInfo));
 	}
 }
 //-----------------------------------------------------------------------------------
 void StructureManager::TurretSearch(int index, int chan, int room) {
-	std::list<Client*>& clients_in_room = GameSession::client_list_room;
-	std::list<Structure*>& structures_in_room = GameSession::structure_list_room;
+    std::list<Client*>& clients_in_room = session->client_list_room;
+    std::list<Unit*>& unitss_in_room = session->unit_list_room;
+    std::list<Structure*>& structures_in_room = session->structure_list_room;
 
-	auto attacker = std::find_if(structures_in_room.begin(), structures_in_room.end(), [index](Structure* struc) {
-		return struc->index == index;
-		});
+    auto attacker = FindStructureByIndex(index, structures_in_room);
+    if (!attacker) {
+        std::cout << "Turret not found: " << index << std::endl;
+        return;
+    }
 
-	if (attacker != structures_in_room.end()) {
-		for (auto client : clients_in_room) {
-			if (client->team == (*attacker)->team) {
-				// cout << "Turret's team in client." << endl;
-				continue;
-			}
+    for (auto client : clients_in_room) {
+        if (client->team == attacker->team) continue;
+        if (!client) continue;
 
-			if (turretSearchStopMap[index]) {
-				std::cout << "turretSearchStopMap[index] is none." << std::endl;
-				break;
-			}
+        float distance = UtilityManager::DistancePosition(attacker->x, attacker->y, attacker->z,client->x, client->y, client->z);
 
-			if (client == nullptr) {
-				std::cout << "StopTurretSearch" << std::endl;
-				StopTurretSearch(index);
-				break;
-			}
+        if (distance <= attacker->attrange) {
+            int attacked_ = client->socket;
 
-			float distance = UtilityManager::DistancePosition((*attacker)->x, (*attacker)->y, (*attacker)->z, client->x, client->y, client->z);
+			if (GameManager::clients_info[attacked_] == nullptr) {
+                GameManager::ClientClose(attacked_);
+                continue;
+            }
 
-			if (distance <= (*attacker)->attrange) {
-				int attacked_ = client->socket;
+            auto currentTime = std::chrono::high_resolution_clock::now();
+            auto elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(currentTime - attacker->lastUpdateTime).count();
 
-				if (GameManager::clients_info[attacked_] == nullptr) {
-					GameManager::ClientClose(attacked_);
-					return;
-				}
+            if (elapsedTime >= attacker->maxdelay) {
+                CreateBullet(attacker, client);
+                attacker->lastUpdateTime = currentTime;
+            }
+        }
+    }
 
-				auto currentTime = std::chrono::high_resolution_clock::now();
-				auto elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(currentTime - (*attacker)->lastUpdateTime).count();
+	// todo. Unit도 탐색해야한다.
 
-				if (elapsedTime >= (*attacker)->maxdelay) {
-					TurretBullet* newBullet = new TurretBullet;
-					newBullet->x = (*attacker)->x;
-					newBullet->y = (*attacker)->y;
-					newBullet->z = (*attacker)->z;
-					newBullet->dmg = (*attacker)->bulletdmg;
-					StructureManager::TurretShot(index, newBullet, attacked_, chan, room);
-					(*attacker)->lastUpdateTime = currentTime;
-				}
-			}
-		}
-	}
-
-	Timer::AddTimer(index, [index, chan, room]() {
-		TurretSearch(index, chan, room);
-	}, 1000);
+    Timer::AddTimer([this, index, chan, room]() { TurretSearch(index, chan, room); }, attacker->maxdelay * 1000);
 }
 
-void StructureManager::TurretShot(int index, TurretBullet* newBullet, int attacked_, int chan, int room) {
-	std::list<Client*>& clients_in_room = GameSession::client_list_room;
-	std::list<Structure*>& structures_in_room = GameSession::structure_list_room;
+Structure* StructureManager::FindStructureByIndex(int index, std::list<Structure*>& structures) {
+    auto it = std::find_if(structures.begin(), structures.end(), [index](Structure* struc) {
+        return struc->index == index;
+        });
+    return (it != structures.end()) ? *it : nullptr;
+}
 
-	auto attacked = std::find_if(clients_in_room.begin(), clients_in_room.end(), [attacked_](Client* client) {
-		return client->socket == attacked_;
+Client* StructureManager::FindClientBySocket(int socket, std::list<Client*>& clients) {
+	auto it = std::find_if(clients.begin(), clients.end(), [socket](Client* client) {
+		return client->socket == socket;
 		});
+	return (it != clients.end()) ? *it : nullptr;
+}
 
-	auto attacker = std::find_if(structures_in_room.begin(), structures_in_room.end(), [index](Structure* struc) {
-		return struc->index == index;
-		});
+void StructureManager::CreateBullet(Structure* attacker, Client* target) {
+    Bullet* newBullet = new Bullet;
+    newBullet->index = attackCount++;
+	newBullet->type = 0;
+	newBullet->targetIndex = target->socket;
+	newBullet->targetType = 0; // todo. 이 경우에는 포탑이 클라이언트를 향하고 있기에 type이 0이다.
+	newBullet->speed = attacker->bulletspeed;
+	newBullet->demage = attacker->bulletdmg;
 
-	if ((*attacked)->curhp <= 0)
+	float directionX = target->x - attacker->x;
+	float directionY = target->y - (attacker->y + (2 * 8));
+	float directionZ = target->z - attacker->z;
+
+	float distance = std::sqrt(directionX * directionX + directionY * directionY + directionZ * directionZ);
+	directionX /= distance;
+	directionY /= distance;
+	directionZ /= distance;
+
+	newBullet->x = attacker->x + (directionX * 0.5 * 8);
+	newBullet->y = attacker->y + (2 * 8);
+	newBullet->z = attacker->z + (directionZ * 0.5 * 8);
+
+    {
+        std::unique_lock<std::shared_mutex> lock(session->bullet_mutex);
+        session->bullet_list_room.push_back(newBullet);
+    }
+    
+	{
+		std::shared_lock<std::shared_mutex> lock(session->room_mutex);
+		for (Client* inst : session->client_list_room)
+			PacketManger::Send(inst->socket, H_BULLET_CREATE, newBullet, sizeof(Bullet));
+	}
+
+	StructureManager::MoveBulletAsync(newBullet, target, attacker);
+}
+
+void StructureManager::CreateBullet(Structure* attacker, Unit* target) {
+	Bullet* newBullet = new Bullet;
+	newBullet->index = attackCount++;
+	newBullet->type = 0;
+	newBullet->targetIndex = target->index;
+	newBullet->targetType = 2; // todo. 이 경우에는 포탑이 클라이언트를 향하고 있기에 type이 2이다.
+	newBullet->speed = attacker->bulletspeed;
+	newBullet->demage = attacker->bulletdmg;
+
+	float directionX = target->x - attacker->x;
+	float directionY = target->y - (attacker->y + (2 * 8));
+	float directionZ = target->z - attacker->z;
+
+	float distance = std::sqrt(directionX * directionX + directionY * directionY + directionZ * directionZ);
+	directionX /= distance;
+	directionY /= distance;
+	directionZ /= distance;
+
+	newBullet->x = attacker->x + (directionX * 0.5 * 8);
+	newBullet->y = attacker->y + (2 * 8);
+	newBullet->z = attacker->z + (directionZ * 0.5 * 8);
+
+	{
+		std::unique_lock<std::shared_mutex> lock(session->bullet_mutex);
+		session->bullet_list_room.push_back(newBullet);
+	}
+
+	{
+		std::shared_lock<std::shared_mutex> lock(session->room_mutex);
+		for (Client* inst : session->client_list_room)
+			PacketManger::Send(inst->socket, H_BULLET_CREATE, newBullet, sizeof(Bullet));
+	}
+
+	StructureManager::MoveBulletAsync(newBullet, target, attacker);
+}
+
+void StructureManager::MoveBulletAsync(Bullet* newBullet, Client* attacked, Structure* attacker) {
+	if (attacked->curhp <= 0) {
+		std::cout << "Target already dead: Stopping bullet." << std::endl;
+		delete newBullet;
 		return;
+	}
 
-	if (attacked != clients_in_room.end() && attacker != structures_in_room.end()) {
-		float targetX = (*attacked)->x;
-		float targetY = (*attacked)->y;
-		float targetZ = (*attacked)->z;
+	float dx = attacked->x - newBullet->x;
+	float dy = attacked->y - newBullet->y;
+	float dz = attacked->z - newBullet->z;
+	float currentDistance = UtilityManager::DistancePosition(attacked->x, attacked->y, attacked->z, newBullet->x, newBullet->y, newBullet->z);
+	// std::cout << newBullet->index << " : " << currentDistance << std::endl;
 
-		float directionX = targetX - newBullet->x;
-		float directionY = targetY - newBullet->y;
-		float directionZ = targetZ - newBullet->z;
 
-		float distance = std::sqrt(directionX * directionX + directionY * directionY + directionZ * directionZ);
-		directionX /= distance;
-		directionY /= distance;
-		directionZ /= distance;
-
-		float moveDistance = (*attacker)->bulletspeed;
-
-		if (GameManager::clients_info[attacked_] == nullptr) {
-			GameManager::ClientClose(attacked_);
-			return;
+	if (currentDistance <= COLLISION_BULLET) {
+		{
+			std::shared_lock<std::shared_mutex> lock(session->room_mutex);
+			for (Client* inst : session->client_list_room)
+				PacketManger::Send(inst->socket, H_BULLET_DIE, newBullet, sizeof(Bullet));
 		}
 
-		std::cout << "x: " << targetX << ", y: " << targetY << ", z: " << targetZ << ", dirX: " << directionX << ", dirY: " << directionY << ", dirZ: " << directionZ << std::endl;
-		BulletInfo bulletInfo{ targetX, targetY, targetZ, directionX, directionY, directionZ, moveDistance };
-		StructureManager::MoveBulletAsync(newBullet, bulletInfo, *attacked, *attacker);
-	}
-}
+		int prev_hp = attacked->curhp;
+		attacked->curhp -= newBullet->demage;
+		session->ClientStat(attacked->socket);
 
-void StructureManager::MoveBulletAsync(TurretBullet* newBullet, BulletInfo bulletInfo, Client* attacked, Structure* attacker) {
-	std::cout << "distance : " << UtilityManager::DistancePosition(newBullet->x, newBullet->y, newBullet->z, attacked->x, attacked->y, attacked->z) << std::endl;
-	if (UtilityManager::DistancePosition(newBullet->x, newBullet->y, newBullet->z, attacked->x, attacked->y, attacked->z) <= 10) { //23error
-		int prev_curhp = attacked->curhp;
-		attacked->curhp -= newBullet->dmg;
-		GameSession::ClientStat(attacked->socket);
-
-		std::cout << attacker->index << "번 포탑의 공격 :: " << attacked->socket << "'s Hp : " << prev_curhp << " -> " << attacked->curhp << std::endl;
-		attacker->curdelay = 0;
+		std::cout << "Turret " << attacker->index << " attacks: Target " << attacked->socket << " HP: " << prev_hp << " -> " << attacked->curhp << std::endl;
 
 		if (attacked->curhp <= 0) {
-			GameSession::ClientDie(attacked->socket, attacker->index, 1);
+			session->ClientDie(attacked->socket, attacker->index, 1);
 		}
+
 		delete newBullet;
+		return;
 	}
-	else {
-		std::cout << "Shot Async - x:" << newBullet->x << ", y: " << newBullet->y << ", z: " << newBullet->z << std::endl;
-		newBullet->x += bulletInfo.directionX * bulletInfo.moveDistance;
-		newBullet->y += bulletInfo.directionY * bulletInfo.moveDistance;
-		newBullet->z += bulletInfo.directionZ * bulletInfo.moveDistance;
-		std::cout << "next Position - x:" << newBullet->x << ", y: " << newBullet->y << ", z: " << newBullet->z << std::endl;
 
+	float distance = currentDistance;
+	if (distance > COLLISION_BULLET) {
+		float directionX = dx / distance;
+		float directionY = dy / distance;
+		float directionZ = dz / distance;
 
-		Timer::AddTimer(reinterpret_cast<intptr_t>(newBullet), [newBullet, bulletInfo, attacked, attacker]() mutable {
-			StructureManager::MoveBulletAsync(newBullet, bulletInfo, attacked, attacker);
-			}, 20);
+		float moveDistance = newBullet->speed;// *TURRET_ATTACK_TIMEER / 1000.0f;
+		if (moveDistance >= distance) {
+			newBullet->x = attacked->x;
+			newBullet->y = attacked->y;
+			newBullet->z = attacked->z;
+		}
+		else {
+			newBullet->x += directionX * moveDistance;
+			newBullet->y += directionY * moveDistance;
+			newBullet->z += directionZ * moveDistance;
+		}
+
+		Timer::AddTimer(reinterpret_cast<intptr_t>(newBullet), [this, newBullet, attacked, attacker]() {
+			MoveBulletAsync(newBullet, attacked, attacker);
+			}, TURRET_ATTACK_TIMEER);
 	}
 }
 
-void StructureManager::StopTurretSearch(int index) {
-	turretSearchStopMap[index] = true;
+void StructureManager::MoveBulletAsync(Bullet* newBullet, Unit* attacked, Structure* attacker) {
+	if (attacked->curhp <= 0) {
+		std::cout << "Target already dead: Stopping bullet." << std::endl;
+		delete newBullet;
+		return;
+	}
+
+	float dx = attacked->x - newBullet->x;
+	float dy = attacked->y - newBullet->y;
+	float dz = attacked->z - newBullet->z;
+	float currentDistance = UtilityManager::DistancePosition(attacked->x, attacked->y, attacked->z, newBullet->x, newBullet->y, newBullet->z);
+	// std::cout << newBullet->index << " : " << currentDistance << std::endl;
+
+
+	if (currentDistance <= COLLISION_BULLET) {
+		{
+			std::shared_lock<std::shared_mutex> lock(session->room_mutex);
+			for (Client* inst : session->client_list_room)
+				PacketManger::Send(inst->socket, H_BULLET_DIE, newBullet, sizeof(Bullet));
+		}
+
+		int prev_hp = attacked->curhp;
+		attacked->curhp -= newBullet->demage;
+		session->unitManager->UnitStat(attacked->client_socket, attacked->index, attacked->unit_kind);
+
+		std::cout << "Turret " << attacker->index << " attacks: Target " << attacked->index << " HP: " << prev_hp << " -> " << attacked->curhp << std::endl;
+
+		if (attacked->curhp <= 0) {
+			session->unitManager->UnitDie(attacked->client_socket, attacker->index, 1);
+		}
+
+		delete newBullet;
+		return;
+	}
+
+	float distance = currentDistance;
+	if (distance > COLLISION_BULLET) {
+		float directionX = dx / distance;
+		float directionY = dy / distance;
+		float directionZ = dz / distance;
+
+		float moveDistance = newBullet->speed;// *TURRET_ATTACK_TIMEER / 1000.0f;
+		if (moveDistance >= distance) {
+			newBullet->x = attacked->x;
+			newBullet->y = attacked->y;
+			newBullet->z = attacked->z;
+		}
+		else {
+			newBullet->x += directionX * moveDistance;
+			newBullet->y += directionY * moveDistance;
+			newBullet->z += directionZ * moveDistance;
+		}
+
+		Timer::AddTimer(reinterpret_cast<intptr_t>(newBullet), [this, newBullet, attacked, attacker]() {
+			MoveBulletAsync(newBullet, attacked, attacker);
+			}, TURRET_ATTACK_TIMEER);
+	}
+}
+
+void StructureManager::Well(Client* client, int x, int y, int z) {
+	if (!client) {
+		std::cout << "Invalid client pointer" << std::endl;
+		return;
+	}
+
+	Structure* target_structure = nullptr;
+	{
+		std::shared_lock<std::shared_mutex> lock(session->structure_mutex);
+		for (auto& structure : session->structure_list_room) {
+			if (structure->struct_kind == 0 && structure->team == client->team) {
+				target_structure = structure;
+				break;
+			}
+		}
+	}
+
+	if (target_structure == nullptr) {
+		std::cout << "lock target_structure error" << std::endl;
+		return;
+	}
+
+	float distance = UtilityManager::DistancePosition(target_structure->x, target_structure->y, target_structure->z, x, y, z);
+	int minDistance = 18;
+	if (distance <= minDistance && client->curhp < client->maxhp)
+	{
+		client->curhp += 1;
+		session->ClientStat(client->socket);
+	}
+	else return;
 }

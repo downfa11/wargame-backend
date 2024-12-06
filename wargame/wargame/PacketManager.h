@@ -52,6 +52,19 @@
 
 #define H_CHAMP1_PASSIVE 1611
 
+#define H_BULLET_CREATE 1984
+#define H_BULLET_STAT 1985
+#define H_BULLET_DIE 1986
+
+#define H_UNIT_CREATE 1684
+#define H_UNIT_STAT 1685
+#define H_UNIT_DIE 1686
+
+#define H_UNIT_MOVESTART 3281
+#define H_UNIT_MOVE 3282
+#define H_UNIT_MOVESTOP 3283
+
+
 class PacketManger
 {
 public:

@@ -57,6 +57,18 @@
     <ClInclude Include="MatchManager.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
+    <ClInclude Include="Structure.h">
+      <Filter>헤더 파일\session</Filter>
+    </ClInclude>
+    <ClInclude Include="Client.h">
+      <Filter>헤더 파일\session</Filter>
+    </ClInclude>
+    <ClInclude Include="Unit.h">
+      <Filter>헤더 파일\session</Filter>
+    </ClInclude>
+    <ClInclude Include="UnitManager.h">
+      <Filter>헤더 파일\session</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="GameManger.cpp">
@@ -88,6 +100,9 @@
     </ClCompile>
     <ClCompile Include="Timer.cpp">
       <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="UnitManager.cpp">
+      <Filter>소스 파일\session</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

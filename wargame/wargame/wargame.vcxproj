@@ -132,14 +132,18 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="base.h" />
+    <ClInclude Include="Client.h" />
     <ClInclude Include="Collection.h" />
     <ClInclude Include="GameManager.h" />
     <ClInclude Include="GameSession.h" />
     <ClInclude Include="MatchManager.h" />
     <ClInclude Include="PacketManager.h" />
     <ClInclude Include="Resource.h" />
+    <ClInclude Include="Structure.h" />
     <ClInclude Include="StructureManager.h" />
     <ClInclude Include="Timer.h" />
+    <ClInclude Include="Unit.h" />
+    <ClInclude Include="UnitManager.h" />
     <ClInclude Include="Utility.h" />
   </ItemGroup>
   <ItemGroup>
@@ -152,6 +156,7 @@
     <ClCompile Include="Resource.cpp" />
     <ClCompile Include="StructureManager.cpp" />
     <ClCompile Include="Timer.cpp" />
+    <ClCompile Include="UnitManager.cpp" />
     <ClCompile Include="Utility.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

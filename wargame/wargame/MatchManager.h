@@ -2,7 +2,6 @@
 
 
 #include "base.h"
-
 #include <kafka/KafkaProducer.h>
 
 #include <string>

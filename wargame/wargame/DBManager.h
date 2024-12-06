@@ -10,8 +10,6 @@
 
 class DatabaseManager {
 public:
-    DatabaseManager();
-    ~DatabaseManager();
     bool ExecuteQuery(const std::string& query, void(*processRow) (MYSQL_ROW));
 
 private:

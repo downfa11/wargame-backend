@@ -6,6 +6,9 @@
 #include <string>
 #include <vector>
 
+#pragma comment(lib,"libmysql.lib")
+
+#pragma pack(push,1)
 class ChampionStats {
 public:
 	int index;
@@ -27,16 +30,11 @@ public:
 	int growCriPob;
 };
 
-#pragma pack(push,1)
 struct Item {
 	int id;
 	bool isPerchase;
-
 };
-#pragma pack(pop)
 
-
-#pragma pack(push,1)
 struct itemStats {
 	int id;
 	std::string name;

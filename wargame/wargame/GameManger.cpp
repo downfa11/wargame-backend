@@ -1,8 +1,11 @@
 ﻿#include "GameManager.h"
+
+#include "Resource.h"
+#include "GameSession.h"
 #include "MatchManager.h"
 #include "PacketManager.h"
 
-
+#include<string>
 #include<mutex>
 #include<shared_mutex>
 
@@ -99,6 +102,18 @@ void GameManager::NewClient(SOCKET client_socket, LPPER_HANDLE_DATA handle, LPPE
 
 void GameManager::ClientClose(int client_socket)
 {
+	{
+		std::unique_lock<std::shared_mutex> lock(client_list_mutex);
+		for (auto it = client_list_all.begin(); it != client_list_all.end(); ++it)
+		{
+			if ((*it)->socket == client_socket)
+			{
+				it = client_list_all.erase(it);
+				break;
+			}
+		}
+	}
+
 	int chan = -1, room = -1;
 	{
 		std::unique_lock<std::shared_mutex> lock(clients_info_mutex);
@@ -115,18 +130,6 @@ void GameManager::ClientClose(int client_socket)
 	if (chan == -1 || room == -1) {
 		std::cout << "client close lock error" << std::endl;
 		return;
-	}
-
-	{
-		std::unique_lock<std::shared_mutex> lock(client_list_mutex);
-		for (auto it = client_list_all.begin(); it != client_list_all.end(); ++it)
-		{
-			if ((*it)->socket == client_socket)
-			{
-				it = client_list_all.erase(it);
-				break;
-			}
-		}
 	}
 
 	GameSession* session = getGameSession(chan, room);
@@ -478,7 +481,7 @@ void GameManager::reconnectClient(int socket, int index, int channel, int room) 
 		if ((*it)->clientindex == index && (*it)->socket == -1) {
 
 			if ((*it)->maxhp == 0 && (*it)->maxmana == 0)
-				GameSession::ClientChampInit((*it));
+				session->ClientChampInit((*it));
 
 			clients_info[socket] = (*it);
 			clients_info[socket]->socket = socket;
@@ -579,8 +582,6 @@ GameSession* GameManager::createGameSession(int channel, int room) {
 	return GameManager::sessions[channel][room];
 }
 
-
-
 void GameManager::removeGameSession(int channel, int room) {
 	std::unique_lock<std::shared_mutex> lock(GameManager::session_mutex);
 	if (GameManager::sessions[channel][room]) {
@@ -663,4 +664,505 @@ void GameManager::tempClientCreate(int client_socket) {
 	}
 
 	std::cout << "Connect " << client_socket << std::endl;
+}
+
+void GameManager::ClientChat(int client_socket, int size, void* data)
+{
+	std::vector<BYTE> packet_data(size + sizeof(int));
+	memcpy(packet_data.data(), &client_socket, sizeof(int));
+	memcpy(packet_data.data() + sizeof(int), data, size);
+
+	std::string name = "";
+	int chan = -1, room = -1;
+
+	{
+		std::shared_lock<std::shared_mutex> lock(GameManager::clients_info_mutex);
+		Client* sender = GameManager::clients_info[client_socket];
+		if (sender == nullptr) {
+			std::cout << client_socket << " 소켓의 사용자는 픽 전에 종료하셨습니다." << std::endl;
+			return;
+		}
+		chan = sender->channel;
+		room = sender->room;
+		name = sender->user_name;
+	}
+
+	if (chan == -1 || room == -1 || name == "") {
+		std::cout << "lock error" << std::endl;
+		return;
+	}
+
+
+	if (chan < 0 || chan >= MAX_CHANNEL_COUNT || room < 0 || room >= MAX_ROOM_COUNT_PER_CHANNEL) {
+		std::cout << "Invalid channel or room index." << std::endl;
+		return;
+	}
+
+
+	GameSession* session = getGameSession(chan, room);
+	if (!session) {
+		std::cout << "GameSession not found for channel " << chan << ", room " << room << std::endl;
+		return;
+	}
+
+	session->ClientChat(name, size, packet_data.data());
+}
+
+void GameManager::ClientMoveStart(int client_socket, void* data)
+{
+	ClientMovestart info;
+	memcpy(&info, data, sizeof(ClientMovestart));
+
+	int chan = -1, room = -1;
+
+	{
+		std::unique_lock<std::shared_mutex> lock(GameManager::clients_info_mutex);
+		auto& client_info = GameManager::clients_info[client_socket];
+		if (client_info == nullptr) {
+			std::cout << client_socket << " 소켓의 사용자는 픽 전에 종료하셨습니다." << std::endl;
+			return;
+		}
+		chan = client_info->channel;
+		room = client_info->room;
+
+		if (chan == -1 || room == -1) {
+			std::cout << "lock error" << std::endl;
+			return;
+		}
+
+		client_info->rotationX = info.rotationX;
+		client_info->rotationY = info.rotationY;
+		client_info->rotationZ = info.rotationZ;
+	}
+
+	GameSession* session = getGameSession(chan, room);
+	if (!session) {
+		std::cout << "GameSession not found for channel " << chan << ", room " << room << std::endl;
+		return;
+	}
+
+	session->ClientMoveStart(client_socket, &info);
+}
+
+void GameManager::ClientMove(int client_socket, void* data)
+{
+	ClientInfo info;
+	memcpy(&info, data, sizeof(ClientInfo));
+
+	int chan = -1, room = -1;
+	bool positionValid = false;
+	{
+		std::unique_lock<std::shared_mutex> lock(GameManager::clients_info_mutex);
+		auto& client_info = GameManager::clients_info[client_socket];
+		if (client_info == nullptr) {
+			std::cout << client_socket << " 소켓의 사용자는 픽 전에 종료하셨습니다." << std::endl;
+			return;
+		}
+		chan = client_info->channel;
+		room = client_info->room;
+
+		if (chan == -1 || room == -1) {
+			std::cout << "lock error" << std::endl;
+			return;
+		}
+
+		GameSession* session = getGameSession(chan, room);
+		if (!session) {
+			std::cout << "GameSession not found for channel " << chan << ", room " << room << std::endl;
+			return;
+		}
+
+		session->ClientMove(client_socket, info);
+	}
+}
+
+void GameManager::ClientMoveStop(int client_socket, void* data)
+{
+	//움직인다
+	ClientInfo info;
+	memcpy(&info, data, sizeof(ClientInfo));
+
+	int chan = -1, room = -1;
+
+	{
+		std::unique_lock<std::shared_mutex> lock(GameManager::clients_info_mutex);
+		auto& client_info = GameManager::clients_info[client_socket];
+		if (client_info == nullptr) {
+			std::cout << client_socket << " 소켓의 사용자는 픽 전에 종료하셨습니다." << std::endl;
+			return;
+		}
+		chan = client_info->channel;
+		room = client_info->room;
+
+		if (chan == -1 || room == -1) {
+			std::cout << "ClientMoveStop lock error" << std::endl;
+			return;
+		}
+	}
+
+	GameSession* session = getGameSession(chan, room);
+	if (!session) {
+		std::cout << "GameSession not found for channel " << chan << ", room " << room << std::endl;
+		return;
+	}
+
+	session->ClientMoveStop(client_socket, info);
+}
+
+void GameManager::ClientReady(int client_socket, int size, void* data)
+{
+	int champindex;
+	memcpy(&champindex, data, sizeof(int));
+
+	int chan = -1, room = -1;
+
+	{
+		std::shared_lock<std::shared_mutex> lock(GameManager::clients_info_mutex);
+		auto& client_info = GameManager::clients_info[client_socket];
+		if (client_info == nullptr) {
+			std::cout << client_socket << " 소켓의 사용자는 픽 전에 종료하셨습니다." << std::endl;
+			return;
+		}
+		chan = client_info->channel;
+		room = client_info->room;
+	}
+
+	if (chan == -1 || room == -1) {
+		std::cout << "ClientReady lock error" << std::endl;
+		return;
+	}
+
+	GameSession* session = getGameSession(chan, room);
+	if (!session) {
+		std::cout << "GameSession not found for channel " << chan << ", room " << room << std::endl;
+		return;
+	}
+
+	session->ClientReady(client_socket, champindex);
+	
+}
+
+void GameManager::ClientStat(int client_socket) {
+	int chan = -1, room = -1;
+
+	{
+		std::shared_lock<std::shared_mutex> lock(GameManager::clients_info_mutex);
+		auto& client_info = GameManager::clients_info[client_socket];
+		if (client_info == nullptr)
+			return;
+
+		chan = client_info->channel;
+		room = client_info->room;
+	}
+
+	if (chan == -1 || room == -1) {
+		std::cout << "ClientStat lock error" << std::endl;
+		return;
+	}
+
+
+	GameSession* session = getGameSession(chan, room);
+	if (!session) {
+		std::cout << "GameSession not found for channel " << chan << ", room " << room << std::endl;
+		return;
+	}
+
+	session->ClientStat(client_socket);
+}
+
+void GameManager::ClientChampInit(int client_socket) {
+
+	int chan = -1, room = -1, champIndex = -1;
+
+	{
+		std::shared_lock<std::shared_mutex> lock(GameManager::clients_info_mutex);
+		auto& client_info = GameManager::clients_info[client_socket];
+		if (client_info == nullptr) {
+			std::cout << client_socket << " 소켓의 사용자는 픽 전에 종료하셨습니다." << std::endl;
+			return;
+		}
+
+		chan = client_info->channel;
+		room = client_info->room;
+		champIndex = client_info->champindex;
+	}
+
+	if (chan == -1 || room == -1 || champIndex == -1) {
+		std::cout << "ClientChampInit lock error" << std::endl;
+		return;
+	}
+
+	GameSession* session = getGameSession(chan, room);
+	if (!session) {
+		std::cout << "GameSession not found for channel " << chan << ", room " << room << std::endl;
+		return;
+	}
+
+	session->ClientChampInit(GameManager::clients_info[client_socket], champIndex);
+}
+
+void GameManager::MouseSearch(int client_socket, void* data)
+{
+	MouseInfo info;
+	memcpy(&info, data, sizeof(MouseInfo));
+
+	int chan = -1, room = -1;
+
+	{
+		std::shared_lock<std::shared_mutex> lock(GameManager::clients_info_mutex);
+		chan = GameManager::clients_info[client_socket]->channel;
+		room = GameManager::clients_info[client_socket]->room;
+	}
+
+	if (chan == -1 || room == -1) {
+		std::cout << "MouseSearch lock error" << std::endl;
+		return;
+	}
+
+	GameSession* session = getGameSession(chan, room);
+	if (!session) {
+		std::cout << "GameSession not found for channel " << chan << ", room " << room << std::endl;
+		return;
+	}
+
+	session->MouseSearch(GameManager::clients_info[client_socket], info);
+}
+
+void GameManager::AttackClient(int client_socket, void* data) {
+	AttInfo info;
+	memcpy(&info, data, sizeof(AttInfo));
+
+	int chan = -1, room = -1;
+	{
+		std::shared_lock<std::shared_mutex> lock(GameManager::clients_info_mutex);
+		chan = GameManager::clients_info[client_socket]->channel;
+		room = GameManager::clients_info[client_socket]->room;
+	}
+
+	if (chan == -1 || room == -1) {
+		std::cout << "AttackClient lock error" << std::endl;
+		return;
+	}
+
+	GameSession* session = getGameSession(chan, room);
+	if (!session) {
+		std::cout << "GameSession not found for channel " << chan << ", room " << room << std::endl;
+		return;
+	}
+
+	session->AttackClient(GameManager::clients_info[client_socket], info);
+}
+
+void GameManager::AttackStructure(int client_socket, void* data)
+{
+	AttInfo info;
+	memcpy(&info, data, sizeof(AttInfo));
+
+	if (info.kind != 1) {
+		std::cout << "왜 AttackStructure에 오신건가요? " << info.kind << ", object_kind: " << info.object_kind << std::endl;
+		return;
+	}
+
+	int chan = -1, room = -1;
+	{
+		std::shared_lock<std::shared_mutex> lock(GameManager::clients_info_mutex);
+		chan = GameManager::clients_info[client_socket]->channel;
+		room = GameManager::clients_info[client_socket]->room;
+	}
+
+	if (chan == -1 || room == -1) {
+		std::cout << "AttackStructure lock error" << std::endl;
+		return;
+	}
+
+	GameSession* session = getGameSession(chan, room);
+	if (!session) {
+		std::cout << "GameSession not found for channel " << chan << ", room " << room << std::endl;
+		return;
+	}
+
+	session->AttackStructure(GameManager::clients_info[client_socket], info);
+
+
+}
+
+void GameManager::ItemStat(int client_socket, void* data)
+{
+	Item info;
+	memcpy(&info, data, sizeof(Item));
+
+	int chan = GameManager::clients_info[client_socket]->channel;
+	int room = GameManager::clients_info[client_socket]->room;
+
+	GameSession* session = getGameSession(chan, room);
+	if (!session) {
+		std::cout << "GameSession not found for channel " << chan << ", room " << room << std::endl;
+		return;
+	}
+
+	session->ItemStat(GameManager::clients_info[client_socket], info);
+}
+
+void GameManager::Well(int client_socket, void* data) {
+	int chan = -1, room = -1;
+
+	{
+		std::shared_lock<std::shared_mutex> lock(GameManager::clients_info_mutex);
+		chan = GameManager::clients_info[client_socket]->channel;
+		room = GameManager::clients_info[client_socket]->room;
+	}
+
+	if (chan == -1 || room == -1) {
+		std::cout << "lock error" << std::endl;
+		return;
+	}
+
+	ClientInfo info;
+	memcpy(&info, data, sizeof(ClientInfo));
+
+	GameSession* session = getGameSession(chan, room);
+	if (!session) {
+		std::cout << "GameSession not found for channel " << chan << ", room " << room << std::endl;
+		return;
+	}
+
+	session->structureManager->Well(GameManager::clients_info[client_socket],info.x,info.y,info.z);
+}
+
+void GameManager::champ1Passive(void* data) {
+	AttInfo info;
+	memcpy(&info, data, sizeof(AttInfo));
+	int attacker_socket = info.attacker;
+
+	int chan = -1, room = -1;
+	{
+		std::shared_lock<std::shared_mutex> lock(GameManager::clients_info_mutex);
+		chan = GameManager::clients_info[attacker_socket]->channel;
+		room = GameManager::clients_info[attacker_socket]->room;
+	}
+
+	if (chan == -1 || room == -1) {
+		std::cout << "lock error" << std::endl;
+		return;
+	}
+
+	GameSession* session = getGameSession(chan, room);
+	if (!session) {
+		std::cout << "GameSession not found for channel " << chan << ", room " << room << std::endl;
+		return;
+	}
+
+	session->champ1Passive(attacker_socket, info, chan, room);
+}
+
+void GameManager::BulletStat(int client_socket, void* data) {
+	int bulletIndex = -1;
+	memcpy(&bulletIndex, data, sizeof(int));
+
+	int chan = GameManager::clients_info[client_socket]->channel;
+	int room = GameManager::clients_info[client_socket]->room;
+
+	GameSession* session = getGameSession(chan, room);
+	if (!session) {
+		std::cout << "GameSession not found for channel " << chan << ", room " << room << std::endl;
+		return;
+	}
+
+	session->BulletStat(client_socket, bulletIndex);
+}
+
+void GameManager::UnitMoveStart(int client_socket, void* data)
+{
+	UnitMovestart info;
+	memcpy(&info, data, sizeof(UnitMovestart));
+
+	int chan = -1, room = -1;
+
+	{
+		std::unique_lock<std::shared_mutex> lock(GameManager::clients_info_mutex);
+		auto& client_info = GameManager::clients_info[client_socket];
+		if (client_info == nullptr) {
+			std::cout << client_socket << " 소켓의 사용자는 픽 전에 종료하셨습니다." << std::endl;
+			return;
+		}
+		chan = client_info->channel;
+		room = client_info->room;
+
+		if (chan == -1 || room == -1) {
+			std::cout << "lock error" << std::endl;
+			return;
+		}
+	}
+
+	GameSession* session = getGameSession(chan, room);
+	if (!session) {
+		std::cout << "GameSession not found for channel " << chan << ", room " << room << std::endl;
+		return;
+	}
+
+	session->unitManager->UnitMoveStart(client_socket, &info);
+}
+
+void GameManager::UnitMove(int client_socket, void* data)
+{
+	UnitInfo info;
+	memcpy(&info, data, sizeof(UnitInfo));
+
+	int chan = -1, room = -1;
+	{
+		std::unique_lock<std::shared_mutex> lock(GameManager::clients_info_mutex);
+		auto& client_info = GameManager::clients_info[client_socket];
+		if (client_info == nullptr) {
+			std::cout << client_socket << " 소켓의 사용자는 픽 전에 종료하셨습니다." << std::endl;
+			return;
+		}
+		chan = client_info->channel;
+		room = client_info->room;
+
+		if (chan == -1 || room == -1) {
+			std::cout << "lock error" << std::endl;
+			return;
+		}
+
+		GameSession* session = getGameSession(chan, room);
+		if (!session) {
+			std::cout << "GameSession not found for channel " << chan << ", room " << room << std::endl;
+			return;
+		}
+
+		session->unitManager->UnitMove(client_socket, info);
+	}
+}
+
+void GameManager::UnitMoveStop(int client_socket, void* data)
+{
+	//움직인다
+	UnitInfo info;
+	memcpy(&info, data, sizeof(UnitInfo));
+
+	int chan = -1, room = -1;
+
+	{
+		std::unique_lock<std::shared_mutex> lock(GameManager::clients_info_mutex);
+		auto& client_info = GameManager::clients_info[client_socket];
+		if (client_info == nullptr) {
+			std::cout << client_socket << " 소켓의 사용자는 픽 전에 종료하셨습니다." << std::endl;
+			return;
+		}
+		chan = client_info->channel;
+		room = client_info->room;
+
+		if (chan == -1 || room == -1) {
+			std::cout << "ClientMoveStop lock error" << std::endl;
+			return;
+		}
+	}
+
+	GameSession* session = getGameSession(chan, room);
+	if (!session) {
+		std::cout << "GameSession not found for channel " << chan << ", room " << room << std::endl;
+		return;
+	}
+
+	session->unitManager->UnitMoveStop(client_socket, info);
 }
