@@ -51,7 +51,7 @@ public class MatchController {
                     if (rank < 0) {
                         return matchQueueService.registerMatchQueue("match", request.getMembershipId())
                                 .map(result -> {
-                                    log.info(result);
+                                    log.info(request.getMembershipId() + "'s match queue register logic  :" + result);
                                     if ("fail".equals(result)) {
                                         return ResponseEntity.ok()
                                                 .body(new messageEntity("Fail", "already user " + request.getMembershipId() + " has curGameSpaceCode."));

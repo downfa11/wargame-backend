@@ -294,6 +294,9 @@ public class UserService implements ApplicationRunner {
                                 case "MatchUserCodeByMembershipId":
                                     handleMatchUserCode(subtask);
                                     break;
+                                case "MatchUserHasCodeByMembershipId":
+                                    handleMatchUserHasCode(task.getTaskID(), subtask);
+                                    break;
                                 case "MatchUserResponseByMembershipId":
                                     handleMatchUserResponse(task.getTaskID(), subtask);
                                     break;
@@ -443,6 +446,31 @@ public class UserService implements ApplicationRunner {
                 .subscribe();
     }
 
+    private void handleMatchUserHasCode(String taskId, SubTask subTask){
+        Long membershipId = Long.parseLong(subTask.getMembershipId());
+
+        userRepository.findById(membershipId)
+                .flatMap(user -> {
+                    Boolean hasCode = user.getCode()=="";
+
+                    List<SubTask> subTasks = new ArrayList<>();
+
+                    subTasks.add(
+                            taskUseCase.createSubTask("MatchUserHasCodeByMembershipId",
+                                    String.valueOf(membershipId),
+                                    SubTask.TaskType.match,
+                                    SubTask.TaskStatus.success,
+                                    hasCode));
+
+                    log.info("user match : "+user);
+                    return sendTask("task.match.request", taskUseCase.createTask(
+                            taskId,
+                            "Match Request - UserHasCode",
+                            String.valueOf(membershipId),
+                            subTasks));
+
+                });
+    }
 
     private void handleMatchUserCode(SubTask subtask) {
         Long membershipId = Long.parseLong(subtask.getMembershipId());

@@ -44,7 +44,7 @@ public class MatchQueueService implements ApplicationRunner {
     @Value("${scheduler.enabled}")
     private Boolean scheduling = false;
 
-    @Value("${spring.var.matchExpireTime}")
+    @Value("${spring.var.matchExpireTime:3}")
     private int expireTime;
 
     private final ObjectMapper mapper = new ObjectMapper();
@@ -76,8 +76,16 @@ public class MatchQueueService implements ApplicationRunner {
                         return Mono.just("fail");
                     }
 
-                    return getUserResponse(userId)
-                            .flatMap(userResponse -> handleMatchResponse(userResponse, queue, userId))
+                    return getUserHasCode(userId)
+                            .flatMap(hasCode -> {
+                                if (hasCode) {
+                                    log.info("게임중이 아니라서 매칭 큐에 진입합니다.");
+                                    return getUserResponse(userId)
+                                            .flatMap(userResponse -> handleMatchResponse(userResponse, queue, userId));
+                                }
+                                else return Mono.just("fail");
+
+                            })
                             .doFinally(signal -> releaseLock(lockKey, lockValue).subscribe());
                 });
     }
@@ -113,6 +121,46 @@ public class MatchQueueService implements ApplicationRunner {
                                         .toList();
 
                                 return matchUserResponses.get(0);
+                            }
+                            Thread.sleep(500);
+                        }
+                    })
+                    .subscribeOn(Schedulers.boundedElastic())
+                    .timeout(Duration.ofSeconds(3));
+        });
+    }
+
+    public Mono<Boolean> getUserHasCode(Long membershipId) {
+        List<SubTask> subTasks = new ArrayList<>();
+
+        subTasks.add(
+                taskUseCase.createSubTask("MatchUserHasCodeByMembershipId",
+                        String.valueOf(membershipId),
+                        SubTask.TaskType.match,
+                        SubTask.TaskStatus.ready,
+                        membershipId));
+
+        Task task = taskUseCase.createTask(
+                "Match Response",
+                String.valueOf(membershipId),
+                subTasks);
+
+        return sendTask("task.membership.response",task)
+                .then(waitForUserHasCodeTaskResult(task.getTaskID()));
+    }
+
+    private Mono<Boolean> waitForUserHasCodeTaskResult(String taskId) {
+        return Mono.defer(() -> {
+            return Mono.fromCallable(() -> {
+                        while (true) {
+                            Task resultTask = taskResults.get(taskId);
+                            if (resultTask != null) {
+                                List<Boolean> hasCodes = resultTask.getSubTaskList().stream().
+                                        filter(subTaskItem -> subTaskItem.getStatus().equals(SubTask.TaskStatus.success))
+                                        .map(subTaskItem -> mapper.convertValue(subTaskItem.getData(), Boolean.class))
+                                        .toList();
+
+                                return hasCodes.get(0);
                             }
                             Thread.sleep(500);
                         }
@@ -179,7 +227,7 @@ public class MatchQueueService implements ApplicationRunner {
 
 
 
-    //몇번째 순위로 대기중인지 반환
+    // 반복해서 매칭중인지 호출하는 로직
     public Mono<Long> getRank(final String queue, final Long userId) {
         String lockKey = "lock:getRank:" + userId;
         String lockValue = UUID.randomUUID().toString();
@@ -190,8 +238,8 @@ public class MatchQueueService implements ApplicationRunner {
                         return Mono.just(-1L); // 잠금 획득 실패 시 -1 반환
                     }
 
-
-                    return reactiveRedisTemplate.opsForValue().get("*:" + userId)
+                    String userKey = "*:"+userId;
+                    return reactiveRedisTemplate.opsForValue().get(userKey)
                             .defaultIfEmpty("null")
                             .flatMap(nickname -> {
                                 log.info("Nickname found: " + nickname);
@@ -213,7 +261,9 @@ public class MatchQueueService implements ApplicationRunner {
                                         })
                                         .doOnError(error -> log.error("Error during rank retrieval: ", error));
                             })
-                            .doOnError(error -> log.error("Error during nickname retrieval: ", error));
+                            .doOnError(error -> log.error("Error during nickname retrieval: ", error))
+                            .flatMap(rank -> reactiveRedisTemplate.expire(userKey,Duration.ofSeconds(expireTime))
+                                        .thenReturn(rank));
                 })
                 .doOnError(error -> log.error("Error during lock acquisition: ", error));
     }
