@@ -81,7 +81,7 @@ void MatchManager::handleBattleStart(int channel, int room) {
 		memcpy(packetData + sizeof(int) * (3 * i), &clientList[i]->socket, sizeof(int));
 		memcpy(packetData + sizeof(int) * (3 * i + 1), &clientList[i]->clientindex, sizeof(int)); // user_index
 		memcpy(packetData + sizeof(int) * (3 * i + 2), &clientList[i]->team, sizeof(int)); // user_team
-		std::cout << clientList[i]->clientindex << "님(" << clientList[i]->socket << ")은 " << (clientList[i]->team == 0 ? "blue" : "red") << "팀입니다." << std::endl;
+		std::cout << clientList[i]->clientindex << ": " << clientList[i]->user_name << "님(" << clientList[i]->socket << ")은 " << (clientList[i]->team == 0 ? "blue" : "red") << "팀입니다." << std::endl;
 	}
 
 	session->unitManager = std::make_unique<UnitManager>(session);

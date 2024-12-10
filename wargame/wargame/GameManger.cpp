@@ -86,32 +86,24 @@ void GameManager::NewClient(SOCKET client_socket, LPPER_HANDLE_DATA handle, LPPE
 		PacketManger::Send(inst->socket, H_NEWBI, &info, sizeof(ClientInfo));
 	}
 
-
-
-//	{
-//		std::unique_lock<std::shared_mutex> lock(room_mutex);
-//		client_channel[chan].client_list_room[room].push_back(temp_cli);
-//	}
-
-
-
 	std::cout << "Connect " << client_socket << std::endl;
 
-	GameManager::tempConnection(client_socket, 0, 0);
+	if(clients_info[TEST_CLIENT_SOCKET]==nullptr) // TEST
+		GameManager::tempClientCreate(client_socket, 0, 0);
 }
 
 void GameManager::ClientClose(int client_socket)
 {
 	{
 		std::unique_lock<std::shared_mutex> lock(client_list_mutex);
-		for (auto it = client_list_all.begin(); it != client_list_all.end(); ++it)
-		{
-			if ((*it)->socket == client_socket)
-			{
-				it = client_list_all.erase(it);
-				break;
-			}
-		}
+		auto it = std::remove_if(client_list_all.begin(), client_list_all.end(),
+			[client_socket](const Client* client) {
+				return client->socket == client_socket;
+			});
+
+		if (it != client_list_all.end())
+			client_list_all.erase(it, client_list_all.end());
+		
 	}
 
 	int chan = -1, room = -1;
@@ -135,18 +127,26 @@ void GameManager::ClientClose(int client_socket)
 	GameSession* session = getGameSession(chan, room);
 	if (!session) {
 		std::cout << "GameSession not found for channel " << chan << ", room " << room << std::endl;
+		return;
 	}
 
 	else {
-		std::unique_lock<std::shared_mutex> lock(session->room_mutex);
-		for (Client* inst : session->client_list_room) {
+		auto it = std::find_if(session->client_list_room.begin(), session->client_list_room.end(),
+			[client_socket](Client* client) {
+				return client->socket == client_socket;
+			});
 
-			if (inst->socket == client_socket) {
-				inst->socket = -1;
-				inst->ready = false;
+		if (it != session->client_list_room.end()) {
+			(*it)->socket = -1;
+			(*it)->ready = false;
+
+			for (Client* other_client : session->client_list_room) {
+				if (other_client->socket != -1) {
+					PacketManger::Send(other_client->socket, H_USER_DISCON, &client_socket, sizeof(int));
+				}
 			}
 
-			PacketManger::Send(inst->socket, H_USER_DISCON, &client_socket, sizeof(int));
+			session->client_list_room.erase(it);
 		}
 	}
 
@@ -590,21 +590,15 @@ void GameManager::removeGameSession(int channel, int room) {
 	}
 }
 
-void GameManager::tempConnection(int client_socket, int channel, int room) {
+void GameManager::tempClientCreate(int client_socket, int chan, int room) {
 	clients_info[client_socket]->champindex = 0;
 	clients_info[client_socket]->team = 0;
-	clients_info[client_socket]->user_name = "test";
+	clients_info[client_socket]->user_name = "Test Client";
 	clients_info[client_socket]->clientindex = 0;
 
 
-	tempClientCreate(TEST_CLIENT_SOCKET);
-
-	MatchManager::handleBattleStart(channel, room);
-}
-
-void GameManager::tempClientCreate(int client_socket) {
 	Client* temp_cli = new Client;
-	temp_cli->socket = client_socket;
+	temp_cli->socket = TEST_CLIENT_SOCKET;
 	temp_cli->out_time = time(NULL) + 10;
 	temp_cli->channel = 0;
 	temp_cli->room = 0;
@@ -617,20 +611,12 @@ void GameManager::tempClientCreate(int client_socket) {
 	temp_cli->y = 0;
 	temp_cli->z = -55;
 
-	int chan = -1, room = -1;
-	{
-		std::unique_lock<std::shared_mutex> lock(clients_info_mutex);
-		clients_info[client_socket] = temp_cli;
-		chan = clients_info[client_socket]->channel;
-		room = clients_info[client_socket]->room;
-	}
 
-	if (chan == -1 || room == -1) {
-		std::cout << "lock error" << std::endl;
-		return;
-	}
+	clients_info[TEST_CLIENT_SOCKET] = temp_cli;
 
-	PacketManger::Send(client_socket, H_START, &temp_cli->socket, sizeof(int));
+
+
+	PacketManger::Send(TEST_CLIENT_SOCKET, H_START, &temp_cli->socket, sizeof(int));
 
 	{
 		std::unique_lock<std::shared_mutex> lock(client_list_mutex);
@@ -651,19 +637,21 @@ void GameManager::tempClientCreate(int client_socket) {
 	for (auto inst : session->client_list_room)
 	{
 
-		if (inst->socket == client_socket)
+		if (inst->socket == TEST_CLIENT_SOCKET)
 			continue;
 
 		ClientInfo info;
-		info.socket = client_socket;
-		info.champindex = clients_info[client_socket]->champindex;
-		info.x = clients_info[client_socket]->x;
-		info.y = clients_info[client_socket]->y;
-		info.z = clients_info[client_socket]->z;
+		info.socket = TEST_CLIENT_SOCKET;
+		info.champindex = clients_info[TEST_CLIENT_SOCKET]->champindex;
+		info.x = clients_info[TEST_CLIENT_SOCKET]->x;
+		info.y = clients_info[TEST_CLIENT_SOCKET]->y;
+		info.z = clients_info[TEST_CLIENT_SOCKET]->z;
 		PacketManger::Send(inst->socket, H_NEWBI, &info, sizeof(ClientInfo));
 	}
 
-	std::cout << "Connect " << client_socket << std::endl;
+	std::cout << "Connect " << TEST_CLIENT_SOCKET << std::endl;
+
+	MatchManager::handleBattleStart(chan, room);
 }
 
 void GameManager::ClientChat(int client_socket, int size, void* data)

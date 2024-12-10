@@ -11,7 +11,7 @@
 #include <thread>
 
 #define COLLISION_BULLET 3
-#define TURRET_ATTACK_TIMEER 100
+#define TURRET_ATTACK_TIMER 100
 
 void StructureManager::NewStructure(int index, int team, int struct_kind, int chan, int room, int x, int y, int z)
 {
@@ -281,7 +281,7 @@ void StructureManager::MoveBulletAsync(Bullet* newBullet, Client* attacked, Stru
 	float dy = attacked->y - newBullet->y;
 	float dz = attacked->z - newBullet->z;
 	float currentDistance = UtilityManager::DistancePosition(attacked->x, attacked->y, attacked->z, newBullet->x, newBullet->y, newBullet->z);
-	// std::cout << newBullet->index << " : " << currentDistance << std::endl;
+	 std::cout << newBullet->index << " : " << currentDistance << std::endl;
 
 
 	if (currentDistance <= COLLISION_BULLET) {
@@ -325,7 +325,7 @@ void StructureManager::MoveBulletAsync(Bullet* newBullet, Client* attacked, Stru
 
 		Timer::AddTimer(reinterpret_cast<intptr_t>(newBullet), [this, newBullet, attacked, attacker]() {
 			MoveBulletAsync(newBullet, attacked, attacker);
-			}, TURRET_ATTACK_TIMEER);
+			}, TURRET_ATTACK_TIMER);
 	}
 }
 
@@ -384,7 +384,7 @@ void StructureManager::MoveBulletAsync(Bullet* newBullet, Unit* attacked, Struct
 
 		Timer::AddTimer(reinterpret_cast<intptr_t>(newBullet), [this, newBullet, attacked, attacker]() {
 			MoveBulletAsync(newBullet, attacked, attacker);
-			}, TURRET_ATTACK_TIMEER);
+			}, TURRET_ATTACK_TIMER);
 	}
 }
 

@@ -37,8 +37,7 @@ public:
 	static bool findEmptyRoom(RoomData curRoom);
 	static std::vector<Client*> GetClientListInRoom(int channelIndex, int roomIndex);
 
-	static void tempConnection(int client_socket, int channel, int room);
-	static void tempClientCreate(int client_socket);
+	static void tempClientCreate(int client_socket, int channel, int room);
 
 	static GameSession* getGameSession(int channel, int room);
 	static GameSession* createGameSession(int channel, int room);

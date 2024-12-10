@@ -178,6 +178,8 @@ void UnitManager::UnitMove(int client_socket, UnitInfo info)
 	unit->y = info.y;
 	unit->z = info.z;
 
+	std::cout << unit->index << ": " << unit->x << ", " << unit->y << ", " << unit->z << std::endl;
+
 	std::shared_lock<std::shared_mutex> lock(session->room_mutex);
 	for (auto inst : session->client_list_room)
 	{
