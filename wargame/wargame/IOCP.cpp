@@ -508,6 +508,7 @@ void CommendInput()
 					printf("       curmana %d \n", inst->curmana);
 					printf("       maxmana %d \n", inst->maxmana);
 					printf("       attack %d \n", inst->attack);
+					printf("       absorptionRate %f \n", inst->absorptionRate);
 					printf("       critical %d \n", inst->critical);
 					printf("       criProbability %d \n", inst->criProbability);
 					printf("       maxdelay %f \n", inst->maxdelay);

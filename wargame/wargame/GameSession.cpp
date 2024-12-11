@@ -274,7 +274,9 @@ void GameSession::ClientStat(int client_socket) {
 		info.maxhp = client_info->maxhp;
 		info.curmana = client_info->curmana;
 		info.maxmana = client_info->maxmana;
+
 		info.attack = client_info->attack;
+		info.absorptionRate = client_info->absorptionRate;
 		info.critical = client_info->critical;
 		info.criProbability = client_info->criProbability;
 		info.attrange = client_info->attrange;
@@ -334,6 +336,7 @@ void GameSession::ClientChampInit(Client* client, int champIndex) {
 	client->curmana = champ->maxmana;
 	client->maxmana = champ->maxmana;
 	client->attack = champ->attack;
+	client->absorptionRate = champ->absorptionRate;
 	client->maxdelay = champ->maxdelay;
 	client->attrange = champ->attrange;
 	client->attspeed = champ->attspeed;
@@ -363,6 +366,7 @@ void GameSession::ClientChampInit(Client* client, int champIndex) {
 	info.curmana = client->curmana;
 	info.maxmana = client->maxmana;
 	info.attack = client->attack;
+	info.absorptionRate = client->absorptionRate;
 	info.critical = client->critical;
 	info.criProbability = client->criProbability;
 	info.attspeed = client->attspeed;
@@ -413,6 +417,7 @@ void GameSession::ClientChampInit(Client* client) {
 	client->curmana = (*champ).maxmana;
 	client->maxmana = (*champ).maxmana;
 	client->attack = (*champ).attack;
+	client->absorptionRate = (*champ).absorptionRate;
 	client->maxdelay = (*champ).maxdelay;
 	client->attrange = (*champ).attrange;
 	client->attspeed = (*champ).attspeed;
@@ -605,6 +610,21 @@ void GameSession::AttackClient(Client* client, AttInfo info) {
 		int damage = CalculateDamage(attacker);
 		attacked->curhp -= damage;
 		attacker->curdelay = 0;
+
+		if (attacker->absorptionRate > 0) {
+			if (attacker->absorptionRate > 1) {
+				std::cout << attacker->socket << "'s absorptionRate greater than 1." << std::endl;
+			}
+
+
+			int health = damage * attacker->absorptionRate;
+			attacker->curhp += health;
+
+			if (attacker->curhp > attacker->maxhp)
+				attacker->curhp = attacker->maxhp;
+
+			ClientStat(attacker->socket);
+		}
 
 		NotifyAttackResulttoClient(client_socket, chan, room, attacked->socket);
 	}
@@ -939,7 +959,9 @@ void GameSession::ItemStat(Client* client, Item info)
 				client->attspeed += (*curItem).attspeed;
 				client->movespeed += (*curItem).movespeed;
 				client->criProbability += (*curItem).criProbability;
+				client->absorptionRate += (*curItem).absorptionRate;
 
+				std::cout << client->absorptionRate << std::endl;
 				cout << client->socket << "님이 " << (*curItem).name << " 를 " << NeedGold << "에 구매하는데 성공했습니다." << endl;
 
 				client->itemList[index] = ((*curItem).id); // 아이템 추가
@@ -964,6 +986,7 @@ void GameSession::ItemStat(Client* client, Item info)
 					client->attspeed -= (*curItem).attspeed;
 					client->movespeed -= (*curItem).movespeed;
 					client->criProbability -= (*curItem).criProbability;
+					client->absorptionRate -= (*curItem).absorptionRate;
 
 					cout << client->socket << "님이 " << (*curItem).name << " 를 " << NeedGold * 0.8f << "에 판매하는데 성공했습니다." << endl;
 
