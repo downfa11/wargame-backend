@@ -509,6 +509,7 @@ void CommendInput()
 					printf("       maxmana %d \n", inst->maxmana);
 					printf("       attack %d \n", inst->attack);
 					printf("       absorptionRate %f \n", inst->absorptionRate);
+					printf("       defense %d \n", inst->defense);
 					printf("       critical %d \n", inst->critical);
 					printf("       criProbability %d \n", inst->criProbability);
 					printf("       maxdelay %f \n", inst->maxdelay);

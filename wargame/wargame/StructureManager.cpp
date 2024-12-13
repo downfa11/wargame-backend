@@ -30,6 +30,7 @@ void StructureManager::NewStructure(int index, int team, int struct_kind, int ch
 		temp_->attrange = 0;
 		temp_->bulletspeed = 0;
 		temp_->bulletdmg = 0;
+		temp_->defense = 40;
 	}
 	else if (temp_->struct_kind == 1) { //turret
 		temp_->maxhp = 1500;
@@ -38,6 +39,7 @@ void StructureManager::NewStructure(int index, int team, int struct_kind, int ch
 		temp_->bulletspeed = 20;
 		temp_->bulletdmg = 50;
 		temp_->maxdelay = 5;
+		temp_->defense = 20;
 	}
 	else if (temp_->struct_kind == 0) {//nexus
 		temp_->maxhp = 2000;
@@ -45,6 +47,7 @@ void StructureManager::NewStructure(int index, int team, int struct_kind, int ch
 		temp_->attrange = 0;
 		temp_->bulletspeed = 0;
 		temp_->bulletdmg = 0;
+		temp_->defense = 30;
 	}
 
 	{
@@ -65,6 +68,7 @@ void StructureManager::NewStructure(int index, int team, int struct_kind, int ch
 	info.attrange = temp_->attrange;
 	info.bulletspeed = temp_->bulletspeed;
 	info.bulletdmg = temp_->bulletdmg;
+	info.defense = temp_->defense;
 
 	{
 		std::shared_lock<std::shared_mutex> lock(session->room_mutex);
@@ -135,7 +139,7 @@ void StructureManager::StructureStat(int index, int team, int struct_kind, int c
 	info.attrange = stru_->attrange;
 	info.bulletdmg = stru_->bulletdmg;
 	info.bulletspeed = stru_->bulletspeed;
-
+	info.defense = stru_->defense;
 
 	{
 		std::shared_lock<std::shared_mutex> lock(session->room_mutex);
@@ -291,8 +295,15 @@ void StructureManager::MoveBulletAsync(Bullet* newBullet, Client* attacked, Stru
 				PacketManger::Send(inst->socket, H_BULLET_DIE, newBullet, sizeof(Bullet));
 		}
 
+
 		int prev_hp = attacked->curhp;
-		attacked->curhp -= newBullet->demage;
+
+		double defenseMultiplier = (attacked->defense >= 100) ? 0.0 : (1.0 - attacked->defense / 100.0);
+		int changedDamage = static_cast<int>(newBullet->demage * defenseMultiplier);
+		attacked->curhp -= changedDamage;
+
+		std::cout << "원래 데미지는 " << newBullet->demage << "인데, 방어력이 " << attacked->defense << "이므로 깎여서 " << changedDamage << "만 깎였어." << std::endl;
+
 		session->ClientStat(attacked->socket);
 
 		std::cout << "Turret " << attacker->index << " attacks: Target " << attacked->socket << " HP: " << prev_hp << " -> " << attacked->curhp << std::endl;

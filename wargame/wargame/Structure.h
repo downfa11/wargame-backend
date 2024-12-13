@@ -16,6 +16,7 @@ public:
 	int attrange;
 	int bulletdmg;
 	float bulletspeed;
+	int defense;
 	int team = -1; // 0 for blue team, 1 for red team
 	std::chrono::high_resolution_clock::time_point lastUpdateTime;
 };
@@ -33,5 +34,6 @@ struct StructureInfo
 	int attrange;
 	int bulletdmg;
 	float bulletspeed;
+	int defense;
 	int team;
 };

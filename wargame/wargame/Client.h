@@ -54,6 +54,7 @@ struct Unit {
 	float x = 0, y = 0, z = 0;
 	float rotationX = 0, rotationY = 0, rotationZ = 0;
 	int attack = 0;
+	int defense = 0;
 	float maxdelay = 0;
 	float curdelay = 0;
 	int attrange = 0;
@@ -73,6 +74,7 @@ struct UnitInfo {
 	float y = 0;
 	float z = 0;
 	int attack = 0;
+	int defense = 0;
 	int attrange = 0;
 	int attRate = 0;
 	float speed = 0;

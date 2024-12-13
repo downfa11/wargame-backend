@@ -119,6 +119,7 @@ public class UserController {
                 .onErrorReturn(ResponseEntity.ok().body(new messageEntity("Fail", "Failed to delete the user.")))
                 .defaultIfEmpty(ResponseEntity.ok().body(new messageEntity("Fail", "ID is not correct.")));
     }
+
     @DeleteMapping("/delete")
     public Mono<ResponseEntity<messageEntity>> deleteUserByName(@RequestParam String name, ServerWebExchange exchange) {
 
@@ -137,6 +138,7 @@ public class UserController {
                 .defaultIfEmpty(ResponseEntity.ok().body(new messageEntity("Fail", "ID is not correct.")));
 
     }
+
     @PutMapping("/update/{membershipId}")
     public Mono<ResponseEntity<messageEntity>> updateUser(@PathVariable Long membershipId, @RequestBody UserUpdateRequest request, ServerWebExchange exchange) {
 //        return jwtTokenProvider.getMembershipIdByToken(exchange)

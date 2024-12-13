@@ -15,6 +15,7 @@ public:
 	std::string name;
 	int attack;
 	float absorptionRate;
+	int defense;
 	int maxhp;
 	int maxmana;
 	float movespeed;
@@ -47,6 +48,7 @@ struct itemStats {
 	float attspeed;
 	int criProbability;
 	float absorptionRate;
+	int defense;
 };
 #pragma pack(pop)
 

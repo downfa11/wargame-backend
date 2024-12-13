@@ -77,7 +77,8 @@ public:
 	int curmana=0;
 	int maxmana=0;
 	int attack=0;
-	float absorptionRate = 0; // 1을 넘을 수 없다.
+	float absorptionRate = 0;
+	int defense=0;
 	int critical=0;
 	int criProbability=0;
 
@@ -131,6 +132,8 @@ public:
 			curmana = other.curmana;
 			maxmana = other.maxmana;
 			attack = other.attack;
+			absorptionRate = other.absorptionRate;
+			defense = other.defense;
 			critical = other.critical;
 			criProbability = other.criProbability;
 			maxdelay = other.maxdelay;
@@ -171,6 +174,7 @@ struct ClientInfo
 	int maxmana;
 	int attack;
 	float absorptionRate;
+	int defense;
 	int critical;
 	int criProbability;
 	float attspeed;

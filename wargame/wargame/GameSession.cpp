@@ -277,6 +277,7 @@ void GameSession::ClientStat(int client_socket) {
 
 		info.attack = client_info->attack;
 		info.absorptionRate = client_info->absorptionRate;
+		info.defense = client_info->defense;
 		info.critical = client_info->critical;
 		info.criProbability = client_info->criProbability;
 		info.attrange = client_info->attrange;
@@ -337,6 +338,7 @@ void GameSession::ClientChampInit(Client* client, int champIndex) {
 	client->maxmana = champ->maxmana;
 	client->attack = champ->attack;
 	client->absorptionRate = champ->absorptionRate;
+	client->defense = champ->defense;
 	client->maxdelay = champ->maxdelay;
 	client->attrange = champ->attrange;
 	client->attspeed = champ->attspeed;
@@ -367,6 +369,7 @@ void GameSession::ClientChampInit(Client* client, int champIndex) {
 	info.maxmana = client->maxmana;
 	info.attack = client->attack;
 	info.absorptionRate = client->absorptionRate;
+	info.defense = client->defense;
 	info.critical = client->critical;
 	info.criProbability = client->criProbability;
 	info.attspeed = client->attspeed;
@@ -418,6 +421,7 @@ void GameSession::ClientChampInit(Client* client) {
 	client->maxmana = (*champ).maxmana;
 	client->attack = (*champ).attack;
 	client->absorptionRate = (*champ).absorptionRate;
+	client->defense = (*champ).defense;
 	client->maxdelay = (*champ).maxdelay;
 	client->attrange = (*champ).attrange;
 	client->attspeed = (*champ).attspeed;
@@ -554,6 +558,7 @@ void GameSession::MouseSearch(Client* client, MouseInfo info)
 
 }
 
+
 void GameSession::AttackClient(Client* client, AttInfo info) {
 	if (!client) {
 		return;
@@ -588,62 +593,41 @@ void GameSession::AttackClient(Client* client, AttInfo info) {
 		attacker = *attacker_it;
 		attacked = *attacked_it;
 
-		float distance = UtilityManager::DistancePosition(attacker->x, attacker->y, attacker->z, attacked->x, attacked->y, attacked->z);
-
-		if (distance > attacker->attrange + 1) {
-			MouseInfo info{};
-			info.x = attacked->x;
-			info.y = attacked->y;
-			info.z = attacked->z;
-			info.kind = 0;
-			MouseSearch(attacker, info);
-			cout << "range? distance: " << distance << ", attrange: " << attacker->attrange << endl;
+		if (!IsValidAttackRange(attacker, attacked)) {
+			MouseSearchToTarget(attacker, attacked);
 			return;
 		}
 
-		if (attacker->curdelay < attacker->maxdelay) {
+		if (!IsReadyToAttack(attacker)) {
 			UpdateClientDelay(attacker);
 			return;
 		}
 
 
 		int damage = CalculateDamage(attacker);
-		attacked->curhp -= damage;
+		ApplyDamage(attacked, damage);
+		ApplyAbsorption(attacker, damage);
+
 		attacker->curdelay = 0;
-
-		if (attacker->absorptionRate > 0) {
-			if (attacker->absorptionRate > 1) {
-				std::cout << attacker->socket << "'s absorptionRate greater than 1." << std::endl;
-			}
-
-
-			int health = damage * attacker->absorptionRate;
-			attacker->curhp += health;
-
-			if (attacker->curhp > attacker->maxhp)
-				attacker->curhp = attacker->maxhp;
-
-			ClientStat(attacker->socket);
-		}
-
-		NotifyAttackResulttoClient(client_socket, chan, room, attacked->socket);
+		NotifyAttackResulttoClient(client->socket, client->channel, client->room, attacked->socket);
 	}
 
-	if (attacker == nullptr || attacked == nullptr) {
-		cout << "lock attacker, attacked error" << endl;
+	if (!attacker || !attacked) {
+		cout << "AttackClient lock error" << endl;
 		return;
 	}
 
-	if (attacked->curhp <= 0)
-		ClientDie(attacked->socket, client_socket, 0);
+	if (attacked->curhp <= 0) {
+		ClientDie(attacked->socket, client->socket, 0);
+	}
 
 	ClientStat(attacked->socket);
 }
 
 //todo
-void GameSession::AttackStructure(Client* client, AttInfo info)
-{
-	if (!client) {
+void GameSession::AttackStructure(Client* client, AttInfo info) {
+	if (!client || client->team == -1) {
+		cout << "Invalid client or team error in AttackStructure" << endl;
 		return;
 	}
 
@@ -652,10 +636,6 @@ void GameSession::AttackStructure(Client* client, AttInfo info)
 	int room = client->room;
 	int team = client->team;
 
-	if (team == -1) {
-		cout << "AttackStructure team error" << endl;
-		return;
-	}
 
 	Client* attacker = nullptr;
 	Structure* attacked = nullptr;
@@ -672,49 +652,85 @@ void GameSession::AttackStructure(Client* client, AttInfo info)
 
 		auto attacked_it = find_if(structures_in_room.begin(), structures_in_room.end(),
 			[&info, &team](Structure* struc) { return (struc->team != team && struc->index == info.attacked && struc->struct_kind == info.object_kind); });
-		
-		if (attacker_it == clients_in_room.end() || attacked_it == structures_in_room.end()) {
+
+		if (attacker_it == clients_in_room.end() || attacked_it == structures_in_room.end() || attacked->curhp <= 0) {
 			cout << "none struc :" << info.attacked << ", struc kind :" << info.object_kind << endl;
 			return;
 		}
 
 		attacked = *attacked_it;
-		if (attacked->curhp <= 0)
-			return;
-
 		attacker = *attacker_it;
-		float distance = UtilityManager::DistancePosition(attacker->x, attacker->y, attacker->z, attacked->x, attacked->y, attacked->z);
 
-		if (distance > attacker->attrange + 1)
-		{
-			MouseInfo info{};
-			info.x = attacked->x;
-			info.y = attacked->y;
-			info.z = attacked->z;
-			info.kind = 1;
-			MouseSearch(attacker, info);
-			cout << "range? distance: " << distance << ", attrange: " << attacker->attrange << endl;
+		if (!IsValidAttackRange(attacker, attacked)) {
+			MouseSearchToTarget(attacker, attacked);
 			return;
 		}
 
-		if (GameManager::clients_info[client_socket]->curdelay < GameManager::clients_info[client_socket]->maxdelay) {
+		if (!IsReadyToAttack(attacker)) {
 			UpdateClientDelay(attacker);
 			return;
 		}
 
 		int damage = CalculateDamage(attacker);
 		attacked->curhp -= damage;
-		GameManager::clients_info[client_socket]->curdelay = 0;
 
-		NotifyAttackResulttoStructure(client_socket, chan, room, attacked->index);
+		attacker->curdelay = 0;
+		NotifyAttackResulttoStructure(client->socket, client->channel, client->room, attacked->index);
+	}
+}
+
+bool GameSession::IsValidAttackRange(Client* attacker, const Structure* target) {
+	float distance = UtilityManager::DistancePosition(attacker->x, attacker->y, attacker->z, target->x, target->y, target->z);
+	return distance <= attacker->attrange + 1;
+}
+
+bool GameSession::IsValidAttackRange(Client* attacker, const Client* target) {
+	float distance = UtilityManager::DistancePosition(attacker->x, attacker->y, attacker->z, target->x, target->y, target->z);
+	return distance <= attacker->attrange + 1;
+}
+
+void GameSession::MouseSearchToTarget(Client* attacker, Client* attacked) {
+	MouseInfo info{};
+	info.x = attacked->x;
+	info.y = attacked->y;
+	info.z = attacked->z;
+	info.kind = 0;
+	MouseSearch(attacker, info);
+}
+
+void GameSession::MouseSearchToTarget(Client* attacker, Structure* attacked) {
+	MouseInfo info{};
+	info.x = attacked->x;
+	info.y = attacked->y;
+	info.z = attacked->z;
+	info.kind = 1;
+	MouseSearch(attacker, info);
+}
+
+bool GameSession::IsReadyToAttack(Client* attacker) {
+	return attacker->curdelay >= attacker->maxdelay;
+}
+
+void GameSession::ApplyDamage(Client* target, int damage) {
+	if (damage < 0) damage = 0;
+	double defenseMultiplier = (target->defense >= 100) ? 0.0 : (1.0 - target->defense / 100.0);
+	int adjustedDamage = static_cast<int>(damage * defenseMultiplier);
+	target->curhp -= adjustedDamage;
+
+	std::cout << "원래 데미지는 " << damage << "인데, 방어력이 " << target->defense << "이므로 깎여서 " << adjustedDamage << "만 깎였어." << std::endl;
+}
+
+void GameSession::ApplyAbsorption(Client* attacker, int damage) {
+	if (attacker->absorptionRate <= 0) return;
+
+	if (attacker->absorptionRate > 1) {
+		cout << "Warning: absorptionRate greater than 1 for " << attacker->socket << endl;
+		attacker->absorptionRate = 1.0;
 	}
 
-	if (attacker == nullptr || attacked == nullptr) {
-		cout << "lock attacker, attacked error" << endl;
-		return;
-	}
-
-	structureManager->StructureStat(attacked->index, attacked->team, attacked->struct_kind, chan, room);
+	int health = static_cast<int>(damage * attacker->absorptionRate);
+	attacker->curhp = ((attacker->curhp + health) < (attacker->maxhp)) ? (attacker->curhp + health) : (attacker->maxhp);
+	ClientStat(attacker->socket);
 }
 
 void GameSession::UpdateClientDelay(Client* client)
@@ -960,6 +976,7 @@ void GameSession::ItemStat(Client* client, Item info)
 				client->movespeed += (*curItem).movespeed;
 				client->criProbability += (*curItem).criProbability;
 				client->absorptionRate += (*curItem).absorptionRate;
+				client->defense += (*curItem).defense;
 
 				std::cout << client->absorptionRate << std::endl;
 				cout << client->socket << "님이 " << (*curItem).name << " 를 " << NeedGold << "에 구매하는데 성공했습니다." << endl;
@@ -987,6 +1004,7 @@ void GameSession::ItemStat(Client* client, Item info)
 					client->movespeed -= (*curItem).movespeed;
 					client->criProbability -= (*curItem).criProbability;
 					client->absorptionRate -= (*curItem).absorptionRate;
+					client->defense -= (*curItem).defense;
 
 					cout << client->socket << "님이 " << (*curItem).name << " 를 " << NeedGold * 0.8f << "에 판매하는데 성공했습니다." << endl;
 

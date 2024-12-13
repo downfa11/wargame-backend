@@ -63,6 +63,16 @@ public:
 	void UpdateClientDelay(Client* client);
 	int CalculateDamage(Client* attacker);
 
+	bool IsValidAttackRange(Client* attacker, const Structure* target);
+	bool IsValidAttackRange(Client* attacker, const Client* target);
+
+	void MouseSearchToTarget(Client* attacker, Client* attacked);
+	void MouseSearchToTarget(Client* attacker, Structure* attacked);
+
+	void ApplyAbsorption(Client* attacker, int damage);
+	void ApplyDamage(Client* target, int damage);
+	bool IsReadyToAttack(Client* attacker);
+
 	void NotifyAttackResulttoClient(int client_socket, int chan, int room, int attacked_socket);
 	void NotifyAttackResulttoStructure(int client_socket, int chan, int room, int attacked_index);
 
