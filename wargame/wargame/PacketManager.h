@@ -65,6 +65,10 @@
 #define H_UNIT_MOVESTOP 3283
 
 
+#define H_CHAMPION_INFO 2203
+#define H_ITEM_INFO 2204
+
+
 class PacketManger
 {
 public:

@@ -37,17 +37,17 @@ bool DatabaseManager::ExecuteQuery(const std::string& query, void (*processRow)(
 
 void ChampionSystem::ChampionInit() {
     const std::string query = "SELECT * FROM champion_stats";
-    dbManager.ExecuteQuery(query, ChampionSystem::getChampionData);
+    dbManager.ExecuteQuery(query, ChampionSystem::GetChampionData);
     std::cout << "Champion init." << std::endl;
 }
 
 void ItemSystem::ItemInit() {
     const std::string query = "SELECT * FROM item_stats";
-    dbManager.ExecuteQuery(query, ItemSystem::getItemData);
+    dbManager.ExecuteQuery(query, ItemSystem::GetItemData);
     std::cout << "Item init." << std::endl;
 }
 
-void ChampionSystem::getChampionData(MYSQL_ROW row) {
+void ChampionSystem::GetChampionData(MYSQL_ROW row) {
     ChampionStats champion;
     champion.index = std::stoi(row[0]);
     champion.name = row[1];
@@ -70,7 +70,7 @@ void ChampionSystem::getChampionData(MYSQL_ROW row) {
     champions.push_back(champion);
 }
 
-void ItemSystem::getItemData(MYSQL_ROW row) {
+void ItemSystem::GetItemData(MYSQL_ROW row) {
     itemStats item;
     item.id = std::stoi(row[0]);
     item.name = row[1];
@@ -84,4 +84,37 @@ void ItemSystem::getItemData(MYSQL_ROW row) {
     item.absorptionRate = std::stof(row[9]);
     item.defense = std::stof(row[10]);
     items.push_back(item);
+}
+
+
+ChampionStatsInfo ChampionSystem::GetChampionInfo(const ChampionStats& champion) {
+    return ChampionStatsInfo{
+        champion.index,
+        champion.attack,
+        champion.absorptionRate,
+        champion.defense,
+        champion.maxhp,
+        champion.maxmana,
+        champion.movespeed,
+        champion.maxdelay,
+        champion.attspeed,
+        champion.attrange,
+        champion.critical,
+        champion.criProbability
+    };
+}
+
+ItemStatsInfo ItemSystem::GetItemInfo(const itemStats& item) {
+    return ItemStatsInfo{
+        item.id,
+        item.gold,
+        item.attack,
+        item.maxhp,
+        item.movespeed,
+        item.maxdelay,
+        item.attspeed,
+        item.criProbability,
+        item.absorptionRate,
+        item.defense
+    };
 }

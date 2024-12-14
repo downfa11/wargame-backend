@@ -83,9 +83,13 @@ public:
 	void ItemStat(Client* client, Item info);
 	void CharLevelUp(Client* client);
 
-	void champ1Passive(int client_socket, AttInfo info, int chan, int room);
-	void champStatusEffect(int client_socket, std::string field, int value, int delayTime);
+	void Champ1Passive(int client_socket, AttInfo info, int chan, int room);
+	void ChampStatusEffect(int client_socket, std::string field, int value, int delayTime);
 	void BulletStat(int client_socket, int bullet_index);
+
+	void GetChampInfo(int client_socket);
+	void GetItemInfo(int client_socket);
+
 private:
 	int channelId;
 	int roomId;

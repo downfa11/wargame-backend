@@ -285,7 +285,7 @@ void StructureManager::MoveBulletAsync(Bullet* newBullet, Client* attacked, Stru
 	float dy = attacked->y - newBullet->y;
 	float dz = attacked->z - newBullet->z;
 	float currentDistance = UtilityManager::DistancePosition(attacked->x, attacked->y, attacked->z, newBullet->x, newBullet->y, newBullet->z);
-	 std::cout << newBullet->index << " : " << currentDistance << std::endl;
+	// std::cout << newBullet->index << " : " << currentDistance << std::endl;
 
 
 	if (currentDistance <= COLLISION_BULLET) {
@@ -302,7 +302,7 @@ void StructureManager::MoveBulletAsync(Bullet* newBullet, Client* attacked, Stru
 		int changedDamage = static_cast<int>(newBullet->demage * defenseMultiplier);
 		attacked->curhp -= changedDamage;
 
-		std::cout << "원래 데미지는 " << newBullet->demage << "인데, 방어력이 " << attacked->defense << "이므로 깎여서 " << changedDamage << "만 깎였어." << std::endl;
+		std::cout << "Structure의 Bullet 원래 데미지는 " << newBullet->demage << "인데, 방어력이 " << attacked->defense << "이므로 깎여서 " << changedDamage << "만 깎였어." << std::endl;
 
 		session->ClientStat(attacked->socket);
 

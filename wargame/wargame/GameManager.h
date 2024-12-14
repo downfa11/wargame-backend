@@ -58,7 +58,7 @@ public:
 
     static void ItemStat(int client_socket, void* data);
     static void Well(int client_socket, void* data);
-    static void champ1Passive(void* data);
+    static void Champ1Passive(void* data);
 
 	static void BulletStat(int client_socket, void* data);
 

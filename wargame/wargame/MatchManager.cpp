@@ -96,8 +96,10 @@ void MatchManager::handleBattleStart(int channel, int room) {
 		PacketManger::Send(currentClient->socket, H_BATTLE_START, packetData, packetSize);
 	}
 
-	for (auto currentClient : clientList)
+	for (auto currentClient : clientList) {
 		session->ClientStat(currentClient->socket);
+		session->GetItemInfo(currentClient->socket);
+	}
 
 	delete[] packetData;
 
@@ -109,6 +111,8 @@ void MatchManager::handleBattleStart(int channel, int room) {
 	session->structureManager->NewStructure(0, 0, 0, channel, room, 30, 0, 30); // nexus
 	session->structureManager->NewStructure(1, 1, 1, channel, room, 30, 0, -30); // turret
 	session->structureManager->NewStructure(2, 1, 0, channel, room, 60, 0, -60); // nexus
+
+
 
 }
 
@@ -335,10 +339,13 @@ void MatchManager::ChampPickTimeOut(int channel, int room) {
 					info.champindex = inst->champindex;
 					PacketManger::Send(inst2->socket, H_NEWBI, &info, sizeof(ClientInfo));
 				}
+
+				session->GetChampInfo(inst->socket);
 			}
 		}
 
 		sendTeamPackets(channel, room);
+
 		waitForPickTime(channel, room);
 
 		if (AllClientsReady(channel, room)) {

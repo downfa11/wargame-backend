@@ -591,7 +591,7 @@ void GameManager::removeGameSession(int channel, int room) {
 }
 
 void GameManager::tempClientCreate(int client_socket, int chan, int room) {
-	clients_info[client_socket]->champindex = 0;
+	clients_info[client_socket]->champindex = 1;
 	clients_info[client_socket]->team = 0;
 	clients_info[client_socket]->user_name = "Test Client";
 	clients_info[client_socket]->clientindex = 0;
@@ -602,7 +602,7 @@ void GameManager::tempClientCreate(int client_socket, int chan, int room) {
 	temp_cli->out_time = time(NULL) + 10;
 	temp_cli->channel = 0;
 	temp_cli->room = 0;
-	temp_cli->champindex = 1;
+	temp_cli->champindex = 0;
 	temp_cli->clientindex = 1;
 	temp_cli->user_name = "Test Player";
 	temp_cli->team = 1;
@@ -1017,7 +1017,7 @@ void GameManager::Well(int client_socket, void* data) {
 	session->structureManager->Well(GameManager::clients_info[client_socket],info.x,info.y,info.z);
 }
 
-void GameManager::champ1Passive(void* data) {
+void GameManager::Champ1Passive(void* data) {
 	AttInfo info;
 	memcpy(&info, data, sizeof(AttInfo));
 	int attacker_socket = info.attacker;
@@ -1040,7 +1040,7 @@ void GameManager::champ1Passive(void* data) {
 		return;
 	}
 
-	session->champ1Passive(attacker_socket, info, chan, room);
+	session->Champ1Passive(attacker_socket, info, chan, room);
 }
 
 void GameManager::BulletStat(int client_socket, void* data) {

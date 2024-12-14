@@ -9,7 +9,6 @@
 
 using namespace std;
 
-
 #define MAX_PLAYER_MOVE_SPEED 100
 
 void GameSession::ClientChat(std::string& name, int size, void* data)
@@ -558,7 +557,6 @@ void GameSession::MouseSearch(Client* client, MouseInfo info)
 
 }
 
-
 void GameSession::AttackClient(Client* client, AttInfo info) {
 	if (!client) {
 		return;
@@ -653,7 +651,7 @@ void GameSession::AttackStructure(Client* client, AttInfo info) {
 		auto attacked_it = find_if(structures_in_room.begin(), structures_in_room.end(),
 			[&info, &team](Structure* struc) { return (struc->team != team && struc->index == info.attacked && struc->struct_kind == info.object_kind); });
 
-		if (attacker_it == clients_in_room.end() || attacked_it == structures_in_room.end() || attacked->curhp <= 0) {
+		if (attacker_it == clients_in_room.end() || attacked_it == structures_in_room.end() || (*attacked_it)->curhp <= 0) {
 			cout << "none struc :" << info.attacked << ", struc kind :" << info.object_kind << endl;
 			return;
 		}
@@ -742,14 +740,18 @@ void GameSession::UpdateClientDelay(Client* client)
 
 int GameSession::CalculateDamage(Client* attacker)
 {
-	static thread_local random_device rd;
-	static thread_local mt19937 gen(rd());
-	uniform_real_distribution<float> dis(0, 1);
+	if (!attacker)
+		return 0;
+
+	static thread_local std::random_device rd;
+	static thread_local std::mt19937 gen(rd());
+	std::uniform_real_distribution<float> dis(0, 1);
+
 	float chance = attacker->criProbability / 100.0f;
 	float cridmg = attacker->critical / 100.0f;
 	int att = attacker->attack;
 
-	if (dis(gen) < chance)
+	if (!(chance < 0.0f || chance > 1.0f || cridmg < 0.0f) && (dis(gen) < chance))
 		att += static_cast<int>(att * cridmg);
 
 	return att;
@@ -959,7 +961,7 @@ void GameSession::ItemStat(Client* client, Item info)
 
 		if (isPerchase)
 		{
-			cout << index << " item" << endl;
+			// cout << index << " item" << endl;
 
 			if (index >= client->itemList.size()) // 더 이상 추가 아이템을 구매할 수 없을 때
 			{
@@ -978,7 +980,6 @@ void GameSession::ItemStat(Client* client, Item info)
 				client->absorptionRate += (*curItem).absorptionRate;
 				client->defense += (*curItem).defense;
 
-				std::cout << client->absorptionRate << std::endl;
 				cout << client->socket << "님이 " << (*curItem).name << " 를 " << NeedGold << "에 구매하는데 성공했습니다." << endl;
 
 				client->itemList[index] = ((*curItem).id); // 아이템 추가
@@ -1036,7 +1037,7 @@ void GameSession::CharLevelUp(Client* client) {
 	ClientStat(client->socket);
 }
 
-void GameSession::champ1Passive(int client_socket, AttInfo info, int chan, int room) {
+void GameSession::Champ1Passive(int client_socket, AttInfo info, int chan, int room) {
 	Client* attacker = nullptr;
 	{
 		std::shared_lock<std::shared_mutex> lock(room_mutex);
@@ -1063,9 +1064,10 @@ void GameSession::champ1Passive(int client_socket, AttInfo info, int chan, int r
 			}
 
 			attacked = *attacked_it;
-			int damage = static_cast<int>(0.2f * attacker->attack * attacker->level);
-			attacked->curhp -= damage;
+			int damage = static_cast<int>(attacker->attack * attacker->level * 5);
 			std::cout << "Client passive damage: " << damage << " attacked.curHp: " << attacked->curhp << std::endl;
+			ApplyDamage(attacked, damage);
+
 
 			NotifyAttackResulttoClient(client_socket, chan, room, attacked->socket);
 
@@ -1094,7 +1096,7 @@ void GameSession::champ1Passive(int client_socket, AttInfo info, int chan, int r
 				return;
 			}
 
-			int damage = static_cast<int>(0.2f * attacker->attack * attacker->level);
+			int damage = static_cast<int>(attacker->attack * attacker->level * 5);
 			attacked->curhp -= damage;
 			std::cout << "Structure passive damage: " << damage << " attacked.curHp: " << attacked->curhp << std::endl;
 
@@ -1104,7 +1106,7 @@ void GameSession::champ1Passive(int client_socket, AttInfo info, int chan, int r
 	}
 }
 
-void GameSession::champStatusEffect(int client_socket, std::string field, int value, int delayTime) {
+void GameSession::ChampStatusEffect(int client_socket, std::string field, int value, int delayTime) {
 	Client* client = GameManager::clients_info[client_socket];
 
 	if (!client) {
@@ -1162,4 +1164,36 @@ void GameSession::BulletStat(int client_socket, int bullet_index) {
 			return;
 		}
 	}
+}
+
+void GameSession::GetChampInfo(int client_socket) {
+	shared_lock<shared_mutex> lock(room_mutex);
+
+	for (auto cli : client_list_room) {
+		if (cli->socket == client_socket) {
+			for (auto& champion : ChampionSystem::champions) {
+				ChampionStatsInfo championInfo = ChampionSystem::GetChampionInfo(champion);
+				std::cout << "Champion Sent - Index: " << championInfo.index << ", Attack: " << championInfo.attack << "\n";
+
+				PacketManger::Send(cli->socket, H_CHAMPION_INFO, &championInfo, sizeof(ChampionStatsInfo));
+			}
+			return;
+		}
+	}
+	std::cout << "Client not found: " << client_socket << "\n";
+}
+
+void GameSession::GetItemInfo(int client_socket) {
+	for (auto cli : client_list_room) {
+		shared_lock<shared_mutex> lock(room_mutex);
+		if (cli->socket == client_socket) {
+			for (auto& item : ItemSystem::items) {
+				ItemStatsInfo itemInfo = ItemSystem::GetItemInfo(item);
+				std::cout << "Item Sent - ID: " << itemInfo.id << ", Gold: " << itemInfo.gold << "\n";
+				PacketManger::Send(cli->socket, H_ITEM_INFO, &itemInfo, sizeof(ItemStatsInfo));
+			}
+			return;
+		}
+	}
+	std::cout << "Client not found: " << client_socket << "\n";
 }
