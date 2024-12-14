@@ -253,7 +253,12 @@ public class MatchQueueService implements ApplicationRunner {
                                         .defaultIfEmpty(-1L)
                                         .map(rank -> {
                                             log.info("Rank: " + rank);
-                                            return rank >= 0 ? rank + 1 : rank;
+                                            if (rank >= 0) {
+                                                reactiveRedisTemplate.expire(MATCH_WAIT_KEY.formatted(queue), Duration.ofSeconds(expireTime));
+                                                return rank + 1;
+                                            } else {
+                                                return rank;
+                                            }
                                         })
                                         .doFinally(signal -> {
                                             log.info("Releasing lock");
