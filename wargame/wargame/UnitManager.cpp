@@ -6,7 +6,7 @@
 
 #include <iostream>
 
-void UnitManager::NewUnit(int client_socket, int unit_kind) {
+void UnitManager::NewUnit(int client_socket, UnitKind unit_kind) {
 	Client* client = GameManager::clients_info[client_socket];
 
 	Unit* temp_ = new Unit;
@@ -19,7 +19,8 @@ void UnitManager::NewUnit(int client_socket, int unit_kind) {
 	temp_->z = client->z;
 	temp_->team = client->team;
 
-	if (temp_->unit_kind == 0) { // infantry
+	switch (temp_->unit_kind) {
+	case UnitKind::Infantry:
 		temp_->maxhp = 500;
 		temp_->curhp = temp_->maxhp;
 		temp_->attrange = 0;
@@ -27,8 +28,8 @@ void UnitManager::NewUnit(int client_socket, int unit_kind) {
 		temp_->attRate = 1;
 		temp_->attrange = 15;
 		temp_->speed = 10;
-	}
-	else 	if (temp_->unit_kind == 1) { // acher
+		break;
+	case UnitKind::Archer:
 		temp_->maxhp = 300;
 		temp_->curhp = temp_->maxhp;
 		temp_->attrange = 0;
@@ -36,6 +37,7 @@ void UnitManager::NewUnit(int client_socket, int unit_kind) {
 		temp_->attRate = 1.5f;
 		temp_->attrange = 30;
 		temp_->speed = 10;
+		break;
 	}
 
 	{
@@ -64,23 +66,9 @@ void UnitManager::NewUnit(int client_socket, int unit_kind) {
 		for (Client* inst : session->client_list_room)
 			PacketManger::Send(inst->socket, H_UNIT_CREATE, &info, sizeof(UnitInfo));
 	}
-
-	//std::cout << "UnitInfo:" << std::endl;
-	//std::cout << "Index: " << info.index << std::endl;
-	//std::cout << "Client Socket: " << info.client_socket << std::endl;
-	//std::cout << "Kind: " << info.kind << std::endl;
-	//std::cout << "Team: " << info.team << std::endl;
-	//std::cout << "Position - X: " << info.x << ", Y: " << info.y << ", Z: " << info.z << std::endl;
-	//std::cout << "Current HP: " << info.curhp << std::endl;
-	//std::cout << "Max HP: " << info.maxhp << std::endl;
-	//std::cout << "Attack: " << info.attack << std::endl;
-	//std::cout << "Attack Rate: " << info.attRate << std::endl;
-	//std::cout << "Attack Range: " << info.attrange << std::endl;
-	//std::cout << "Speed: " << info.speed << std::endl;
-	//std::cout << std::endl;
 }
 
-void UnitManager::UnitStat(int client_socket, int unit_index, int unit_kind) {
+void UnitManager::UnitStat(int client_socket, int unit_index, UnitKind unit_kind) {
 	std::cout << "Unit Stat" << std::endl;
 
 	Client* client = GameManager::clients_info[client_socket];
@@ -126,7 +114,31 @@ void UnitManager::UnitStat(int client_socket, int unit_index, int unit_kind) {
 	}
 }
 
-void UnitManager::UnitDie(int client_socket, int unit_index, int unit_kind) {
+void UnitManager::UnitStat(Unit* unit) {
+	std::cout << "Unit Stat" << std::endl;
+
+	if (unit == nullptr) {
+		std::cout << "unit nullptr" << std::endl;
+		return;
+	}
+
+	UnitInfo info;
+	info.index = unit->index;
+	info.client_socket = unit->client_socket;
+	info.team = unit->team;
+	info.kind = unit->unit_kind;
+	info.curhp = unit->curhp;
+	info.maxhp = unit->maxhp;
+	info.attrange = unit->attrange;
+
+	{
+		std::shared_lock<std::shared_mutex> lock(session->room_mutex);
+		for (Client* inst : session->client_list_room)
+			PacketManger::Send(inst->socket, H_UNIT_STAT, &info, sizeof(UnitInfo));
+	}
+}
+
+void UnitManager::UnitDie(int client_socket, int unit_index, UnitKind unit_kind) {
 	std::cout << "Unit Die" << std::endl;
 
 	int team = GameManager::clients_info[client_socket]->team;
@@ -137,6 +149,17 @@ void UnitManager::UnitDie(int client_socket, int unit_index, int unit_kind) {
 			session->unit_list_room.remove(inst);
 	}
 
+
+	{
+		std::shared_lock<std::shared_mutex> lock(session->room_mutex);
+		for (auto inst : session->client_list_room)
+			PacketManger::Send(inst->socket, H_UNIT_DIE, &unit_index, sizeof(int));
+	}
+}
+
+void UnitManager::UnitDie(Unit* unit) {
+	int unit_index = unit->index;
+	session->unit_list_room.remove(unit);
 
 	{
 		std::shared_lock<std::shared_mutex> lock(session->room_mutex);

@@ -2,6 +2,7 @@
 
 #include "base.h"
 #include "Client.h"
+#include "Unit.h"
 
 #include <list>
 
@@ -11,9 +12,11 @@ class UnitManager {
 public:
 	explicit UnitManager(GameSession* session) : session(session) {}
 
-	void NewUnit(int client_socket, int unit_kind);
-	void UnitStat(int client_socket, int unit_index, int unit_kind);
-	void UnitDie(int client_socket, int unit_index, int unit_kind);
+	void NewUnit(int client_socket, UnitKind unit_kind);
+	void UnitStat(int client_socket, int unit_index, UnitKind unit_kind);
+	void UnitStat(Unit* unit);
+	void UnitDie(int client_socket, int unit_index, UnitKind unit_kind);
+	void UnitDie(Unit* unit);
 	void UnitMoveStart(int client_socket, UnitMovestart* info);
 	void UnitMove(int client_socket, UnitInfo info);
 	void UnitMoveStop(int client_socket, UnitInfo info);

@@ -1017,32 +1017,6 @@ void GameManager::Well(int client_socket, void* data) {
 	session->structureManager->Well(GameManager::clients_info[client_socket],info.x,info.y,info.z);
 }
 
-void GameManager::Champ1Passive(void* data) {
-	AttInfo info;
-	memcpy(&info, data, sizeof(AttInfo));
-	int attacker_socket = info.attacker;
-
-	int chan = -1, room = -1;
-	{
-		std::shared_lock<std::shared_mutex> lock(GameManager::clients_info_mutex);
-		chan = GameManager::clients_info[attacker_socket]->channel;
-		room = GameManager::clients_info[attacker_socket]->room;
-	}
-
-	if (chan == -1 || room == -1) {
-		std::cout << "lock error" << std::endl;
-		return;
-	}
-
-	GameSession* session = getGameSession(chan, room);
-	if (!session) {
-		std::cout << "GameSession not found for channel " << chan << ", room " << room << std::endl;
-		return;
-	}
-
-	session->Champ1Passive(attacker_socket, info, chan, room);
-}
-
 void GameManager::BulletStat(int client_socket, void* data) {
 	int bulletIndex = -1;
 	memcpy(&bulletIndex, data, sizeof(int));

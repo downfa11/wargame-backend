@@ -297,9 +297,6 @@ unsigned WINAPI EchoThreadMain(LPVOID pComPort)
 				else if (number == H_WELL) {
 					GameManager::Well(sock, data);
 				}
-				else if (number == H_CHAMP1_PASSIVE) {
-					GameManager::Champ1Passive(data);
-				}
 				else if (number == H_BULLET_STAT) {
 					GameManager::BulletStat(sock, data);
 				}

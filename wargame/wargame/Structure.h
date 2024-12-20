@@ -2,11 +2,13 @@
 
 #include<chrono>
 
+enum StructureKind { NEXUS, TURRET, GATE };
+
 class Structure
 {
 public:
 	int index = 0;
-	int struct_kind = -1; // nexus:0, turret:1, gate:2
+	StructureKind struct_kind; // nexus:0, turret:1, gate:2
 	float x = 0;
 	float y = 0;
 	float z = 0;

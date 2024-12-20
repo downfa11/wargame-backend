@@ -25,6 +25,15 @@
     <Filter Include="소스 파일\session">
       <UniqueIdentifier>{996992a3-395f-44cd-894c-493c0947682c}</UniqueIdentifier>
     </Filter>
+    <Filter Include="소스 파일\session\Structure">
+      <UniqueIdentifier>{f884a41d-d244-41a3-8c74-f1e9411de1bd}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\session\Unit">
+      <UniqueIdentifier>{bae8dd4d-c5d7-4bb6-8e46-191d6c4fde98}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="소스 파일\session\Client">
+      <UniqueIdentifier>{50f26134-9755-4567-aa1f-db32422d8278}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GameManager.h">
@@ -83,9 +92,6 @@
     <ClCompile Include="GameSession.cpp">
       <Filter>소스 파일\session</Filter>
     </ClCompile>
-    <ClCompile Include="StructureManager.cpp">
-      <Filter>소스 파일\session</Filter>
-    </ClCompile>
     <ClCompile Include="Utility.cpp">
       <Filter>소스 파일\utils</Filter>
     </ClCompile>
@@ -98,11 +104,29 @@
     <ClCompile Include="MatchManager.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
-    <ClCompile Include="Timer.cpp">
-      <Filter>소스 파일</Filter>
+    <ClCompile Include="StructureManager.cpp">
+      <Filter>소스 파일\session\Structure</Filter>
     </ClCompile>
     <ClCompile Include="UnitManager.cpp">
-      <Filter>소스 파일\session</Filter>
+      <Filter>소스 파일\session\Unit</Filter>
+    </ClCompile>
+    <ClCompile Include="NexusSystem.cpp">
+      <Filter>소스 파일\session\Structure</Filter>
+    </ClCompile>
+    <ClCompile Include="TurretSystem.cpp">
+      <Filter>소스 파일\session\Structure</Filter>
+    </ClCompile>
+    <ClCompile Include="ClientMovement.cpp">
+      <Filter>소스 파일\session\Client</Filter>
+    </ClCompile>
+    <ClCompile Include="BattleSystem.cpp">
+      <Filter>소스 파일\session\Client</Filter>
+    </ClCompile>
+    <ClCompile Include="ArcherSystem.cpp">
+      <Filter>소스 파일\session\Client</Filter>
+    </ClCompile>
+    <ClCompile Include="Timer.cpp">
+      <Filter>소스 파일\utils</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

@@ -2,6 +2,8 @@
 #include "base.h"
 #include "Client.h"
 #include "Structure.h"
+#include "Unit.h"
+#include "GameSession.h"
 
 #include <list>
 #include <shared_mutex>
@@ -14,11 +16,13 @@ class StructureManager {
 public:
 	explicit StructureManager(GameSession* session) : session(session) {}
 	
-	void NewStructure(int index, int team, int struct_kind, int chan, int room, int x, int y, int z);
-	void StructureDie(int index, int team, int struct_kind, int chan, int room);
-	void StructureStat(int index, int team, int struct_kind, int chan, int room);
+	void NewStructure(int index, int team, StructureKind struct_kind, int x, int y, int z);
+	void StructureDie(int index, int team, StructureKind struct_kind);
+	void StructureDie(Structure* structure);
+	void StructureStat(int index, int team, StructureKind struct_kind);
+	void StructureStat(Structure* structure);
 
-	void TurretSearch(int index, int chan, int room);
+	void TurretSearch(int index);
 	void Well(Client* client, int x, int y, int z);
 
 private:

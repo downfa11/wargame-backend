@@ -147,15 +147,20 @@
     <ClInclude Include="Utility.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="BattleSystem.cpp" />
+    <ClCompile Include="ArcherSystem.cpp" />
     <ClCompile Include="DBManager.h" />
     <ClCompile Include="GameManger.cpp" />
+    <ClCompile Include="NexusSystem.cpp" />
     <ClCompile Include="GameSession.cpp" />
     <ClCompile Include="IOCP.cpp" />
     <ClCompile Include="MatchManager.cpp" />
+    <ClCompile Include="ClientMovement.cpp" />
     <ClCompile Include="PacketManager.cpp" />
     <ClCompile Include="Resource.cpp" />
     <ClCompile Include="StructureManager.cpp" />
     <ClCompile Include="Timer.cpp" />
+    <ClCompile Include="TurretSystem.cpp" />
     <ClCompile Include="UnitManager.cpp" />
     <ClCompile Include="Utility.cpp" />
   </ItemGroup>

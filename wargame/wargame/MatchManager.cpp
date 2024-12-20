@@ -4,6 +4,7 @@
 #include "PacketManager.h"
 #include "GameManager.h"
 #include "GameSession.h"
+#include "Unit.h"
 #include "StructureManager.h"
 #include "Utility.h"
 #include "Timer.h"
@@ -90,7 +91,7 @@ void MatchManager::handleBattleStart(int channel, int room) {
 
 		for (size_t i = 0; i < 3; i++)
 		{
-			session->unitManager->NewUnit(currentClient->socket, 0);
+			session->unitManager->NewUnit(currentClient->socket, UnitKind::Infantry);
 		}
 		session->ClientChampInit(currentClient, currentClient->champindex);
 		PacketManger::Send(currentClient->socket, H_BATTLE_START, packetData, packetSize);
@@ -107,13 +108,9 @@ void MatchManager::handleBattleStart(int channel, int room) {
 	session->startTime = std::chrono::system_clock::now();
 	session->structureManager = std::make_unique<StructureManager>(session);
 
-	// [kind] nexus: 0, turret: 1, gate: 2
-	session->structureManager->NewStructure(0, 0, 0, channel, room, 30, 0, 30); // nexus
-	session->structureManager->NewStructure(1, 1, 1, channel, room, 30, 0, -30); // turret
-	session->structureManager->NewStructure(2, 1, 0, channel, room, 60, 0, -60); // nexus
-
-
-
+	session->structureManager->NewStructure(0, 0, StructureKind::NEXUS,30, 0, 30); 
+	session->structureManager->NewStructure(1, 1, StructureKind::TURRET, 30, 0, -30);
+	session->structureManager->NewStructure(2, 1, StructureKind::NEXUS,  60, 0, -60);
 }
 
 void MatchManager::handleDodgeResult(int channel, int room) {
