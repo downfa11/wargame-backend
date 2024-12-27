@@ -1,4 +1,4 @@
-package com.ns.membership.Utils;
+package com.ns.common.Utils;
 
 
 import lombok.AllArgsConstructor;
@@ -6,7 +6,7 @@ import lombok.Getter;
 import lombok.Value;
 
 @AllArgsConstructor
-public class jwtToken {
+public class JwtToken {
 
     @Getter
     private final String membershipId;

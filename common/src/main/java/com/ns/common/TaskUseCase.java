@@ -8,7 +8,7 @@ import java.util.UUID;
 @Component
 public class TaskUseCase {
 
-    public SubTask createSubTask(String subTaskName, String membershipId, SubTask.TaskType taskType, SubTask.TaskStatus taskStatus, Object data){
+    public static SubTask createSubTask(String subTaskName, String membershipId, SubTask.TaskType taskType, SubTask.TaskStatus taskStatus, Object data){
         return SubTask.builder()
                         .subTaskName(subTaskName)
                         .membershipId(String.valueOf(membershipId))
@@ -18,11 +18,11 @@ public class TaskUseCase {
                         .build();
     }
 
-    public Task createTask(String taskName, String membershipId, List<SubTask> subTasks) {
+    public static Task createTask(String taskName, String membershipId, List<SubTask> subTasks) {
         return createTask(null, taskName, membershipId, subTasks);
     }
 
-    public Task createTask(String taskID, String taskName, String membershipId, List<SubTask> subTasks) {
+    public static Task createTask(String taskID, String taskName, String membershipId, List<SubTask> subTasks) {
         if (taskID == null || taskID.isEmpty()) {
             taskID = UUID.randomUUID().toString();
         }

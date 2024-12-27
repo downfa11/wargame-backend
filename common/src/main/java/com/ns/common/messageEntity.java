@@ -3,12 +3,12 @@ package com.ns.common;
 import lombok.Data;
 
 @Data
-public class messageEntity {
+public class MessageEntity {
 
     private String message;
     private Object result;
 
-    public messageEntity(String message, Object result) {
+    public MessageEntity(String message, Object result) {
         this.message = message;
         this.result  = result;
     }
