@@ -1,6 +1,8 @@
 package com.ns.resultquery.controller;
 
 import com.ns.resultquery.axon.query.ChampStat;
+import com.ns.resultquery.axon.query.CountSumByChamp;
+import com.ns.resultquery.axon.query.CountSumByMembership;
 import com.ns.resultquery.service.ResultQueryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -19,67 +21,68 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @RequestMapping("/result")
 public class ResultQueryController {
+    private final String RETRIEVE_DATA_ERROR_MESSAGE = "Error retrieving data: ";
 
     private final ResultQueryService resultQueryService;
 
     @GetMapping(path = "/query/champ/{champName}")
     Mono<Map<String, String>> getQueryToResultSumByChampName(@PathVariable String champName) {
         return resultQueryService.queryToResultSumByChampName(champName)
-                .map(resultSum -> {
-                    Map<String, String> result = new HashMap<>();
-
-                    result.put("champName",resultSum.getChampName());
-                    result.put("champCount", String.valueOf(resultSum.getChampCount()));
-                    result.put("winCount", String.valueOf(resultSum.getWinCount()));
-                    result.put("loseCount", String.valueOf(resultSum.getLoseCount()));
-
-                    double percent = resultSum.getChampCount() > 0 ? (double) resultSum.getWinCount() / resultSum.getChampCount() * 100 : 0.0;
-                    result.put("percent", String.format("%.1f", percent) + "%");
-
-                    return result;
-                })
-                .onErrorResume(e -> {
-                    return Mono.just(Collections.singletonMap("error", "Error retrieving data: " + e.getMessage()));
-                });
+                .map(this::getResultSumByChampName)
+                .onErrorResume(e -> Mono.just(Collections.singletonMap("error", RETRIEVE_DATA_ERROR_MESSAGE + e.getMessage())));
     }
 
     @GetMapping(path = "/query/user/{userName}")
     Mono<Map<String, Object>> getQueryToResultSumByUserName(@PathVariable String userName) {
         return resultQueryService.queryToResultByUserName(userName)
-                .map(resultSum -> {
-                    Map<String, Object> result = new HashMap<>();
-
-                    result.put("userName",resultSum.getUsername());
-                    result.put("entireCount", String.valueOf(resultSum.getEntireCount()));
-                    result.put("winCount", String.valueOf(resultSum.getWinCount()));
-                    result.put("loseCount", String.valueOf(resultSum.getLoseCount()));
-
-                    double percent = resultSum.getEntireCount() > 0 ? (double) resultSum.getWinCount() / resultSum.getEntireCount() * 100 : 0.0;
-                    result.put("percent", String.format("%.1f", percent) + "%");
-
-                    List<ChampStat> champStatList = resultSum.getChampStatList().stream()
-                            .map(champStat -> {
-                                double champWinRate = champStat.getResultCount() > 0 ?
-                                        (double) champStat.getWinCount() / champStat.getResultCount() * 100 : 0.0;
-
-                                return ChampStat.builder()
-                                        .champIndex(champStat.getChampIndex())
-                                        .champName(champStat.getChampName())
-                                        .resultCount(champStat.getResultCount())
-                                        .winCount(champStat.getWinCount())
-                                        .loseCount(champStat.getLoseCount())
-                                        .percent(String.format("%.1f", champWinRate) + "%")
-                                        .build();
-                            })
-                            .collect(Collectors.toList());
-
-                    result.put("champStatList", champStatList);
+                .map(this::getResultSumByUserName)
+                .onErrorResume(e -> Mono.just(Collections.singletonMap("error", RETRIEVE_DATA_ERROR_MESSAGE + e.getMessage())));
+    }
 
 
-                    return result;
-                })
-                .onErrorResume(e -> {
-                    return Mono.just(Collections.singletonMap("error", "Error retrieving data: " + e.getMessage()));
-                });
+    private Map<String, String> getResultSumByChampName(CountSumByChamp resultSum){
+        Map<String, String> result = new HashMap<>();
+
+        result.put("champName",resultSum.getChampName());
+        result.put("champCount", String.valueOf(resultSum.getChampCount()));
+        result.put("winCount", String.valueOf(resultSum.getWinCount()));
+        result.put("loseCount", String.valueOf(resultSum.getLoseCount()));
+        result.put("percent", calcCountPercent(resultSum.getChampCount(), resultSum.getWinCount()));
+        return result;
+    }
+
+    private Map<String, Object> getResultSumByUserName(CountSumByMembership resultSum){
+        Map<String, Object> result = new HashMap<>();
+
+        result.put("userName",resultSum.getUsername());
+        result.put("entireCount", String.valueOf(resultSum.getEntireCount()));
+        result.put("winCount", String.valueOf(resultSum.getWinCount()));
+        result.put("loseCount", String.valueOf(resultSum.getLoseCount()));
+        result.put("percent", calcCountPercent(resultSum.getEntireCount(), resultSum.getWinCount()));
+        result.put("champStatList", getChampStatList(resultSum));
+
+        return result;
+    }
+
+    private List<ChampStat> getChampStatList(CountSumByMembership resultSum){
+        return resultSum.getChampStatList().stream()
+                .map(this::createChampStat)
+                .collect(Collectors.toList());
+    }
+
+    private ChampStat createChampStat(ChampStat champStat){
+        return ChampStat.builder()
+                .champIndex(champStat.getChampIndex())
+                .champName(champStat.getChampName())
+                .resultCount(champStat.getResultCount())
+                .winCount(champStat.getWinCount())
+                .loseCount(champStat.getLoseCount())
+                .percent(calcCountPercent(champStat.getResultCount(), champStat.getWinCount()))
+                .build();
+    }
+
+    private String calcCountPercent(Long entireCount, Long winCount){
+        double percent = entireCount > 0 ? (double) winCount / entireCount * 100 : 0.0;
+        return String.format("%.1f", percent) + "%";
     }
 }

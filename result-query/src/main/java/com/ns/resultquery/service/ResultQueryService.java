@@ -41,11 +41,15 @@ public class ResultQueryService {
     }
 
 
-
-
     public Mono<Void> insertResultCountIncreaseEventByUserName(MembershipResultEventDto eventDto){
+        return dynamoDBAdapter.insertResultCountIncreaseEventByUserName(
+                        eventDto.getMembershipId(),
+                        eventDto.getUserName(),
+                        createInsertResultCountDto(eventDto));
+    }
 
-        InsertResultCountDto insertResultCountDto = InsertResultCountDto.builder()
+    private InsertResultCountDto createInsertResultCountDto(MembershipResultEventDto eventDto){
+        return InsertResultCountDto.builder()
                 .champIndex(eventDto.getChampIndex())
                 .champName(eventDto.getChampName())
                 .champResult(eventDto.getResultCount())
@@ -54,12 +58,6 @@ public class ResultQueryService {
                 .resultCount(eventDto.getResultCount())
                 .winCount(eventDto.getWinCount())
                 .loseCount(eventDto.getLoseCount()).build();
-
-        return dynamoDBAdapter.insertResultCountIncreaseEventByUserName(
-                        eventDto.getMembershipId(),
-                        eventDto.getUserName(),
-                        insertResultCountDto
-                );
     }
 
 }

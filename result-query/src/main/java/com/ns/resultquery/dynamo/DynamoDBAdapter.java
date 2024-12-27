@@ -8,6 +8,7 @@ import com.ns.resultquery.axon.query.CountSumByMembership;
 import com.ns.resultquery.domain.MembershipResultSumByUserName;
 import com.ns.resultquery.domain.ResultSumByChampName;
 import com.ns.resultquery.dto.InsertResultCountDto;
+import lombok.extern.slf4j.Slf4j;
 import org.axonframework.queryhandling.QueryHandler;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -27,6 +28,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Component
 public class DynamoDBAdapter {
     private static final String CHAMP_TABLE_NAME = "wargame-champ-query";
@@ -37,7 +39,7 @@ public class DynamoDBAdapter {
 
     public DynamoDBAdapter(@Value("${dynamodb.accesskey}") String accessKey,
                            @Value("${dynamodb.secretkey}") String secretKey) {
-        System.out.println("Auth DynamoDB : " + accessKey + ", " + secretKey);
+        log.info("Auth DynamoDB : " + accessKey + ", " + secretKey);
 
         AwsBasicCredentials credentials = AwsBasicCredentials.create(accessKey, secretKey);
         this.dynamoDbClient = DynamoDbClient.builder()
@@ -62,6 +64,7 @@ public class DynamoDBAdapter {
             String summaryPk = pk + "#summary";
             String summarySk = "-1";
             ResultSumByChampName resultSumByChampName = getResult(summaryPk, summarySk);
+
             if (resultSumByChampName == null) {
                 putResult(summaryPk, summarySk, resultCount, winCount, loseCount);
             } else{
@@ -242,10 +245,10 @@ public class DynamoDBAdapter {
 
 
     public Mono<Void> insertResultCountIncreaseEventByUserName(Long membershipId, String username, InsertResultCountDto insertResultCountDto) {
-        System.out.println("page0 :" + membershipId);
+        log.info("page0 :" + membershipId);
         return Mono.fromRunnable(() -> {
 
-            System.out.println("page1 :" + insertResultCountDto);
+            log.info("page1 :" + insertResultCountDto);
 
             String datetime = LocalDate.now().format(DateTimeFormatter.ofPattern("yyMMdd"));
 
@@ -260,7 +263,7 @@ public class DynamoDBAdapter {
             MembershipResultSumByUserName membershipResult = getMembershipResult(summaryPk, summarySk);
             updateResult(membershipResult, summaryPk, summarySk, insertResultCountDto);
 
-            System.out.println("page2 :" + insertResultCountDto);
+            log.info("page2 :" + insertResultCountDto);
 
             // 챔프별 정보
             String summaryPk2 = username + "_season" + CURRENT_SEASON;
@@ -300,10 +303,10 @@ public class DynamoDBAdapter {
         MembershipResultSumByUserName resultSumByUserName = getMembershipResultSumByUserName(userName);
 
         if (resultSumByUserName == null) {
-            System.err.println("No data found for membership: " + userName);
+            log.error("No data found for membership: " + userName);
         }
 
-        System.out.println("test : "+ resultSumByUserName);
+        log.info("test : "+ resultSumByUserName);
 
         return CountSumByMembership.builder()
                 .username(userName)
@@ -339,7 +342,7 @@ public class DynamoDBAdapter {
             }
 
         } catch (DynamoDbException e) {
-            System.err.println("Error getting an item from the table: " + e.getMessage());
+            log.error("Error getting an item from the table: " + e.getMessage());
         }
 
         return null;
@@ -376,7 +379,7 @@ public class DynamoDBAdapter {
 
             dynamoDbClient.putItem(request);
         } catch (DynamoDbException e) {
-            System.err.println("Error adding an item to the table: " + e.getMessage());
+            log.error("Error adding an item to the table: " + e.getMessage());
         }
     }
 
@@ -429,13 +432,13 @@ public class DynamoDBAdapter {
                 for (Map.Entry<String, AttributeValue> entry : attributes.entrySet()) {
                     String attributeName = entry.getKey();
                     AttributeValue attributeValue = entry.getValue();
-                    System.out.println(attributeName + ": " + attributeValue);
+                    log.info(attributeName + ": " + attributeValue);
                 }
             } else {
-                System.out.println("Item was updated, but no attributes were returned.");
+                log.info("Item was updated, but no attributes were returned.");
             }
         } catch (DynamoDbException e) {
-            System.err.println("Error getting an item from the table: " + e.getMessage());
+            log.error("Error getting an item from the table: " + e.getMessage());
         }
     }
 
