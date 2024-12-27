@@ -10,7 +10,6 @@
 #include <kafka/KafkaConsumer.h>
 #include <tchar.h>
 #include <DbgHelp.h> 
-#include <asio.hpp>
 
 #include <thread>
 

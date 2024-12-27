@@ -22,7 +22,6 @@ Unity3d 클라이언트에서 원활하게 통신하기 위해 `recv_thread`와 
 다음 라이브러리를 설치해야합니다.
 - modern-cpp-kafka-main
 - librdkafka.redist.2.3.0
-- boost_1_84_0
 - mysql.8.0    
   </br>
 
