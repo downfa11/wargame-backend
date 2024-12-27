@@ -53,12 +53,13 @@ public:
     static void ClientStat(int client_socket);
     static void ClientChampInit(int client_socket);
     static void MouseSearch(int client_socket, void* data);
+
     static void AttackClient(int client_socket, void* data);
     static void AttackStructure(int index, void* data);
+	static void AttackUnit(int client_socket, void* data);
 
     static void ItemStat(int client_socket, void* data);
     static void Well(int client_socket, void* data);
-    static void Champ1Passive(void* data);
 
 	static void BulletStat(int client_socket, void* data);
 

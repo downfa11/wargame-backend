@@ -93,7 +93,7 @@ void GameSession::MouseSearch(Client* client, MouseInfo info)
 		return;
 	}
 
-	double minDistance = FLT_MAX * 2;
+	double minDistance = DBL_MAX;
 	void* closestTarget = nullptr;
 
 	std::shared_lock<std::shared_mutex> lock;

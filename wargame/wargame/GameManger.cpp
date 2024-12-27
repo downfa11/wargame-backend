@@ -974,6 +974,37 @@ void GameManager::AttackStructure(int client_socket, void* data)
 
 }
 
+void GameManager::AttackUnit(int client_socket, void* data)
+{
+	AttInfo info;
+	memcpy(&info, data, sizeof(AttInfo));
+
+	if (info.kind != 2) {
+		std::cout << "왜 AttackUnit에 오신건가요? " << info.kind << ", object_kind: " << info.object_kind << std::endl;
+		return;
+	}
+
+	int chan = -1, room = -1;
+	{
+		std::shared_lock<std::shared_mutex> lock(GameManager::clients_info_mutex);
+		chan = GameManager::clients_info[client_socket]->channel;
+		room = GameManager::clients_info[client_socket]->room;
+	}
+
+	if (chan == -1 || room == -1) {
+		std::cout << "AttackUnit lock error" << std::endl;
+		return;
+	}
+
+	GameSession* session = getGameSession(chan, room);
+	if (!session) {
+		std::cout << "GameSession not found for channel " << chan << ", room " << room << std::endl;
+		return;
+	}
+
+	session->AttackUnit(GameManager::clients_info[client_socket], info);
+}
+
 void GameManager::ItemStat(int client_socket, void* data)
 {
 	Item info;

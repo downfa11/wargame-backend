@@ -288,6 +288,9 @@ unsigned WINAPI EchoThreadMain(LPVOID pComPort)
 				else if (number == H_ATTACK_STRUCT) {
 					GameManager::AttackStructure(sock, data);
 				}
+				else if (number == H_ATTACK_UNIT) {
+					GameManager::AttackUnit(sock, data);
+				}
 				else if (number == H_CLIENT_STAT) {
 					GameManager::ClientChampInit(sock);
 				}

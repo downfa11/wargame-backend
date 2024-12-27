@@ -168,11 +168,13 @@ void GameSession::AttackUnit(Client* client, AttInfo info) {
 		attacker = *attacker_it;
 
 		if (!IsValidAttackRange(attacker, attacked)) {
+			std::cout << "IsValidAttackRange" << std::endl;
 			MouseSearchToTarget(attacker, attacked);
 			return;
 		}
 
 		if (!IsReadyToAttack(attacker)) {
+			std::cout << "IsReadyToAttack" << std::endl;
 			UpdateClientDelay(attacker);
 			return;
 		}
@@ -185,6 +187,8 @@ void GameSession::AttackUnit(Client* client, AttInfo info) {
 
 		unitManager->UnitStat(attacked);
 		attacker->curdelay = 0;
+
+		std::cout << "unit attack success" << std::endl;
 		NotifyAttackResult(client->socket, attacked->index, Target::UNIT);
 	}
 }

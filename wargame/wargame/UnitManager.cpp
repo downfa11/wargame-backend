@@ -106,6 +106,10 @@ void UnitManager::UnitStat(int client_socket, int unit_index, UnitKind unit_kind
 	info.curhp = unit_->curhp;
 	info.maxhp = unit_->maxhp;
 	info.attrange = unit_->attrange;
+	info.x = unit_->x;
+	info.y = unit_->y;
+	info.z = unit_->z;
+
 
 	{
 		std::shared_lock<std::shared_mutex> lock(session->room_mutex);
