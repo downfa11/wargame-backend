@@ -1,19 +1,25 @@
 ﻿#include "base.h"
-#include "PacketManager.h"
-#include "GameManager.h"
+#include "Timer.h"
 #include "Resource.h"
 
-#include <kafka/KafkaConsumer.h>
+#include "PacketManager.h"
+#include "GameSession.h"
+#include "GameManager.h"
+#include "Utility.h"
 
+#include <kafka/KafkaConsumer.h>
 #include <tchar.h>
 #include <DbgHelp.h> 
+#include <asio.hpp>
+
+#include <thread>
+
 
 using namespace kafka;
 using namespace kafka::clients::consumer;
 
 SOCKET hServSock;
 HANDLE hComPort;
-
 
 VOID ShowDumpLastError(DWORD error = GetLastError()) {
 	TCHAR* lpOSMsg;
@@ -119,7 +125,7 @@ BOOL EndDump(VOID)
 
 void ErrorHandling(const char* message)
 {
-	cout << message<< " :" << WSAGetLastError()<<endl;
+	std::cout << message<< " :" << WSAGetLastError() << std::endl;
 	exit(1);
 }
 
@@ -140,7 +146,7 @@ unsigned WINAPI EchoThreadMain(LPVOID pComPort)
 
 		if (sock == INVALID_SOCKET)
 		{
-			cout << "Invalid socket" << endl;
+			std::cout << "Invalid socket" << std::endl;
 			delete handleInfo;
 			delete ioInfo;
 			continue;
@@ -163,7 +169,7 @@ unsigned WINAPI EchoThreadMain(LPVOID pComPort)
 				{
 					if (remain_byte < 8)
 					{
-						cout << "헤더조각을 다 못모았을경우 " << remain_byte << endl;
+						std::cout << "헤더조각을 다 못모았을경우 " << remain_byte << std::endl;
 
 						memcpy(&ioInfo->broken_data[ioInfo->broken_data_size], ioInfo->wsaBuf.buf, remain_byte); //조각 채우기
 						ioInfo->broken_data_size += remain_byte;
@@ -204,7 +210,7 @@ unsigned WINAPI EchoThreadMain(LPVOID pComPort)
 					memcpy(&ioInfo->broken_data[ioInfo->broken_data_size], ioInfo->wsaBuf.buf + bbb, a);
 					ioInfo->broken_data_size += a;
 
-					cout << "Broken packet recv" << endl;
+					std::cout << "Broken packet recv" << std::endl;
 					if (ioInfo->broken_data_size < size + sizeof(nsHeader))
 						break;
 				}
@@ -216,7 +222,7 @@ unsigned WINAPI EchoThreadMain(LPVOID pComPort)
 						ioInfo->broken_data_size += remain_byte;
 
 						ioInfo->data_broken = true;
-						cout << "Broken packet" << endl;
+						std::cout << "Broken packet" << std::endl;
 						break;
 					}
 				}
@@ -225,7 +231,7 @@ unsigned WINAPI EchoThreadMain(LPVOID pComPort)
 
 				if (ioInfo->data_broken)
 				{
-					cout << "Broken packet used" << endl;
+					std::cout << "Broken packet used" << std::endl;
 					data = ioInfo->broken_data + sizeof(nsHeader);
 				}
 				else
@@ -282,6 +288,9 @@ unsigned WINAPI EchoThreadMain(LPVOID pComPort)
 				else if (number == H_ATTACK_STRUCT) {
 					GameManager::AttackStructure(sock, data);
 				}
+				else if (number == H_ATTACK_UNIT) {
+					GameManager::AttackUnit(sock, data);
+				}
 				else if (number == H_CLIENT_STAT) {
 					GameManager::ClientChampInit(sock);
 				}
@@ -291,8 +300,8 @@ unsigned WINAPI EchoThreadMain(LPVOID pComPort)
 				else if (number == H_WELL) {
 					GameManager::Well(sock, data);
 				}
-				else if (number == H_CHAMP1_PASSIVE) {
-					GameManager::champ1Passive(data);
+				else if (number == H_BULLET_STAT) {
+					GameManager::BulletStat(sock, data);
 				}
 
 				ioInfo->header_broken = false;
@@ -302,12 +311,12 @@ unsigned WINAPI EchoThreadMain(LPVOID pComPort)
 
 				if (remain_byte != 0)
 				{
-					cout << "Broken packet " << remain_byte << " " << number << endl;
+					std::cout << "Broken packet " << remain_byte << " " << number << std::endl;
 					bbb += size;
 				}
 				if (remain_byte < 0)
 				{
-					cout << "remain_byte < 0" << endl;
+					std::cout << "remain_byte < 0" << std::endl;
 					break;
 				}
 			}
@@ -363,7 +372,8 @@ void TimeOutCheckThread()
 {
 	while (true)
 	{
-		GameManager::TimeOutCheck();
+		Timer::TimeOutCheck();
+		Timer::ProcessTimers();
 		Sleep(1000);
 	}
 }
@@ -379,8 +389,6 @@ void AcceptThread()
 
 		SOCKET hClntSock = accept(hServSock, (SOCKADDR*)&handleInfo->clntAdr, &addrlen);
 		handleInfo->hClntSock = hClntSock;
-
-
 
 		CreateIoCompletionPort((HANDLE)hClntSock, hComPort, (SIZE_T)handleInfo, 0);
 		LPPER_IO_DATA ioInfo = new PER_IO_DATA;
@@ -404,34 +412,34 @@ void CommendInput()
 	{
 		char val[100];
 		bool what = false;
-		cout << "$ ";
-		cin >> val;
+		std::cout << "$ ";
+		std::cin >> val;
 
-		string m = "stop";
+		std::string m = "stop";
 		if (!strcmp(val, m.c_str()))
 		{
 			puts("Stopping Server...");
-			cout << EndDump() << endl;
+			std::cout << EndDump() << std::endl;
 			what = true;
 			break;
 		}
 		m = "help";
 		if (!strcmp(val, m.c_str()))
 		{
-			cout << endl;
-			cout << "client_list_all : " << GameManager::client_list_all.size() << endl;
+			std::cout << std::endl;
+			std::cout << "client_list_all : " << GameManager::client_list_all.size() << std::endl;
 
-			cout << "auth_data : " << GameManager::auth_data.size() << endl;
-			cout << endl;
-			cout << "stop : Stop server" << endl;
-			cout << "clicount : Client count check" << endl;
-			cout << "alive : auth_room in alive" << endl;
-			cout << "kick {n} : Kick {n}client" << endl;
-			cout << "detail {n} : {n}'s info" << endl;
-			cout << "roominfo {channel} {room} : space info" << endl;
-			cout << "chatlog {channel} {room} : space chat log" << endl;
-			cout << "say {channel} {room} {s} : Tell all clients" << endl;
-			cout << endl;
+			std::cout << "auth_data : " << GameManager::auth_data.size() << std::endl;
+			std::cout << std::endl;
+			std::cout << "stop : Stop server" << std::endl;
+			std::cout << "clicount : Client count check" << std::endl;
+			std::cout << "alive : auth_room in alive" << std::endl;
+			std::cout << "kick {n} : Kick {n}client" << std::endl;
+			std::cout << "detail {n} : {n}'s info" << std::endl;
+			std::cout << "roominfo {channel} {room} : space info" << std::endl;
+			std::cout << "chatlog {channel} {room} : space chat log" << std::endl;
+			std::cout << "say {channel} {room} {s} : Tell all clients" << std::endl;
+			std::cout << std::endl;
 			what = true;
 		}
 		m = "clicount";
@@ -445,13 +453,13 @@ void CommendInput()
 		if (!strcmp(val, m.c_str()))
 		{
 			int kill_number;
-			cin >> kill_number;
+			std::cin >> kill_number;
 
 			for (auto inst : GameManager::client_list_all)
 			{
 				if (inst->socket == kill_number)
 				{
-					cout << "kick " << kill_number << " (" << inst->user_name << ")" << endl;
+					std::cout << "kick " << kill_number << " (" << inst->user_name << ")" << std::endl;
 					GameManager::ClientClose(inst->socket);
 					break;
 				}
@@ -467,7 +475,7 @@ void CommendInput()
 		if (!strcmp(val, m.c_str()))
 		{
 			int client_socket;
-			cin >> client_socket;
+			std::cin >> client_socket;
 
 			bool foundUser = false;
 
@@ -500,6 +508,8 @@ void CommendInput()
 					printf("       curmana %d \n", inst->curmana);
 					printf("       maxmana %d \n", inst->maxmana);
 					printf("       attack %d \n", inst->attack);
+					printf("       absorptionRate %f \n", inst->absorptionRate);
+					printf("       defense %d \n", inst->defense);
 					printf("       critical %d \n", inst->critical);
 					printf("       criProbability %d \n", inst->criProbability);
 					printf("       maxdelay %f \n", inst->maxdelay);
@@ -538,7 +548,7 @@ void CommendInput()
 			}
 
 			if (!foundUser)
-				cout << "User " << client_socket << " not found." << endl;
+				std::cout << "User " << client_socket << " not found." << std::endl;
 
 			what = true;
 		}
@@ -547,47 +557,48 @@ void CommendInput()
 		if (!strcmp(val, m.c_str()))
 		{
 			int channelIndex, roomIndex;
-			cin >> channelIndex >> roomIndex;
+			std::cin >> channelIndex >> roomIndex;
 
 			auto clientList = GameManager::GetClientListInRoom(channelIndex, roomIndex);
 			printf("Client List in channel %d room %d\n", channelIndex, roomIndex);
-			cout << "size : " << clientList.size() << endl;
+			std::cout << "size : " << clientList.size() << std::endl;
 
 
 
 			for (auto& room : GameManager::auth_data) {
 				if (room.channel == channelIndex && room.room == roomIndex) {
-					cout << " Red Team" << endl;
+					std::cout << " Red Team" << std::endl;
 					for (auto& user : room.redTeam) {
 
-						cout << "  User index: " << user.user_index << ", User Name: " << user.user_name << endl;
+						std::cout << "  User index: " << user.user_index << ", User Name: " << user.user_name << std::endl;
 						for (auto client : clientList)
 						{
 							if (client->team == 1)
-								cout << "- socket: " << client->socket << endl;
+								std::cout << "- socket: " << client->socket << std::endl;
 						}
 					}
-					cout << endl;
-					cout << " Blue Team" << endl;
+					std::cout << std::endl;
+					std::cout << " Blue Team" << std::endl;
 					for (auto& user : room.blueTeam) {
 
-						cout << "  User index: " << user.user_index << ", User Name: " << user.user_name << endl;
+						std::cout << "  User index: " << user.user_index << ", User Name: " << user.user_name << std::endl;
 						for (auto client : clientList)
 						{
 							if (client->team == 0)
-								cout << "- socket: " << client->socket << endl;
+								std::cout << "- socket: " << client->socket << std::endl;
 						}
 					}
-					cout << endl;
+					std::cout << std::endl;
 				}
 			}
 
 			what = true;
 		}
+		
 		m = "alive";
 		if (!strcmp(val, m.c_str())) {
 
-			cout << endl;
+			std::cout << std::endl;
 			int empty = MAX_CHANNEL_COUNT * MAX_ROOM_COUNT_PER_CHANNEL, pick = 0, inGame = 0;
 			for (auto& inst : GameManager::auth_data) {
 				if (inst.isGame != -1)
@@ -599,29 +610,28 @@ void CommendInput()
 					inGame++;
 			}
 			
-			cout << "빈 게임 공간의 개수: "<< empty<<endl;
-			cout << "픽중인 게임 공간의 개수: "<< pick<<endl;
-			cout << "진행중인 게임 공간의 개수: "<< inGame<<endl;
+			std::cout << "빈 게임 공간의 개수: "<< empty<<std::endl;
+			std::cout << "픽중인 게임 공간의 개수: "<< pick<<std::endl;
+			std::cout << "진행중인 게임 공간의 개수: "<< inGame<<std::endl;
 
-			cout << endl;
-			cout << "현재 진행중인 게임의 정보" << endl;
+			std::cout << std::endl;
+			std::cout << "현재 진행중인 게임의 정보" << std::endl;
 			int index = -1;
 			for (auto& inst : GameManager::auth_data) {
+				GameSession* gameSession = GameManager::getGameSession(inst.channel, inst.room);
+				if (!gameSession) continue;
 
-				int chan = inst.channel;
-				int room = inst.room;
-				cout << " - #" <<++index<< endl;
-				cout << "      " << chan << "번 채널 " << room << "번 게임 공간" << endl;
-				cout << "      게임 공간의 id : " << inst.spaceId << endl;
-				cout << "      게임 공간의 수용량 : " << GameManager::client_channel[chan].client_list_room[room].size() << endl;
+				int clientCount = gameSession->client_list_room.size();
+				auto startTime = gameSession->startTime;
+				auto elapsed = std::chrono::system_clock::now() - startTime;
+				int elapsedSec = static_cast<int>(elapsed.count());
 
-				chrono::time_point<chrono::system_clock> endTime = chrono::system_clock::now();
-				chrono::time_point<chrono::system_clock>& startTime = GameManager::client_channel[chan].startTime[room];
-
-				chrono::duration<double> elapsed_seconds = endTime - startTime;
-				int gameMinutes = static_cast<int>(elapsed_seconds.count());
-				cout << "      현재 진행 시간 : " << gameMinutes <<"sec" << endl;
-				cout << endl;
+				std::cout << " - #" << ++index << std::endl;
+				std::cout << "      " << inst.channel << "번 채널 " << inst.room << "번 게임 공간" << std::endl;
+				std::cout << "      게임 공간의 id : " << inst.spaceId << std::endl;
+				std::cout << "      게임 공간의 수용량 : " << clientCount << std::endl;
+				std::cout << "      현재 진행 시간 : " << elapsedSec << " sec" << std::endl;
+				std::cout << std::endl;
 			}
 
 			what = true;
@@ -631,20 +641,26 @@ void CommendInput()
 		if (!strcmp(val, m.c_str()))
 		{
 			int channelIndex, roomIndex;
-			cin >> channelIndex >> roomIndex;
+			std::cin >> channelIndex >> roomIndex;
 
-			auto chatLog = GameManager::GetChatLog(channelIndex, roomIndex);
+			GameSession* session = GameManager::getGameSession(channelIndex, roomIndex);
+			if (!session) {
+				std::cout << "해당 채널/룸을 찾을 수 없습니다." << std::endl;
+				return;
+			}
+
+			auto chatLog = session->GetChatLog();
 			printf("CHAT LOG in channel %d room %d\n", channelIndex, roomIndex);
-			cout << "size : " << chatLog.size() << endl;
+			std::cout << "size : " << chatLog.size() << std::endl;
 			for (auto& chat : chatLog)
 			{
 				auto now = chat.second.first;
-				time_t t = chrono::system_clock::to_time_t(now);
+				time_t t = std::chrono::system_clock::to_time_t(now);
 
 				struct tm timeinfo;
 				localtime_s(&timeinfo, &t);
 
-				cout << "- " << chat.first << " : " << chat.second.second << "         datetime:" << put_time(&timeinfo, "%F %T ") << endl;
+				std::cout << "- " << chat.first << " : " << chat.second.second << "         datetime:" << std::put_time(&timeinfo, "%F %T ") << std::endl;
 			}
 
 			what = true;
@@ -654,125 +670,75 @@ void CommendInput()
 		if (!strcmp(val, m.c_str()))
 		{
 			int channelIndex, roomIndex;
-			cin >> channelIndex >> roomIndex;
+			std::cin >> channelIndex >> roomIndex;
 
-			string input;
-			getline(cin, input);
+			std::string input;
+			getline(std::cin, input);
 
 			BYTE* packet_data = new BYTE[input.size()];
 			int size = input.size();
 			memcpy(packet_data, input.c_str(), size);
 
-			for (auto cli : GameManager::client_channel[channelIndex].client_list_room[roomIndex])
-				PacketManger::Send(cli->socket, H_NOTICE, packet_data, size);
+			if (channelIndex == -1 && roomIndex == -1) {
+				for (auto& [chan, rooms] : GameManager::sessions) {
+					for (auto& [room, session] : rooms) {
+						for (auto cli : session->client_list_room) {
+							PacketManger::Send(cli->socket, H_NOTICE, packet_data, size);
+						}
+					}
+				}
+				std::cout << "UTF-8 Encoded Notice All channels and rooms : " << input << std::endl;
+			}
+			else {
+				GameSession* session = GameManager::getGameSession(channelIndex, roomIndex);
+				if (!session) {
+					std::cout << "해당 채널/룸을 찾을 수 없습니다." << std::endl;
+					delete[] packet_data;
+					return;
+				}
 
-			cout << "UTF-8 Encoded Notice ch." << channelIndex << " Room #" << roomIndex << " : " << input << endl;
+				for (auto cli : session->client_list_room) {
+					PacketManger::Send(cli->socket, H_NOTICE, packet_data, size);
+				}
+				std::cout << "UTF-8 Encoded Notice ch." << channelIndex << " Room #" << roomIndex << " : " << input << std::endl;
+			}
+			delete[] packet_data;
 			what = true;
 		}
 
 
 		if (what == false)
-			cout << "You can enter help to know commands." << endl;
+			std::cout << "You can enter help to know commands." << std::endl;
 	}
-}
-
-vector<UserData> parseTeamData(const string& teamData) {
-	vector<UserData> team;
-	size_t pos = 1;
-	size_t end = 0;
-	while ((end = teamData.find(",", pos)) != string::npos || (end = teamData.find("]", pos)) != string::npos) {
-		string userData = teamData.substr(pos, end - pos);
-		size_t separator = userData.find(":");
-		if (separator != string::npos) {
-			UserData user;
-			try {
-				user.user_index = userData.substr(0, separator);
-				cout << "user_index : " << user.user_index << endl;
-			}
-			catch (const invalid_argument& e) {
-				cerr << "stoi 호출 실패: " << userData.substr(0, separator) << endl;
-				pos = end + 1;
-				continue;
-			}
-			user.user_name = userData.substr(separator + 1);
-			cout << "user_name : " << user.user_name << endl;
-			team.push_back(user);
-		}
-		pos = end + 1;
-	}
-	return team;
-}
-
-roomData matchParsing(const string& request) {
-	size_t jsonStart = request.find("(");
-	size_t jsonEnd = request.find_last_of(")");
-
-	if (jsonStart != string::npos && jsonEnd != string::npos) {
-		string jsonData = request.substr(jsonStart + 1, jsonEnd - jsonStart - 1);
-
-		try {
-
-			size_t spaceIdStart = jsonData.find("spaceId=") + 8;
-			size_t spaceIdEnd = jsonData.find(", ", spaceIdStart);
-			string spaceId = jsonData.substr(spaceIdStart, spaceIdEnd - spaceIdStart);
-
-			size_t teamsStart = jsonData.find("teams={") + 7;
-			size_t teamsEnd = jsonData.find_last_of("}");
-			string teamsData = jsonData.substr(teamsStart, teamsEnd - teamsStart);
-
-			size_t redTeamStart = teamsData.find("red=[") + 5;
-			size_t redTeamEnd = teamsData.find("],", redTeamStart);
-			string redTeamData = teamsData.substr(redTeamStart - 1, redTeamEnd - redTeamStart + 2);
-
-			size_t blueTeamStart = teamsData.find("blue=[", redTeamEnd) + 6;
-			size_t blueTeamEnd = teamsData.find("]", blueTeamStart);
-			string blueTeamData = teamsData.substr(blueTeamStart - 1, blueTeamEnd - blueTeamStart + 2);
-
-			roomData curRoom;
-			curRoom.spaceId = spaceId;
-			curRoom.redTeam = parseTeamData(redTeamData);
-			cout << redTeamData << " parsing red team : " << (curRoom.redTeam.size()) << endl;
-			curRoom.blueTeam = parseTeamData(blueTeamData);
-			cout << blueTeamData << " parsing blue team : " << (curRoom.blueTeam.size()) << endl;
-
-			return curRoom;
-		}
-		catch (const exception& e) {
-			cerr << "Failed to parse data: " << e.what() << endl;
-		}
-	}
-	else cerr << "Data not found in request." << endl;
-
-	return roomData(); // 파싱 실패 시 빈 객체 반환
 }
 
 void KafkaConsumerThread() {
-	Properties props({ {"bootstrap.servers", kafkaMessage::brokers} });
+	Properties props({ {"bootstrap.servers", MatchManager::brokers} });
 	KafkaConsumer consumer(props);
-	consumer.subscribe({ kafkaMessage::matchTopic });
+	consumer.subscribe({ MatchManager::matchTopic });
 
 	while (1) {
-		auto records = consumer.poll(chrono::milliseconds(500));
+		auto records = consumer.poll(std::chrono::milliseconds(500));
 		for (const auto& record : records) {
 			if (!record.error()) {
-				cout << endl;
-				string message = record.value().toString();
+				std::cout << std::endl;
+				std::string message = record.value().toString();
 
-				cout << "kafka message : " << message << endl;
-				roomData curRoom = matchParsing(message);
+				std::cout << "kafka message : " << message << std::endl;
+				RoomData curRoom = UtilityManager::matchParsing(message);
 				if (curRoom.spaceId.empty()) {
-					cout << "room create fail." << endl;
+					std::cout << "room create fail." << std::endl;
 				}
 				else {
 					GameManager::auth_data.push_back(curRoom);
-					cout << "room create success." << endl;
+					std::cout << "room create success." << std::endl;
 
 					if (!GameManager::findEmptyRoom(curRoom))
-						cout << "channel and Room is full." << endl;
+						std::cout << "channel and Room is full." << std::endl;
 				}
 ;
 			}
-			else cerr << record.toString() << endl;
+			else std::cerr << record.toString() << std::endl;
 
 		}
 	}
@@ -789,12 +755,15 @@ int main()
 	ChampionSystem::ChampionInit();
 	ItemSystem::ItemInit();
 
-	thread kafka_consumer_thread(KafkaConsumerThread);
-	thread accept_thread(AcceptThread);
-	thread time_out_thread(TimeOutCheckThread);
+	std::thread kafka_consumer_thread(KafkaConsumerThread);
+	std::thread accept_thread(AcceptThread);
+	std::thread time_out_thread(TimeOutCheckThread);
 
 	EndDump();
+
+
 	CommendInput();
+	
 
 	accept_thread.join();
 	time_out_thread.join();

@@ -1,6 +1,7 @@
 #include "PacketManager.h"
 #include "base.h"
 
+
 void PacketManger::Send(int cli_sock, int number,void* data, int size)
 {
 	nsHeader header;
@@ -11,7 +12,7 @@ void PacketManger::Send(int cli_sock, int number,void* data, int size)
 	char* bt_result = new char[sizeof(nsHeader) + size];
 	char* bt_data = new char[size];
 
-	fill_n(bt_result, sizeof(nsHeader) + size, 0);
+	std::fill_n(bt_result, sizeof(nsHeader) + size, 0);
 
 	memcpy(&bt_header, &header, sizeof(nsHeader));
 	memcpy(bt_data, data, size);

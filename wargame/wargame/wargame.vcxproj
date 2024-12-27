@@ -102,9 +102,9 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_DEBUG;_CONSOLE;ASIO_STANDALONE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\Users\jks83\Downloads\modern-cpp-kafka-main\modern-cpp-kafka-main\include;C:\Users\jks83\Downloads\boost_1_84_0\boost_1_84_0;C:\Users\jks83\Downloads\librdkafka.redist.2.3.0\build\native\include\librdkafka;C:\Program Files\MySQL\MySQL Server 8.0\include;C:\Users\jks83\Downloads\json-develop\json-develop\single_include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\jks83\Downloads\modern-cpp-kafka-main\modern-cpp-kafka-main\include;C:\Users\jks83\Downloads\boost_1_84_0\boost_1_84_0;C:\Users\jks83\Downloads\librdkafka.redist.2.3.0\build\native\include\librdkafka;C:\Program Files\MySQL\MySQL Server 8.0\include;C:\Users\jks83\Downloads\json-develop\json-develop\single_include;C:\Users\jks83\Downloads\asio-master\asio-master\asio\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
@@ -132,19 +132,37 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="base.h" />
+    <ClInclude Include="Client.h" />
     <ClInclude Include="Collection.h" />
     <ClInclude Include="GameManager.h" />
-    <ClInclude Include="kafka.h" />
+    <ClInclude Include="GameSession.h" />
+    <ClInclude Include="MatchManager.h" />
     <ClInclude Include="PacketManager.h" />
     <ClInclude Include="Resource.h" />
+    <ClInclude Include="Structure.h" />
+    <ClInclude Include="StructureManager.h" />
     <ClInclude Include="Timer.h" />
+    <ClInclude Include="Unit.h" />
+    <ClInclude Include="UnitManager.h" />
+    <ClInclude Include="Utility.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="BattleSystem.cpp" />
+    <ClCompile Include="ArcherSystem.cpp" />
+    <ClCompile Include="DBManager.h" />
     <ClCompile Include="GameManger.cpp" />
+    <ClCompile Include="NexusSystem.cpp" />
+    <ClCompile Include="GameSession.cpp" />
     <ClCompile Include="IOCP.cpp" />
-    <ClCompile Include="kafka.cpp" />
+    <ClCompile Include="MatchManager.cpp" />
+    <ClCompile Include="ClientMovement.cpp" />
     <ClCompile Include="PacketManager.cpp" />
     <ClCompile Include="Resource.cpp" />
+    <ClCompile Include="StructureManager.cpp" />
+    <ClCompile Include="Timer.cpp" />
+    <ClCompile Include="TurretSystem.cpp" />
+    <ClCompile Include="UnitManager.cpp" />
+    <ClCompile Include="Utility.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
