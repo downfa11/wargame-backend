@@ -8,11 +8,13 @@ import reactor.core.publisher.Mono;
 import java.time.LocalDateTime;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
+
 @Repository
 public class UserRepositoryImplement implements UserRepository{
 
-    private final ConcurrentHashMap<Long, User> userHashmap = new ConcurrentHashMap<>();
+    private ConcurrentHashMap<Long, User> userHashmap = new ConcurrentHashMap<>();
     private AtomicLong sequence = new AtomicLong(1L);
+
     @Override
     public Mono<User> save(User user) {
         var now = LocalDateTime.now();

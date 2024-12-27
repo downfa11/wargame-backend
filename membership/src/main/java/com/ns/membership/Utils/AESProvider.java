@@ -1,4 +1,4 @@
-package com.ns.membership.Utils.Vault;
+package com.ns.membership.Utils;
 
 import javax.crypto.Cipher;
 import javax.crypto.spec.SecretKeySpec;

@@ -19,11 +19,10 @@ import java.util.Random;
 @Slf4j
 public class MailService {
 
-    private final JavaMailSender javaMailSender;
-
     @Value("${spring.mail.username}")
     private String username;
 
+    private final JavaMailSender javaMailSender;
     private String authNum;
 
     public MimeMessage createRegisterMessage(String to) throws MessagingException, UnsupportedEncodingException {

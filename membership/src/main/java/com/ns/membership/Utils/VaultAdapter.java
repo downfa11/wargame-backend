@@ -1,4 +1,4 @@
-package com.ns.membership.Utils.Vault;
+package com.ns.membership.Utils;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
