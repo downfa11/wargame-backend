@@ -4,21 +4,35 @@ import com.ns.common.ClientRequest;
 import com.ns.common.ResultRequestEvent;
 import com.ns.resultquery.dto.MembershipResultEventDto;
 import com.ns.resultquery.dto.ResultEventDto;
+import com.ns.resultquery.repository.ChampRepository;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+@Slf4j
 @Component
 public class ResultQueryMapper {
 
     private static final Map<Long, String> champList = new HashMap<>();
 
-    ResultQueryMapper(){
-        for (long i = 1; i <= 10; i++) {
-            champList.put(i, "test-champ-" + i);
-        }
+    private final ChampRepository champRepository;
+
+    public ResultQueryMapper(ChampRepository champRepository){
+        this.champRepository = champRepository;
+        initializeChampList();
+    }
+
+    private void initializeChampList() {
+        champRepository.findAllChampNames()
+                .doOnNext(champ -> {
+                    // log.info(champ.getChampionId() + "번째 챔프의 이름 : " + champ.getName());
+                    champList.put(Long.valueOf(champ.getChampionId()), champ.getName());
+                })
+                .then()
+                .subscribe();
     }
 
     public static MembershipResultEventDto getMembershipResultEventDto(ClientRequest clientRequest, Long winCount){

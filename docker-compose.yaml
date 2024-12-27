@@ -240,6 +240,9 @@ services:
       - EVENT_CONSUMER_TOPIC=event.result
       - EVENT_CONSUMER_GROUP=event-result-consumer-group
       - AXON_AXONSERVER_ENABLED=false
+      - SPRING_R2DBC_URL=r2dbc:mysql://mysql:3306/wargame
+      - SPRING_R2DBC_USERNAME=mysqluser
+      - SPRING_R2DBC_PASSWORD=mysqlpw
 
 volumes:
   kafka:
