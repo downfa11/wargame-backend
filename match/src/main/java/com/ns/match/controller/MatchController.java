@@ -1,8 +1,8 @@
 package com.ns.match.controller;
 
 
-import com.ns.common.messageEntity;
-import com.ns.match.Utils.JwtTokenProvider;
+import com.ns.common.MessageEntity;
+import com.ns.common.Utils.JwtTokenProvider;
 import com.ns.match.dto.MatchRequest;
 import com.ns.match.service.MatchQueueService;
 import lombok.RequiredArgsConstructor;
@@ -23,11 +23,11 @@ public class MatchController {
 
 
     @PostMapping("/match")
-    public Mono<ResponseEntity<messageEntity>> queue(@RequestBody MatchRequest request, ServerWebExchange exchange) {
+    public Mono<ResponseEntity<MessageEntity>> queue(@RequestBody MatchRequest request, ServerWebExchange exchange) {
 //        return jwtTokenProvider.getMembershipIdByToken(exchange)
 //                .flatMap(membershipId -> {
 //                    if (membershipId == 0) {
-//                        return Mono.just(ResponseEntity.ok().body(new messageEntity("Fail", "Not Authorization or boardId is incorrect.")));
+//                        return Mono.just(ResponseEntity.ok().body(new MessageEntity("Fail", "Not Authorization or boardId is incorrect.")));
 //                    }
 //                    return matchQueueService.getRank("match", request.getMembershipId())
 //                .flatMap(rank -> {
@@ -36,14 +36,14 @@ public class MatchController {
 //                                .map(result -> {
 //                                    if(result == "fail")
 //                                        return ResponseEntity.ok()
-//                                                .body(new messageEntity("Fail","already user"+request.getMembershipId()+" has curGameSpaceCode."));
+//                                                .body(new MessageEntity("Fail","already user"+request.getMembershipId()+" has curGameSpaceCode."));
 //                                    return ResponseEntity.ok()
-//                                        .body(new messageEntity("Success", result));
+//                                        .body(new MessageEntity("Success", result));
 //                                });
 //                    else return Mono.error(new RuntimeException("Membership ID already in the queue"));
 //
 //                })
-//                .onErrorResume(error -> Mono.just(ResponseEntity.badRequest().body(new messageEntity("Fail", error.getMessage()))));
+//                .onErrorResume(error -> Mono.just(ResponseEntity.badRequest().body(new MessageEntity("Fail", error.getMessage()))));
 //        });
         return matchQueueService.getRank("match", request.getMembershipId())
                 .flatMap(rank -> {
@@ -54,10 +54,10 @@ public class MatchController {
                                     log.info(request.getMembershipId() + "'s match queue register logic  :" + result);
                                     if ("fail".equals(result)) {
                                         return ResponseEntity.ok()
-                                                .body(new messageEntity("Fail", "already user " + request.getMembershipId() + " has curGameSpaceCode."));
+                                                .body(new MessageEntity("Fail", "already user " + request.getMembershipId() + " has curGameSpaceCode."));
                                     }
                                     return ResponseEntity.ok()
-                                            .body(new messageEntity("Success", result));
+                                            .body(new MessageEntity("Success", result));
                                 });
                     } else {
                         return Mono.error(new RuntimeException("Membership ID already in the queue"));
@@ -65,66 +65,66 @@ public class MatchController {
                 })
                 .onErrorResume(error -> {
                     log.error("An error occurred: {}", error.getMessage());
-                    return Mono.just(ResponseEntity.badRequest().body(new messageEntity("Fail", error.getMessage())));
+                    return Mono.just(ResponseEntity.badRequest().body(new MessageEntity("Fail", error.getMessage())));
                 });
     }
 
     @PostMapping("/match/cancel")
-    public Mono<ResponseEntity<messageEntity>> queueCancel(@RequestBody MatchRequest request, ServerWebExchange exchange) {
+    public Mono<ResponseEntity<MessageEntity>> queueCancel(@RequestBody MatchRequest request, ServerWebExchange exchange) {
 
         Long membershipId = request.getMembershipId();
         if (membershipId == null) {
-            return Mono.just(ResponseEntity.badRequest().body(new messageEntity("Error", "Invalid membership ID.")));
+            return Mono.just(ResponseEntity.badRequest().body(new MessageEntity("Error", "Invalid membership ID.")));
         }
 
 //        return jwtTokenProvider.getMembershipIdByToken(exchange)
 //                .flatMap(membershipId -> {
 //                    if (membershipId == 0) {
-//                        return Mono.just(ResponseEntity.ok().body(new messageEntity("Fail", "Not Authorization or boardId is incorrect.")));
+//                        return Mono.just(ResponseEntity.ok().body(new MessageEntity("Fail", "Not Authorization or boardId is incorrect.")));
 //                    }
 //                    return matchQueueService.cancelMatchQueue(membershipId)
-//                            .then(Mono.just(ResponseEntity.ok().body(new messageEntity("Success", "All queues have been deleted."))))
+//                            .then(Mono.just(ResponseEntity.ok().body(new MessageEntity("Success", "All queues have been deleted."))))
 //                            .onErrorResume(error -> {
 //                                log.error("Error occurred while cancelling match queues: {}", error.getMessage());
-//                                return Mono.just(ResponseEntity.ok().body(new messageEntity("Error", "Failed to cancel match queues.")));
+//                                return Mono.just(ResponseEntity.ok().body(new MessageEntity("Error", "Failed to cancel match queues.")));
 //                            });
 //                });
                     return matchQueueService.cancelMatchQueue(membershipId)
-                            .then(Mono.just(ResponseEntity.ok().body(new messageEntity("Success", "All queues have been deleted."))))
+                            .then(Mono.just(ResponseEntity.ok().body(new MessageEntity("Success", "All queues have been deleted."))))
                             .onErrorResume(error -> {
                                 log.error("Error occurred while cancelling match queues: {}", error.getMessage());
-                                return Mono.just(ResponseEntity.ok().body(new messageEntity("Error", "Failed to cancel match queues.")));
+                                return Mono.just(ResponseEntity.ok().body(new MessageEntity("Error", "Failed to cancel match queues.")));
                             });
     }
 
 
     @GetMapping(path="/match/rank/{memberId}")
-    public Mono<ResponseEntity<messageEntity>> getRank(@PathVariable Long memberId, ServerWebExchange exchange){
+    public Mono<ResponseEntity<MessageEntity>> getRank(@PathVariable Long memberId, ServerWebExchange exchange){
 
 //        return jwtTokenProvider.getMembershipIdByToken(exchange)
 //                .flatMap(membershipId -> {
 //                    if (membershipId == 0) {
-//                        return Mono.just(ResponseEntity.ok().body(new messageEntity("Fail", "Not Authorization or boardId is incorrect.")));
+//                        return Mono.just(ResponseEntity.ok().body(new MessageEntity("Fail", "Not Authorization or boardId is incorrect.")));
 //                    }
 //
 //                    return matchQueueService.getMatchResponse(memberId)
 //                            .map(matchStatus -> {
 //                                if (matchStatus.getT1() == MatchQueueService.MatchStatus.MATCH_FOUND)
-//                                    return ResponseEntity.ok().body(new messageEntity("Success", matchStatus.getT2()));
+//                                    return ResponseEntity.ok().body(new MessageEntity("Success", matchStatus.getT2()));
 //                                else if (matchStatus.getT1() == MatchQueueService.MatchStatus.MATCHING)
-//                                    return ResponseEntity.ok().body(new messageEntity("Success", "matching.."));
+//                                    return ResponseEntity.ok().body(new MessageEntity("Success", "matching.."));
 //                                else
-//                                    return ResponseEntity.ok().body(new messageEntity("Fail", "Request is not correct."));
+//                                    return ResponseEntity.ok().body(new MessageEntity("Fail", "Request is not correct."));
 //                            });
 //                });
                     return matchQueueService.getMatchResponse(memberId)
                             .map(matchStatus -> {
                                 if (matchStatus.getT1() == MatchQueueService.MatchStatus.MATCH_FOUND)
-                                    return ResponseEntity.ok().body(new messageEntity("Success", matchStatus.getT2()));
+                                    return ResponseEntity.ok().body(new MessageEntity("Success", matchStatus.getT2()));
                                 else if (matchStatus.getT1() == MatchQueueService.MatchStatus.MATCHING)
-                                    return ResponseEntity.ok().body(new messageEntity("Success", "matching.."));
+                                    return ResponseEntity.ok().body(new MessageEntity("Success", "matching.."));
                                 else
-                                    return ResponseEntity.ok().body(new messageEntity("Fail", "Request is not correct."));
+                                    return ResponseEntity.ok().body(new MessageEntity("Fail", "Request is not correct."));
                             });
     }
 }
