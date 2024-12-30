@@ -234,8 +234,8 @@ services:
     depends_on:
       - kafka
     environment:
-      - DYNAMODB_ACCESSKEY=AKIAW4TNOP3EXTCLFA5P
-      - DYNAMODB_SECRETKEY=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
+      - DYNAMODB_ACCESSKEY=
+      - DYNAMODB_SECRETKEY=
       - KAFKA_CLUSTERS_BOOTSTRAPSERVERS=kafka:9092
       - EVENT_CONSUMER_TOPIC=event.result
       - EVENT_CONSUMER_GROUP=event-result-consumer-group
