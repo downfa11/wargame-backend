@@ -12,7 +12,7 @@ public class SwaggerConfig {
 
     @Bean
     public GroupedOpenApi OpenApiCommunity() {
-        String[] paths = { "/v1/**" };
+        String[] paths = { "/**" };
         return GroupedOpenApi.builder().
                 group("community")
                 .addOpenApiCustomizer(openApi -> openApi.info(new Info().title("Feed v1 API")))

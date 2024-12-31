@@ -28,8 +28,8 @@ public class PostResponse {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
-    public enum SortStatus {
-        announce, free
+    public enum SortStatus{
+        ANNOUNCE, EVENT, FREE
     }
 }
 

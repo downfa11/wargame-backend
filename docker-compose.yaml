@@ -9,6 +9,7 @@ services:
       - ./db/conf.d:/etc/mysql/conf.d
       - ./db/data:/var/lib/mysql
       - ./db/initdb.d:/docker-entrypoint-initdb.d
+      - ./mysql-schema.sql:/docker-entrypoint-initdb.d/mysql-init-schema.sql
     ports:
       - "3306:3306"
     environment:
@@ -56,7 +57,6 @@ services:
       - DYNAMIC_CONFIG_ENABLED=true
       - KAFKA_CLUSTERS_0_AUDIT_TOPICAUDITENABLED=true
       - KAFKA_CLUSTERS_0_AUDIT_CONSOLEAUDITENABLED=true
-      #- KAFKA_CLUSTERS_0_METRICS_PORT=9999
     networks:
       - wargame_network
 
@@ -95,6 +95,7 @@ services:
     volumes:
       - ./db/initdb.d:/docker-entrypoint-initdb.d
       - postgres:/var/lib/postgresql/data
+      - ./postgres-schema.sql:/docker-entrypoint-initdb.d/postgres-init-schema.sql
 
   elasticsearch:
     image: elasticsearch:8.11.0
@@ -132,7 +133,6 @@ services:
       - SPRING_R2DBC_URL=r2dbc:postgresql://postgres:5432/wargame
       - SPRING_R2DBC_USERNAME=postgresuser
       - SPRING_R2DBC_PASSWORD=postgrespw
-      #- SPRING_R2DBC_URL=r2dbc:mysql://mysql:3306/wargame?serverTimezone=Asia/Seoul
       - KAFKA_CLUSTERS_BOOTSTRAPSERVERS=kafka:9092
       - TASK_REQUEST_TOPIC=task.post.request
       - TASK_RESPONSE_TOPIC=task.post.response
@@ -184,7 +184,6 @@ services:
       - SPRING_R2DBC_URL=r2dbc:postgresql://postgres:5432/wargame
       - SPRING_R2DBC_USERNAME=postgresuser
       - SPRING_R2DBC_PASSWORD=postgrespw
-      #- SPRING_R2DBC_URL=r2dbc:mysql://mysql:3306/wargame?serverTimezone=Asia/Seoul
       - KAFKA_CLUSTERS_BOOTSTRAPSERVERS=kafka:9092
       - TASK_REQUEST_TOPIC=task.membership.request
       - TASK_RESPONSE_TOPIC=task.membership.response
@@ -240,6 +239,9 @@ services:
       - EVENT_CONSUMER_TOPIC=event.result
       - EVENT_CONSUMER_GROUP=event-result-consumer-group
       - AXON_AXONSERVER_ENABLED=false
+      - SPRING_R2DBC_URL=r2dbc:mysql://mysql:3306/wargame
+      - SPRING_R2DBC_USERNAME=mysqluser
+      - SPRING_R2DBC_PASSWORD=mysqlpw
 
 volumes:
   kafka:

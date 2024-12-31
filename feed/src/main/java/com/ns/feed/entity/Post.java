@@ -36,9 +36,12 @@ public class Post {
     private Long comments;
 
     public enum SortStatus{
-        announce,free
+        ANNOUNCE, EVENT, FREE
     }
     private SortStatus sortStatus;
+
+    private LocalDateTime eventStartDate;
+    private LocalDateTime eventEndDate;
 
     @Column("created_at")
     @CreatedDate
