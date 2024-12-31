@@ -1,16 +1,3 @@
-CREATE TABLE BoardKinds (
-                            id INT AUTO_INCREMENT PRIMARY KEY,
-                            kind CHAR(20)
-);
-
-CREATE TABLE Boards (
-                        id INT AUTO_INCREMENT PRIMARY KEY,
-                        kind_id INT,
-                        boardId INT,
-                        FOREIGN KEY (kind_id) REFERENCES BoardKinds(id),
-                        UNIQUE (kind_id, boardId)
-);
-
 CREATE TABLE champion_stats (
                                 champion_id INT PRIMARY KEY,
                                 name VARCHAR(255),
@@ -61,52 +48,3 @@ VALUES
     ('Armor of Valor', 200, 100, 0, 0, 20, 0, 5, 0, 0),
     ('Boots of Swiftness', 80, 0, 0, 15, 0, 0, 0, 0, 0),
     ('Ring of Power', 150, 0, 30, 0, 0, 0, 20, 0, 0);
-
-CREATE TABLE results (
-                         id BIGINT AUTO_INCREMENT PRIMARY KEY,
-                         code VARCHAR(255),
-                         channel INT,
-                         room INT,
-                         win_team VARCHAR(255),
-                         lose_team VARCHAR(255),
-                         date_time DATETIME,
-                         game_duration INT
-);
-
-CREATE TABLE clients (
-                         id BIGINT AUTO_INCREMENT PRIMARY KEY,
-                         user_id BIGINT NOT NULL,
-                         game_result_id BIGINT,
-                         socket INT,
-                         champ INT,
-                         name VARCHAR(255),
-                         team VARCHAR(255),
-                         channel INT,
-                         room INT,
-                         kills INT,
-                         deaths INT,
-                         assists INT,
-                         gold INT,
-                         level INT,
-                         maxhp INT,
-                         maxmana INT,
-                         attack INT,
-                         absorptionRate FLOAT,
-                         defense INT,
-                         critical INT,
-                         cri_probability INT,
-                         attrange INT,
-                         attspeed FLOAT,
-                         movespeed FLOAT,
-                         item_list VARCHAR(255),
-                         FOREIGN KEY (game_result_id) REFERENCES results(id),
-                         FOREIGN KEY (champ) REFERENCES champion_stats(champion_id)
-);
-
-CREATE TABLE client_items (
-                              client_id BIGINT,
-                              item_id INT,
-                              FOREIGN KEY (client_id) REFERENCES clients(id),
-                              FOREIGN KEY (item_id) REFERENCES item_stats(id),
-                              PRIMARY KEY (client_id, item_id)
-);

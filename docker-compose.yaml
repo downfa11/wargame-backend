@@ -9,6 +9,7 @@ services:
       - ./db/conf.d:/etc/mysql/conf.d
       - ./db/data:/var/lib/mysql
       - ./db/initdb.d:/docker-entrypoint-initdb.d
+      - ./mysql-schema.sql:/docker-entrypoint-initdb.d/mysql-init-schema.sql
     ports:
       - "3306:3306"
     environment:
@@ -56,7 +57,6 @@ services:
       - DYNAMIC_CONFIG_ENABLED=true
       - KAFKA_CLUSTERS_0_AUDIT_TOPICAUDITENABLED=true
       - KAFKA_CLUSTERS_0_AUDIT_CONSOLEAUDITENABLED=true
-      #- KAFKA_CLUSTERS_0_METRICS_PORT=9999
     networks:
       - wargame_network
 
@@ -95,6 +95,7 @@ services:
     volumes:
       - ./db/initdb.d:/docker-entrypoint-initdb.d
       - postgres:/var/lib/postgresql/data
+      - ./postgres-schema.sql:/docker-entrypoint-initdb.d/postgres-init-schema.sql
 
   elasticsearch:
     image: elasticsearch:8.11.0
@@ -132,7 +133,6 @@ services:
       - SPRING_R2DBC_URL=r2dbc:postgresql://postgres:5432/wargame
       - SPRING_R2DBC_USERNAME=postgresuser
       - SPRING_R2DBC_PASSWORD=postgrespw
-      #- SPRING_R2DBC_URL=r2dbc:mysql://mysql:3306/wargame?serverTimezone=Asia/Seoul
       - KAFKA_CLUSTERS_BOOTSTRAPSERVERS=kafka:9092
       - TASK_REQUEST_TOPIC=task.post.request
       - TASK_RESPONSE_TOPIC=task.post.response
@@ -184,7 +184,6 @@ services:
       - SPRING_R2DBC_URL=r2dbc:postgresql://postgres:5432/wargame
       - SPRING_R2DBC_USERNAME=postgresuser
       - SPRING_R2DBC_PASSWORD=postgrespw
-      #- SPRING_R2DBC_URL=r2dbc:mysql://mysql:3306/wargame?serverTimezone=Asia/Seoul
       - KAFKA_CLUSTERS_BOOTSTRAPSERVERS=kafka:9092
       - TASK_REQUEST_TOPIC=task.membership.request
       - TASK_RESPONSE_TOPIC=task.membership.response
@@ -196,8 +195,8 @@ services:
       - SPRING_CLOUD_VAULT_PORT=8200
       - SPRING_MAIL_HOST=smtp.gmail.com
       - SPRING_MAIL_PORT=587
-      - SPRING_MAIL_USERNAME=namseok0920@gmail.com
-      - SPRING_MAIL_PASSWORD=dcsq tjqh gzsp bzfq
+      - SPRING_MAIL_USERNAME=
+      - SPRING_MAIL_PASSWORD=
       - SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH=true
       - SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE=true
       - SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_REQUIRED=true
@@ -234,8 +233,8 @@ services:
     depends_on:
       - kafka
     environment:
-      - DYNAMODB_ACCESSKEY=AKIAW4TNOP3EXTCLFA5P
-      - DYNAMODB_SECRETKEY=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
+      - DYNAMODB_ACCESSKEY=
+      - DYNAMODB_SECRETKEY=
       - KAFKA_CLUSTERS_BOOTSTRAPSERVERS=kafka:9092
       - EVENT_CONSUMER_TOPIC=event.result
       - EVENT_CONSUMER_GROUP=event-result-consumer-group

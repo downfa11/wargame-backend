@@ -13,9 +13,11 @@ import com.ns.feed.entity.dto.PostRegisterRequest;
 import com.ns.feed.entity.dto.PostResponse;
 import com.ns.feed.entity.dto.PostSummary;
 import com.ns.feed.repository.PostR2dbcRepository;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -73,6 +75,8 @@ public class PostService {
                 .title(request.getTitle())
                 .content(request.getContent())
                 .comments(0L)
+                .eventStartDate(request.getEventStartDate())
+                .eventEndDate(request.getEventEndDate())
                 .build();
     }
 
@@ -89,6 +93,8 @@ public class PostService {
                             post.setSortStatus(request.getSortStatus());
                             post.setTitle(request.getTitle());
                             post.setContent(request.getContent());
+                            post.setEventStartDate(request.getEventStartDate());
+                            post.setEventEndDate(request.getEventEndDate());
                             return postR2dbcRepository.save(post);
                         }))
                 );
@@ -294,5 +300,21 @@ public class PostService {
                         "Post Response",
                         membershipId,
                         subTasks));
+    }
+
+    public Mono<List<PostResponse>> findLatestAnnounces(Integer count){
+        return postR2dbcRepository.findLatestAnnounces(count)
+                .collectList()
+                .map(posts -> posts.stream()
+                        .map(PostResponse::of)
+                        .collect(Collectors.toList()));
+    }
+
+    public Mono<List<PostResponse>> findInProgressEvents(){
+        return postR2dbcRepository.findInProgressEvents(LocalDateTime.now())
+                .collectList()
+                .map(posts -> posts.stream()
+                        .map(PostResponse::of)
+                        .collect(Collectors.toList()));
     }
 }
