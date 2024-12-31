@@ -1,6 +1,6 @@
 ## wargame
 
----
+<br>
 
 ![wargame](https://github.com/user-attachments/assets/9f5927d3-b92d-46a9-bc35-9911b53cdb7b)
 
@@ -12,9 +12,9 @@
 자세한 개발 내용은 기술 블로그와 Github Issue에서 작성하고 있습니다.
 
 <br>
+<br>
 
 ### 서비스 아키텍처 변천사
-
 ---
 1. 단일 게임서버
    - IOCP(`I/O Completion Port`)로 구현한 게임서버에서 로비와 매치메이킹, 게임 기능 전부 수행
@@ -137,5 +137,4 @@
 #### [공격과 사망 구현]  
 ![die.gif](readme/die.gif)
 
-뀨
 <br>
