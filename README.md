@@ -9,9 +9,14 @@
 정말 좋아서 애착을 가지고 있어, 기간에 구애받지 않고 꾸준히 업데이트하고 있습니다. 
 
 <br>
-자세한 개발 내용은 기술 블로그와 Github Issue에서 작성하고 있습니다.
+자세한 개발 내용은 기술 블로그와 Issue에서 작성하고 있습니다.
+<ol>
+    <li><a href="https://downfa11.tistory.com/60">MSA? 이길 수 없다면 합류해라 (feat. Kafka IPC 트러블슈팅)</a></li>
+    <li><a href="https://downfa11.tistory.com/61">CQRS 패턴을 이용한 데이터 쿼리 - 게임 전적과 통계 구현</a></li>
+    <li><a href="https://downfa11.tistory.com/63">사용자 경험을 위한 시도 (Banner 구현, Addressable 패치)</a></li>
+    <li><a href="https://downfa11.tistory.com/64">매칭 서버의 대규모 트래픽 시험 검증하기 (feat. Kafka 성능 튜닝)</a></li>
+</ol>
 
-<br>
 <br>
 
 ### 서비스 아키텍처 변천사
