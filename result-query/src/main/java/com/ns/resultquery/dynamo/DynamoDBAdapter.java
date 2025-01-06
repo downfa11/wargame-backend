@@ -8,6 +8,10 @@ import com.ns.resultquery.axon.query.CountSumByMembership;
 import com.ns.resultquery.domain.MembershipResultSumByUserName;
 import com.ns.resultquery.domain.ResultSumByChampName;
 import com.ns.resultquery.dto.InsertResultCountDto;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
+import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.axonframework.queryhandling.QueryHandler;
 import org.springframework.beans.factory.annotation.Value;
@@ -18,15 +22,19 @@ import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
-import software.amazon.awssdk.services.dynamodb.model.*;
-
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-import java.util.stream.Collectors;
+import software.amazon.awssdk.services.dynamodb.model.AttributeAction;
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
+import software.amazon.awssdk.services.dynamodb.model.AttributeValueUpdate;
+import software.amazon.awssdk.services.dynamodb.model.ComparisonOperator;
+import software.amazon.awssdk.services.dynamodb.model.Condition;
+import software.amazon.awssdk.services.dynamodb.model.DynamoDbException;
+import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.GetItemResponse;
+import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.QueryRequest;
+import software.amazon.awssdk.services.dynamodb.model.QueryResponse;
+import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.UpdateItemResponse;
 
 @Slf4j
 @Component
@@ -190,13 +198,13 @@ public class DynamoDBAdapter {
                 for (Map.Entry<String, AttributeValue> entry : attributes.entrySet()) {
                     String attributeName = entry.getKey();
                     AttributeValue attributeValue = entry.getValue();
-                    System.out.println(attributeName + ": " + attributeValue);
+                    log.info(attributeName + ": " + attributeValue);
                 }
             } else {
-                System.out.println("Item was updated, but no attributes were returned.");
+                log.info("Item was updated, but no attributes were returned.");
             }
         } catch (DynamoDbException e) {
-            System.err.println("Error getting an item from the table: " + e.getMessage());
+            log.error("Error getting an item from the table: " + e.getMessage());
         }
     }
 
@@ -214,7 +222,7 @@ public class DynamoDBAdapter {
                     .build();
 
             QueryResponse response = dynamoDbClient.query(request);
-            response.items().forEach((value) -> System.out.println(value));
+            response.items().forEach((value) -> log.info(String.valueOf(value)));
         } catch (DynamoDbException e) {
             System.err.println("Error getting an item from the table: " + e.getMessage());
         }
