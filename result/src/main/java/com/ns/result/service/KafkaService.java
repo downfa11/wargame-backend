@@ -27,12 +27,9 @@ public class KafkaService implements ApplicationRunner {
     private final ReactiveKafkaConsumerTemplate<String, Task> TaskRequestConsumerTemplate;
     private final ReactiveKafkaConsumerTemplate<String, Task> TaskResponseConsumerTemplate;
     private final ResultService resultService;
+    private final TaskService taskService;
     private final DodgeService dodgeService;
-    private static final ObjectMapper objectMapper = new ObjectMapper();
-
-    private static ConcurrentHashMap<String, Task> taskResults = new ConcurrentHashMap<>();
-
-    private final int MAX_TASK_RESULT_SIZE = 5000;
+    private final ObjectMapper objectMapper;
 
 
 
@@ -54,7 +51,7 @@ public class KafkaService implements ApplicationRunner {
                         log.info("TaskResponseConsumerTemplate received : "+subtask);
                     }
                 })
-                .doOnError(e -> log.error("Error receiving: " + e))
+                .doOnError(e -> log.error("Error doTaskResponseConsumerTemplate: " + e))
                 .subscribe();
     }
 
@@ -92,36 +89,9 @@ public class KafkaService implements ApplicationRunner {
     private void doTaskRequestConsumerTemplate(){
         this.TaskRequestConsumerTemplate
                 .receiveAutoAck()
-                .doOnNext(record -> handleTaskRequest(record.value()))
-                .doOnError(e -> log.error("Error receiving: " + e))
+                .doOnNext(record -> taskService.handleTaskRequest(record.value()))
+                .doOnError(e -> log.error("Error doTaskRequestConsumerTemplate: " + e))
                 .subscribe();
     }
 
-    private void handleTaskRequest(Task task){
-        taskResults.put(task.getTaskID(), task);
-
-        if (taskResults.size() > MAX_TASK_RESULT_SIZE) {
-            taskResults.clear();
-            log.info("taskResults cleared due to exceeding the maximum size.");
-        }
-    }
-
-    public static Mono<List<MembershipEloRequest>> waitForMembershipEloTaskResult(String taskId) {
-        return Flux.interval(Duration.ofMillis(500))
-                .map(tick -> taskResults.get(taskId))
-                .filter(Objects::nonNull)
-                .take(1)
-                .map(task -> convertToMembershipEloRequest(task))
-                .next()
-                .timeout(Duration.ofSeconds(3))
-                .switchIfEmpty(Mono.error(new RuntimeException("Timeout waitForMembershipEloTaskResult for taskId " + taskId)));
-
-    }
-
-    private static List<MembershipEloRequest> convertToMembershipEloRequest(Task task){
-        return task.getSubTaskList().stream()
-                .filter(subTaskItem -> subTaskItem.getStatus().equals(SubTask.TaskStatus.success))
-                .map(subTaskItem -> objectMapper.convertValue(subTaskItem.getData(), MembershipEloRequest.class))
-                .toList();
-    }
 }

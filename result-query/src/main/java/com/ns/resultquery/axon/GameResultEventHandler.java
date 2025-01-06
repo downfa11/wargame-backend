@@ -36,7 +36,7 @@ public class GameResultEventHandler implements ApplicationRunner {
 
     @EventHandler
     public void handle(ResultRequestEvent event, ResultQueryService resultQueryService) {
-        log.info("Result Event Received: " + event.toString());
+        log.info("Result Event Received: " + event);
 
         List<ClientRequest> allClients = getAllTeamClientRequests(event);
         String winningTeam = event.getWinTeam();
@@ -63,7 +63,7 @@ public class GameResultEventHandler implements ApplicationRunner {
                 .receiveAutoAck()
                 .doOnNext(r -> {
                     eventGateway.publish(r.value());
-                    log.info("ResultRequestEvent publish to eventGateway Successfully!");
+                    log.info("ResultRequestEvent publish to eventGateway");
                 })
                 .doOnError(e -> log.error("Error receiving: " + e))
                 .subscribe();
