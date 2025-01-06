@@ -24,7 +24,6 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
-import reactor.kafka.sender.KafkaSender;
 import reactor.util.function.Tuple2;
 import reactor.util.function.Tuples;
 
@@ -36,16 +35,21 @@ public class MatchQueueService {
     @Value("${scheduler.enabled}")
     private Boolean scheduling = false;
 
-    @Value("${spring.var.matchExpireTime:3}")
+    @Value("${spring.var.matchexpiretime:3}")
     private int expireTime;
 
+    @Value("${spring.var.nicknameexpiretime:300}")
+    private int nickNameExpireTime;
+
+    public static final Long MAX_ALLOW_USER_COUNT = 10L;
+
     public static final ObjectMapper mapper = new ObjectMapper();
-    private static final Long MAX_ALLOW_USER_COUNT = 2L;
 
 
     private final ReactiveRedisTemplate<String, String> reactiveRedisTemplate;
 
     private final KafkaService kafkaService;
+    private final TaskService taskService;
 
     private final String MATCH_WAIT_KEY ="users:queue:%s:wait";
     private final String MATCH_WAIT_KEY_FOR_SCAN ="users:queue:*:wait";
@@ -71,7 +75,7 @@ public class MatchQueueService {
                                 if (hasCode) {
                                     log.info("게임중이 아니라서 매칭 큐에 진입합니다.");
                                     return getUserResponse(userId)
-                                            .flatMap(userResponse -> handleMatchResponse(userResponse, queue, userId));
+                                            .flatMap(userResponse -> addMatchUserResponse(userResponse, queue, userId));
                                 }
                                 else return Mono.just("fail");
 
@@ -84,7 +88,7 @@ public class MatchQueueService {
         List<SubTask> subTasks = createSubTaskListMatchUserResponseByMembershipId(membershipId);
         Task task = createTaskMatchUserResponseByMembershipId(membershipId, subTasks);
 
-        return kafkaService.sendTask("task.membership.response",task)
+        return taskService.sendTask("task.membership.response",task)
                 .then(kafkaService.waitForUserResponseTaskResult(task.getTaskID())
                         .subscribeOn(Schedulers.boundedElastic()));
     }
@@ -112,7 +116,7 @@ public class MatchQueueService {
         List<SubTask> subTasks = createSubTaskListMatchUserHasCodeByMembershipId(membershipId);
         Task task = createTaskMatchUserHasCodeByMembershipId(membershipId, subTasks);
 
-        return kafkaService.sendTask("task.membership.response",task)
+        return taskService.sendTask("task.membership.response",task)
                 .then(kafkaService.waitForUserHasCodeTaskResult(task.getTaskID())
                         .subscribeOn(Schedulers.boundedElastic()));
     }
@@ -135,7 +139,7 @@ public class MatchQueueService {
                 membershipId);
     }
 
-    private Mono<String> handleMatchResponse(MatchUserResponse user, String queue, Long userId) {
+    private Mono<String> addMatchUserResponse(MatchUserResponse user, String queue, Long userId) {
         if (!user.getSpaceCode().isEmpty()) {
             return Mono.just("fail");
         }
@@ -144,10 +148,21 @@ public class MatchQueueService {
         String name = user.getName();
         String member = userId + ":" + name;
 
-        log.info("register member :"+member);
-        return reactiveRedisTemplate.opsForZSet().add(MATCH_WAIT_KEY.formatted(queue), member, elo.doubleValue())
-                .flatMap(result -> reactiveRedisTemplate.expire(MATCH_WAIT_KEY.formatted(queue), Duration.ofSeconds(expireTime)))
+        log.info("register member: "+member);
+        return addUserNickName(userId, name) // 먼저 사용자의 nickname을 HSet 타입으로 캐싱
+                .flatMap(result -> reactiveRedisTemplate.opsForZSet().add(MATCH_WAIT_KEY.formatted(queue), member, elo.doubleValue())
+                            .flatMap(zset -> reactiveRedisTemplate.expire(MATCH_WAIT_KEY.formatted(queue), Duration.ofSeconds(expireTime))))
                 .thenReturn("{\"userId\":\"" + userId + "\", \"name\":\"" + name + "\", \"elo\":\"" + elo + "\"}");
+
+    }
+
+    private Mono<Boolean> addUserNickName(Long userId, String nickname){
+        String memberKey = "user:" + userId;
+        String memberNameField = "nickname";
+
+        return reactiveRedisTemplate.opsForHash()
+                .put(memberKey, memberNameField, nickname)
+                .flatMap(result -> reactiveRedisTemplate.expire(memberKey, Duration.ofSeconds(nickNameExpireTime)));
     }
 
     private Mono<Boolean> releaseLock(String lockKey, String lockValue) {
@@ -207,24 +222,28 @@ public class MatchQueueService {
 
                     return getUserNickname(userId)
                             .flatMap(nickname -> {
-                                if (nickname.equals("null")) {
+                                if (nickname.equals("None")) {
                                     return Mono.just(-1L);
                                 }
                                 return calculateRank(queue, nickname, userId);
                             })
                             .doFinally(signal -> releaseLock(lockKey, lockValue).subscribe());
                 })
-                .doOnError(error -> log.error("Error during lock acquisition: ", error));
+                .doOnError(error -> log.error("Error getRank: ", error));
     }
 
     private Mono<String> getUserNickname(Long userId) {
-        String userKey = "*:" + userId;
-        return reactiveRedisTemplate.opsForValue().get(userKey)
-                .defaultIfEmpty("null")
-                .doOnNext(nickname -> log.info("Nickname found: " + nickname))
-                .doOnError(error -> log.error("Error during nickname retrieval: ", error))
+        String memberKey = "user:" + userId;
+        String memberNameField = "nickname";
+
+        return reactiveRedisTemplate.opsForHash().get(memberKey, memberNameField)
+                .map(nickname -> (String) nickname)
+                .defaultIfEmpty("None")
+                .doOnNext(nickname -> log.info("getUserNickname: " + nickname))
+                .doOnError(error -> log.error("Error getUserNickname: ", error))
                 .flatMap(nickname -> {
-                    if (!nickname.equals("null")) {
+                    if (!nickname.equals("None")) {
+                        String userKey = userId + ":" + nickname;
                         return reactiveRedisTemplate.expire(userKey, Duration.ofSeconds(expireTime))
                                 .thenReturn(nickname);
                     }
@@ -233,7 +252,7 @@ public class MatchQueueService {
     }
 
     private Mono<Long> calculateRank(String queue, String nickname, Long userId) {
-        String member = nickname + ":" + userId;
+        String member = userId + ":" + nickname;
         log.info("Member: " + member);
 
         return reactiveRedisTemplate.opsForZSet().rank(MATCH_WAIT_KEY.formatted(queue), member)
@@ -247,7 +266,7 @@ public class MatchQueueService {
                     }
                     return rank;
                 })
-                .doOnError(error -> log.error("Error during rank retrieval: ", error));
+                .doOnError(error -> log.error("Error calculateRank: ", error));
     }
 
     public Mono<Tuple2<MatchStatus, MatchResponse>> getMatchResponse(Long memberId) {
@@ -292,7 +311,7 @@ public class MatchQueueService {
                         List<SubTask> subTasks = createSubTaskListMatchCodeUpdate(memberId, matchResponse.getSpaceId());
                         Task task = createTask("Match Request", null, subTasks);
 
-                        return kafkaService.sendTask("task.membership.response", task)
+                        return taskService.sendTask("task.membership.response", task)
                                 .then(reactiveRedisTemplate.unlink(key))
                                 .then(Mono.just(Tuples.of(MatchStatus.MATCH_FOUND, matchResponse)));
 
@@ -314,7 +333,7 @@ public class MatchQueueService {
                 });
     }
 
-    @Scheduled(initialDelay = 5000, fixedDelay = 1000)
+    @Scheduled(initialDelay = 3000, fixedDelay = 100)
     public void scheduleMatchUser() {
         if (!scheduling) {
             log.info("passed scheduling..");
@@ -327,7 +346,7 @@ public class MatchQueueService {
         acquireLock(lockKey, lockValue)
                 .flatMap(locked -> {
                     if (!locked) {
-                        log.info("Another instance is already running");
+                        log.info("already running");
                         return Mono.empty();
                     }
 
@@ -363,14 +382,14 @@ public class MatchQueueService {
         }
     }
 
-    private Mono<Boolean> acquireLock(String lockKey, String lockValue) {
+    public Mono<Boolean> acquireLock(String lockKey, String lockValue) {
         return reactiveRedisTemplate.opsForValue().setIfAbsent(lockKey, lockValue, Duration.ofSeconds(10));
     }
 
     private Mono<Void> processMatching() {
         return reactiveRedisTemplate.scan(ScanOptions.scanOptions()
                         .match(MATCH_WAIT_KEY_FOR_SCAN)
-                        .count(100).build())
+                        .count(1000).build())
                 .map(this::extractQueueName)
                 .flatMap(this::processQueue)
                 .then();
@@ -396,17 +415,17 @@ public class MatchQueueService {
         String spaceId = UUID.randomUUID().toString();
         MatchResponse matchResponse = MatchResponse.fromMembers(spaceId, members);
 
-        log.info("TEST: " + createMatchResponseJson(matchResponse));
+        log.info("Match Result: " + createMatchResponseJson(matchResponse));
 
         members.forEach(memberId -> saveMatchInfo(memberId, matchResponse));
 
         List<SubTask> subTasks = createSubTaskListMatchResponse(matchResponse);
         Task task = createTaskMatchResponse(subTasks);
 
-        return kafkaService.sendTask("task.match.response", task)
+        return taskService.sendTask("task.match.response", task)
                 .then(removeMembersFromQueue(queue, members))
-                .doOnSuccess(result -> log.info("Kafka message sent and members removed from Redis successfully."))
-                .doOnError(error -> log.error("Error during Kafka send or Redis operation: " + error.getMessage()))
+                .doOnSuccess(result -> log.info("handleMatchFound successfully."))
+                .doOnError(error -> log.error("Error handleMatchFound: " + error.getMessage()))
                 .subscribeOn(Schedulers.boundedElastic());
     }
 
@@ -425,4 +444,5 @@ public class MatchQueueService {
                 .remove(MATCH_WAIT_KEY.formatted(queue), members.toArray())
                 .then();
     }
+
 }
