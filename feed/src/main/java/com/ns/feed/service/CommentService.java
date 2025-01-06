@@ -3,7 +3,6 @@ package com.ns.feed.service;
 
 import static com.ns.common.TaskUseCase.createSubTask;
 import static com.ns.common.TaskUseCase.createTask;
-import static com.ns.feed.service.KafkaService.waitForGetUserNameTaskComment;
 
 import com.ns.common.SubTask;
 import com.ns.common.Task;
@@ -14,11 +13,12 @@ import com.ns.feed.entity.dto.CommentRegisterRequest;
 import com.ns.feed.entity.dto.CommentResponse;
 import com.ns.feed.repository.CommentR2dbcRepository;
 import com.ns.feed.repository.PostR2dbcRepository;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.kafka.core.reactive.ReactiveKafkaProducerTemplate;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -32,17 +32,11 @@ public class CommentService {
     private final String NOT_FOUND_COMMENT_ERROR_MESSAGE = "Comment not found";
     private final String NOT_FOUND_POST_ERROR_MESSAGE = "Post not found";
 
-    private final ReactiveKafkaProducerTemplate<String, Task> taskProducerTemplate;
-
     private final CommentR2dbcRepository commentR2dbcRepository;
     private final PostR2dbcRepository postR2dbcRepository;
 
+    private final TaskService taskService;
 
-    public Mono<Void> sendTask(String topic, Task task){
-        log.info("send ["+topic+"]: "+task.toString());
-        String key = task.getTaskID();
-        return taskProducerTemplate.send(topic, key, task).then();
-    }
 
     public Mono<CommentResponse> create(Long userId, CommentRegisterRequest request) {
         long boardId = request.getBoardId();
@@ -129,7 +123,7 @@ public class CommentService {
         List<SubTask> subTasks = createSubTaskListCommentUserNameByMembershipId(membershipId);
         Task task = createTaskCommentUserNameByMembershipId(membershipId, subTasks);
 
-        return sendTask("task.membership.response",task)
+        return taskService.sendTask("task.membership.response",task)
                 .then(waitForGetUserNameTaskComment(task.getTaskID())
                         .subscribeOn(Schedulers.boundedElastic()));
     }
@@ -154,5 +148,19 @@ public class CommentService {
                 SubTask.TaskType.post,
                 SubTask.TaskStatus.ready,
                 membershipId);
+    }
+
+    private Mono<String> waitForGetUserNameTaskComment(String taskId) {
+        return Flux.interval(Duration.ofMillis(500))
+                .map(tick -> taskService.getTaskResults(taskId))
+                .filter(Objects::nonNull)
+                .take(1)
+                .map(task -> {
+                    SubTask subTask = task.getSubTaskList().get(0);
+                    return String.valueOf(subTask.getData());
+                })
+                .next()
+                .timeout(Duration.ofSeconds(3))
+                .switchIfEmpty(Mono.error(new RuntimeException("Timeout waitForUserPostsTaskComment for taskId " + taskId)));
     }
 }
