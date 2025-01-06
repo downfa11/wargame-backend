@@ -1,5 +1,7 @@
 package com.ns.match.dto;
 
+import static com.ns.match.service.MatchQueueService.MAX_ALLOW_USER_COUNT;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -19,7 +21,7 @@ public class MatchResponse {
     private Map<String, List<String>> teams;
 
     public static MatchResponse fromMembers(String spaceId, List<String> members) {
-        if(members.size()!=2) return null;
+        if(members.size()!=MAX_ALLOW_USER_COUNT) return null;
 
         Collections.shuffle(members);
 
