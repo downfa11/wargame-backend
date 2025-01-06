@@ -1,6 +1,12 @@
 package com.ns.membership.service;
 
 
+import static com.ns.common.TaskUseCase.createSubTask;
+import static com.ns.common.TaskUseCase.createTask;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ns.common.SubTask;
+import com.ns.common.Task;
 import com.ns.common.Utils.JwtToken;
 import com.ns.common.Utils.JwtTokenProvider;
 import com.ns.membership.Utils.VaultAdapter;
@@ -8,27 +14,34 @@ import com.ns.membership.axon.common.CreateMemberCommand;
 import com.ns.membership.axon.common.ModifyMemberCommand;
 import com.ns.membership.axon.common.ModifyMemberEloCommand;
 import com.ns.membership.entity.User;
+import com.ns.membership.entity.dto.PostSummary;
 import com.ns.membership.entity.dto.UserCreateRequest;
 import com.ns.membership.entity.dto.UserRequest;
 import com.ns.membership.entity.dto.UserResponse;
 import com.ns.membership.entity.dto.UserUpdateRequest;
 import com.ns.membership.repository.UserR2dbcRepository;
+import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.axonframework.commandhandling.gateway.CommandGateway;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 @Service
 @Slf4j
 @RequiredArgsConstructor
 public class UserService{
     private final CommandGateway commandGateway;
-
+    private final TaskService taskService;
     private final UserR2dbcRepository userRepository;
     private final JwtTokenProvider jwtTokenProvider;
+    private final ObjectMapper objectMapper;
     private final VaultAdapter vaultAdapter;
 
     public Mono<User> getMembershipById(Long membershipId){
@@ -113,7 +126,7 @@ public class UserService{
         // String encryptedPassword = vaultAdapter.encrypt(request.getPassword());
         return userRepository.findByAccountAndPassword(request.getAccount(), request.getPassword())
                 .flatMap(this::handleUserLogin)
-                .switchIfEmpty(Mono.error(new RuntimeException("Invalid credentials id:"+request.getAccount()+" pw:"+request.getPassword())));
+                .switchIfEmpty(Mono.error(new RuntimeException("Invalid credentials :"+request.getAccount()+" pw:"+request.getPassword())));
     }
 
     private Mono<UserResponse> handleUserLogin(User user){
@@ -299,5 +312,54 @@ public class UserService{
                     log.info(user.getName()+" 사용자의 code는 "+spaceId+"입니다.");
                     return userRepository.save(user);
                 });
+    }
+
+    public Mono<List<PostSummary>> getUserPosts(Long membershipId) {
+        List<SubTask> subTasks = createSubTaskListPostByMembershipId(membershipId);
+        Task task = createTaskPostByMembershipId(membershipId, subTasks);
+
+        return taskService.sendTask("task.post.response",task)
+                .then(waitForUserPostsTaskResult(task.getTaskID())
+                        .subscribeOn(Schedulers.boundedElastic()));
+    }
+
+    private Task createTaskPostByMembershipId(Long membershipId, List<SubTask> subTasks){
+        return createTask(
+                "Post Response",
+                String.valueOf(membershipId),
+                subTasks);
+    }
+    private List<SubTask> createSubTaskListPostByMembershipId(Long membershipId){
+        List<SubTask> subTasks = new ArrayList<>();
+        subTasks.add(createSubPostByMembershipId(membershipId));
+
+        return subTasks;
+    }
+
+    private SubTask createSubPostByMembershipId(Long membershipId){
+        return createSubTask("PostByMembershipId",
+                String.valueOf(membershipId),
+                SubTask.TaskType.post,
+                SubTask.TaskStatus.ready,
+                membershipId);
+    }
+
+    private Mono<List<PostSummary>> waitForUserPostsTaskResult(String taskId) {
+        return Flux.interval(Duration.ofMillis(500))
+                .map(tick -> taskService.getTaskResults(taskId))
+                .filter(Objects::nonNull)
+                .take(1)
+                .map(this::convertToPostSummaries)
+                .next()
+                .timeout(Duration.ofSeconds(3))
+                .switchIfEmpty(Mono.error(new RuntimeException("Timeout waitForUserPostsTaskResult for taskId " + taskId)));
+    }
+
+
+    private List<PostSummary> convertToPostSummaries(Task task) {
+        return task.getSubTaskList().stream()
+                .filter(subTaskItem -> subTaskItem.getStatus().equals(SubTask.TaskStatus.success))
+                .map(subTaskItem -> objectMapper.convertValue(subTaskItem.getData(), PostSummary.class))
+                .toList();
     }
 }

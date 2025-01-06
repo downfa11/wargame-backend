@@ -38,7 +38,6 @@ public class UserController {
 
 
     private final UserService userService;
-    private final KafkaService kafkaService;
     private final MailService mailService;
     private final JwtTokenProvider jwtTokenProvider;
 
@@ -189,7 +188,7 @@ public class UserController {
 //                            .defaultIfEmpty(ResponseEntity.ok().body(new MessageEntity("Fail", "Request is not correct.")));
 //                });
 
-                    return kafkaService.getUserPosts(membershipId)
+                    return userService.getUserPosts(membershipId)
                             .map(posts -> ResponseEntity.ok(new MessageEntity("Success", posts)))
                             .defaultIfEmpty(ResponseEntity.ok().body(new MessageEntity("Fail", INCORRECT_REQUEST_ERROR_MESSAGE)));
     }
