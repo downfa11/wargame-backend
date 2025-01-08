@@ -56,7 +56,7 @@ jobs:
 
       - name: Update Helm values with new image tag
         run: |
-            yq -i ".image.tag = \"${{ env.BUILD_ID }}\"" helm-chart/${{matrix.helm_path}/values-dev.yaml
+            yq -i ".image.tag = \"${{ env.BUILD_ID }}\"" helm-chart/${{matrix.helm_path}}/values-dev.yaml
 
       - name: Commit and Push HELM changes
         run: |
