@@ -13,12 +13,14 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.domain.Range;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.data.redis.core.ScanOptions;
+import org.springframework.data.redis.core.ZSetOperations.TypedTuple;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
@@ -165,6 +167,10 @@ public class MatchQueueService {
                 .flatMap(result -> reactiveRedisTemplate.expire(memberKey, Duration.ofSeconds(nickNameExpireTime)));
     }
 
+    public Mono<Boolean> acquireLock(String lockKey, String lockValue) {
+        return reactiveRedisTemplate.opsForValue().setIfAbsent(lockKey, lockValue, Duration.ofSeconds(10));
+    }
+
     private Mono<Boolean> releaseLock(String lockKey, String lockValue) {
         return reactiveRedisTemplate.opsForValue().get(lockKey)
                 .flatMap(currentValue -> {
@@ -180,7 +186,7 @@ public class MatchQueueService {
         String lockKey = "lock:cancelMatchQueue:" + userId;
         String lockValue = UUID.randomUUID().toString();
 
-        return reactiveRedisTemplate.opsForValue().setIfAbsent(lockKey, lockValue, Duration.ofSeconds(10))
+        return acquireLock(lockKey, lockValue)
                 .flatMap(locked -> {
                     if (!locked) {
                         return Mono.error(new RuntimeException("Unable to acquire lock"));
@@ -188,7 +194,8 @@ public class MatchQueueService {
 
                     return getUserResponse(userId)
                             .flatMap(userResponse -> handleCancelMatchResponse(userResponse, userId))
-                            .doFinally(signal -> releaseLock(lockKey, lockValue).subscribe())
+                            .doFinally(signal -> releaseLock(lockKey, lockValue)
+                                    .subscribe())
                             .onErrorResume(e -> Mono.error(new RuntimeException("waitForMatchTaskResult error : ", e)));
                 });
     }
@@ -333,7 +340,7 @@ public class MatchQueueService {
                 });
     }
 
-    @Scheduled(initialDelay = 3000, fixedDelay = 100)
+    @Scheduled(initialDelay = 3000, fixedDelay = 1000)
     public void scheduleMatchUser() {
         if (!scheduling) {
             log.info("passed scheduling..");
@@ -350,10 +357,71 @@ public class MatchQueueService {
                         return Mono.empty();
                     }
 
-                    return processMatching();
+                    return reactiveRedisTemplate.
+                            scan(ScanOptions.scanOptions()
+                                    .match(MATCH_WAIT_KEY_FOR_SCAN)
+                                    .count(3) // 매칭 큐의 종류
+                                    .build())
+                            .map(this::extractQueueName)
+                            .collectList()
+                            .flatMap(this::processAllQueue)
+                            .then();
                 })
                 .doFinally(signal -> releaseLock(lockKey, lockValue).subscribe())
                 .subscribe();
+    }
+
+    private Mono<Void> processAllQueue(List<String> queues){
+        return Flux.fromIterable(queues)
+                .flatMap(this::processQueue)
+                .then();
+    }
+
+    private Mono<Void> processQueue(String queue) {
+        return reactiveRedisTemplate.executeInSession(session ->
+                Flux.defer(() -> processQueueInRange(queue, 100)).then())
+                .then();
+    }
+
+    private Mono<Void> processQueueInRange(String queue, int maxProcessCount) {
+        AtomicBoolean stopProcessing = new AtomicBoolean(false);
+
+        return Flux.range(0, maxProcessCount)
+                .takeWhile(i -> !stopProcessing.get())
+                .flatMap(i -> reactiveRedisTemplate.opsForZSet()
+                        .popMin(MATCH_WAIT_KEY.formatted(queue), MAX_ALLOW_USER_COUNT)
+                        .collectList()
+                        .flatMap(members -> {
+                            if (members.isEmpty()) {
+                                log.info("빈집입니다. {}", queue);
+                                stopProcessing.set(true);
+                                return Mono.empty();
+                            }
+
+                            List<String> memberValues = members.stream()
+                                    .map(TypedTuple::getValue)
+                                    .collect(Collectors.toList());
+
+                            if (memberValues.size() < MAX_ALLOW_USER_COUNT) {
+                                log.info("{} 매칭 큐는 MAX_ALLOW_USER_COUNT를 충족시키지 못하는 찌꺼기 남았음: {}", queue, memberValues.size());
+                                return handleMatchError(queue, memberValues)
+                                        .doOnTerminate(() -> stopProcessing.set(true)); // 실제 Mono 성공시 호출
+                            }
+
+                            return handleMatchFound(queue, memberValues)
+                                    .onErrorResume(e -> {
+                                        log.error("Error handleMatchFound {}: {}", queue, e.getMessage());
+                                        return handleMatchError(queue, memberValues);
+                                    });
+                        }), 1)
+                .then();
+    }
+
+    private Mono<Void> handleMatchError(String queue, List<String> members){
+        return Flux.fromIterable(members)
+                .flatMap(member -> reactiveRedisTemplate.opsForZSet()
+                .add(MATCH_WAIT_KEY.formatted(queue), member, 0).then())
+                .then();
     }
 
     private Task createTaskMatchResponse(List<SubTask> subTasks){
@@ -373,50 +441,13 @@ public class MatchQueueService {
                 matchResponse);
     }
 
-    private String createMatchResponseJson(MatchResponse response) {
-        try {
-            return mapper.writeValueAsString(response);
-        } catch (JsonProcessingException e) {
-            log.error("createMatchResponseJson JsonProcessingException : ", e);
-            return "";
-        }
-    }
-
-    public Mono<Boolean> acquireLock(String lockKey, String lockValue) {
-        return reactiveRedisTemplate.opsForValue().setIfAbsent(lockKey, lockValue, Duration.ofSeconds(10));
-    }
-
-    private Mono<Void> processMatching() {
-        return reactiveRedisTemplate.scan(ScanOptions.scanOptions()
-                        .match(MATCH_WAIT_KEY_FOR_SCAN)
-                        .count(1000).build())
-                .map(this::extractQueueName)
-                .flatMap(this::processQueue)
-                .then();
-    }
-
     private String extractQueueName(String key) {
         return key.split(":")[2];
-    }
-
-    private Mono<Void> processQueue(String queue) {
-        return reactiveRedisTemplate.opsForZSet()
-                .range(MATCH_WAIT_KEY.formatted(queue), Range.closed(0L, MAX_ALLOW_USER_COUNT - 1))
-                .collectList()
-                .flatMap(members -> {
-                    if (members.size() == MAX_ALLOW_USER_COUNT) {
-                        return handleMatchFound(queue, members);
-                    }
-                    return Mono.empty();
-                });
     }
 
     private Mono<Void> handleMatchFound(String queue, List<String> members) {
         String spaceId = UUID.randomUUID().toString();
         MatchResponse matchResponse = MatchResponse.fromMembers(spaceId, members);
-
-        log.info("Match Result: " + createMatchResponseJson(matchResponse));
-
         members.forEach(memberId -> saveMatchInfo(memberId, matchResponse));
 
         List<SubTask> subTasks = createSubTaskListMatchResponse(matchResponse);
@@ -424,8 +455,7 @@ public class MatchQueueService {
 
         return taskService.sendTask("task.match.response", task)
                 .then(removeMembersFromQueue(queue, members))
-                .doOnSuccess(result -> log.info("handleMatchFound successfully."))
-                .doOnError(error -> log.error("Error handleMatchFound: " + error.getMessage()))
+                .doOnError(error -> log.error("Error sendTask: " + error.getMessage()))
                 .subscribeOn(Schedulers.boundedElastic());
     }
 
@@ -445,4 +475,23 @@ public class MatchQueueService {
                 .then();
     }
 
+    // =============================Integration Test API==================================== //
+    public Mono<Void> requestIntegrationTest(Long memberId, String nickName, Long elo){
+        String queue = "integrationTestQueue";
+        String userKey = memberId+ ":" + nickName;
+
+        return reactiveRedisTemplate.opsForZSet()
+                        .add(MATCH_WAIT_KEY.formatted(queue), userKey, elo.doubleValue())
+                .then();
+    }
+
+    public Mono<Long> getRequestCount(){
+        String queue = "integrationTestQueue";
+
+        return reactiveRedisTemplate.opsForZSet()
+                .size(MATCH_WAIT_KEY.formatted(queue))
+                .doOnNext(size -> log.info("ZSet size: {}", queue, size));
+    }
+
+    // ========================================================================================== //
 }

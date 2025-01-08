@@ -29,11 +29,16 @@ class MatchApplicationTests {
     private final String MATCH_WAIT_KEY ="users:queue:%s:wait";
 
 
+    
+    /*
+    * Scheduler를 통해 순차적으로 매칭을 진행하기 때문에 이 방식으로는 불가능함 
+    * */
+    
     @Test
     void requestIntegrationTest() {
         AtomicInteger count = new AtomicInteger(0);
 
-        int threads=10, requests=10;
+        int threads=100, requests=100;
 
         Flux.range(0, threads)
                 .flatMap(thread -> Flux.range(0, requests)
