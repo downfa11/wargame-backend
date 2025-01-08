@@ -59,6 +59,7 @@ jobs:
           cd helm-chart
           git config --local user.email "downfa11@naver.com"
           git config --local user.name "downfa11"
+          git push -u origin dev
           git checkout dev
           git add .
           git commit -m "Update Helm chart for Canary: Module=${{ env.MODULE }}, Tag=${{ env.BUILD_ID }}"
