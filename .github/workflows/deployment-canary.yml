@@ -1,7 +1,6 @@
-name: membership-deployment(Canary)
+name: MSA deployment(Canary)
 
 env:
-  MODULE: membership
   BUILD_ID: ${{ github.sha }}
   HELM_BRANCH: dev
 
@@ -14,6 +13,13 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        module: ["membership", "match", "result-query", "result", "feed"]
+        ecr_repository: ["downfa11/wargame_membership", "downfa11/wargame_match","downfa11/wargame_result_query","downfa11/wargame_result","downfa11/wargame_feed"]
+        helm_path: ["membership-chart", "match-chart", "result-query-chart", "result-chart", "feed-chart"]
+
     steps:
       - uses: actions/checkout@v4
       
@@ -34,7 +40,7 @@ jobs:
       - name: Build, tag, and push docker image to Amazon ECR
         env:
           REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          REPOSITORY: downfa11/wargame_membership
+          REPOSITORY: ${{ matrix.ecr_repository }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
           envsubst < Dockerfile.template | docker build -t $REGISTRY/$REPOSITORY:$IMAGE_TAG -f - .
@@ -50,9 +56,7 @@ jobs:
 
       - name: Update Helm values with new image tag
         run: |
-          for chart in membership-chart match-chart result-query-chart result-chart feed-chart; do
-            yq -i ".image.tag = \"${{ env.BUILD_ID }}\"" helm-chart/${chart}/values-dev.yaml
-          done
+            yq -i ".image.tag = \"${{ env.BUILD_ID }}\"" helm-chart/${{matrix.helm_path}/values-dev.yaml
 
       - name: Commit and Push HELM changes
         run: |
@@ -61,5 +65,5 @@ jobs:
           git config --local user.name "downfa11"
           git checkout -b dev || git checkout dev
           git add .
-          git commit -m "Update Helm chart for Canary: Module=${{ env.MODULE }}, Tag=${{ env.BUILD_ID }}"
+          git commit -m "Update Helm chart for Canary: Module=${{ matrix.module }}, Tag=${{ env.BUILD_ID }}"
           git push origin ${{ env.HELM_BRANCH }}
