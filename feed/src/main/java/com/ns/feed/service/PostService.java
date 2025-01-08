@@ -3,7 +3,6 @@ package com.ns.feed.service;
 
 import static com.ns.common.TaskUseCase.createSubTask;
 import static com.ns.common.TaskUseCase.createTask;
-import static com.ns.feed.service.KafkaService.waitForGetUserNameTaskFeed;
 
 import com.ns.common.SubTask;
 import com.ns.common.Task;
@@ -13,10 +12,11 @@ import com.ns.feed.entity.dto.PostRegisterRequest;
 import com.ns.feed.entity.dto.PostResponse;
 import com.ns.feed.entity.dto.PostSummary;
 import com.ns.feed.repository.PostR2dbcRepository;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -46,6 +46,7 @@ public class PostService {
 
     private final PostR2dbcRepository postR2dbcRepository;
 
+    private final TaskService taskService;
     private final CommentService commentService;
     private final CategoryService categoryService;
 
@@ -189,7 +190,7 @@ public class PostService {
                 ).collectList()
                 .doOnSuccess(posts -> {
                     if (posts.isEmpty()) {
-                        log.warn("No posts found for membershipId={}", membershipId);
+                        log.warn("No posts found {}", membershipId);
                     }
                     else log.info("success findAllByUserId");
                 });
@@ -316,5 +317,20 @@ public class PostService {
                 .map(posts -> posts.stream()
                         .map(PostResponse::of)
                         .collect(Collectors.toList()));
+    }
+
+
+    private Mono<String> waitForGetUserNameTaskFeed(String taskId) {
+        return Flux.interval(Duration.ofMillis(500))
+                .map(tick -> taskService.getTaskResults(taskId))
+                .filter(Objects::nonNull)
+                .take(1)
+                .map(task -> {
+                    SubTask subTask = task.getSubTaskList().get(0);
+                    return String.valueOf(subTask.getData());
+                })
+                .next()
+                .timeout(Duration.ofSeconds(3))
+                .switchIfEmpty(Mono.error(new RuntimeException("Timeout waitForGetUserNameTaskFeed for taskId " + taskId)));
     }
 }

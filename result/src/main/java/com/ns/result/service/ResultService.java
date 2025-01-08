@@ -5,8 +5,8 @@ import static com.ns.common.TaskUseCase.createSubTask;
 import static com.ns.common.TaskUseCase.createTask;
 import static com.ns.result.ResultMapper.mapToResultDocument;
 import static com.ns.result.ResultMapper.mapToResultReqeustEvent;
-import static com.ns.result.service.KafkaService.waitForMembershipEloTaskResult;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ns.common.ClientRequest;
 import com.ns.common.MembershipEloRequest;
 import com.ns.common.ResultRequestEvent;
@@ -14,9 +14,11 @@ import com.ns.common.SubTask;
 import com.ns.common.Task;
 import com.ns.result.domain.entity.Result;
 import com.ns.result.repository.ResultRepository;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Random;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,15 +33,18 @@ import reactor.core.scheduler.Schedulers;
 @Service
 @RequiredArgsConstructor
 public class ResultService{
-
     @Value("${event.produce.topic}")
     private String eventTopic;
 
-    private final ResultRepository resultRepository;
-    private final ReactiveKafkaProducerTemplate<String, Task> taskProducerTemplate;
     private final ReactiveKafkaProducerTemplate<String, ResultRequestEvent> eventProducerTemplate;
 
+    private final ResultRepository resultRepository;
+    private final ReactiveKafkaProducerTemplate<String, Task> taskProducerTemplate;
+    private final ObjectMapper objectMapper;
+
     private final EloService eloService;
+    private final TaskService taskService;
+    private final OpenSearchService openSearchService;
 
     private final int RESULT_SEARCH_SIZE = 30;
 
@@ -103,6 +108,25 @@ public class ResultService{
                         .subscribeOn(Schedulers.boundedElastic()));
     }
 
+    public Mono<List<MembershipEloRequest>> waitForMembershipEloTaskResult(String taskId) {
+        return Flux.interval(Duration.ofMillis(500))
+                .map(tick -> taskService.getTaskResults(taskId))
+                .filter(Objects::nonNull)
+                .take(1)
+                .map(task -> convertToMembershipEloRequest(task))
+                .next()
+                .timeout(Duration.ofSeconds(3))
+                .switchIfEmpty(Mono.error(new RuntimeException("Timeout waitForMembershipEloTaskResult for taskId " + taskId)));
+
+    }
+
+    private List<MembershipEloRequest> convertToMembershipEloRequest(Task task){
+        return task.getSubTaskList().stream()
+                .filter(subTaskItem -> subTaskItem.getStatus().equals(SubTask.TaskStatus.success))
+                .map(subTaskItem -> objectMapper.convertValue(subTaskItem.getData(), MembershipEloRequest.class))
+                .toList();
+    }
+
     private List<SubTask> mapTeamMembershipElos(List<ClientRequest> teams){
         return teams.stream()
                 .map(ClientRequest::getMembershipId)
@@ -140,14 +164,17 @@ public class ResultService{
 
     public Mono<Result> saveResult(ResultRequestEvent request) {
         Result document = mapToResultDocument(request);
-        return resultRepository.save(document)
-                .flatMap(savedResult -> eventProducerTemplate
-                        .send(eventTopic, "result-query", mapToResultReqeustEvent(savedResult))
-                        .doOnSuccess(senderResult -> log.info("ResultRequestEvent 발행됨. " + eventTopic))
-                        .doOnError(e -> log.error("메시지 전송 중 오류 발생: ", e))
-                        .thenReturn(savedResult));
+        return resultRepository.save(document) // todo. OpenSearchService.saveResult(document)
+                .doOnTerminate(() -> eventSend(document));
     }
 
+    public Mono<Result> eventSend(Result savedResult){
+        return eventProducerTemplate
+                .send(eventTopic, "result-query", mapToResultReqeustEvent(savedResult))
+                .doOnSuccess(senderResult -> log.info("ResultRequestEvent 발행됨. " + eventTopic))
+                .doOnError(e -> log.error("메시지 전송 중 오류 발생: ", e))
+                .thenReturn(savedResult);
+    }
 
     public Flux<Result> getGameResultsByName(String name, int offset) {
         return resultRepository.searchByUserName(name, RESULT_SEARCH_SIZE, offset);

@@ -44,6 +44,6 @@ public class AnnounceController {
 
             postService.create(userId, request).subscribe();
         }
-        return "4 announces created successfully";
+        return "4 announces create";
     }
 }

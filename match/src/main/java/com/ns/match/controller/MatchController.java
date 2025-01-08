@@ -5,11 +5,19 @@ import com.ns.common.MessageEntity;
 import com.ns.common.Utils.JwtTokenProvider;
 import com.ns.match.dto.MatchRequest;
 import com.ns.match.service.MatchQueueService;
+import java.util.concurrent.atomic.AtomicLong;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ServerWebExchange;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 @RestController
@@ -47,9 +55,11 @@ public class MatchController {
 //        });
         return matchQueueService.getRank("match", request.getMembershipId())
                 .flatMap(rank -> {
+                    log.info("getRank count : " + rank);
 
                     if (rank < 0) {
                         return matchQueueService.registerMatchQueue("match", request.getMembershipId())
+                                .defaultIfEmpty("fail")
                                 .map(result -> {
                                     log.info(request.getMembershipId() + "'s match queue register logic  :" + result);
                                     if ("fail".equals(result)) {
@@ -60,11 +70,11 @@ public class MatchController {
                                             .body(new MessageEntity("Success", result));
                                 });
                     } else {
-                        return Mono.error(new RuntimeException("Membership ID already in the queue"));
+                        return Mono.error(new RuntimeException("MembershipId 이미 큐에 존재"));
                     }
                 })
                 .onErrorResume(error -> {
-                    log.error("An error occurred: {}", error.getMessage());
+                    log.error("Error queue: {}", error.getMessage());
                     return Mono.just(ResponseEntity.badRequest().body(new MessageEntity("Fail", error.getMessage())));
                 });
     }
@@ -92,7 +102,7 @@ public class MatchController {
                     return matchQueueService.cancelMatchQueue(membershipId)
                             .then(Mono.just(ResponseEntity.ok().body(new MessageEntity("Success", "All queues have been deleted."))))
                             .onErrorResume(error -> {
-                                log.error("Error occurred while cancelling match queues: {}", error.getMessage());
+                                log.error("Error queueCancel: {}", error.getMessage());
                                 return Mono.just(ResponseEntity.ok().body(new MessageEntity("Error", "Failed to cancel match queues.")));
                             });
     }
@@ -126,6 +136,31 @@ public class MatchController {
                                 else
                                     return ResponseEntity.ok().body(new MessageEntity("Fail", "Request is not correct."));
                             });
+    }
+
+    @PostMapping("/test/integration")
+    public Mono<ResponseEntity<MessageEntity>> requestIntegrationTest(@RequestParam(defaultValue = "10") int threads,
+                                                                      @RequestParam(defaultValue = "5") int requests){
+
+
+        AtomicLong memberIdGenerator = new AtomicLong(1);
+
+        return Flux.range(0, threads)
+                .flatMap(thread -> Flux.range(0, requests)
+                        .flatMap(request -> {
+                            Long memberId = memberIdGenerator.getAndIncrement();
+                            Long elo = 1200 + (long) (Math.random() * 500);
+                            String nickName = "test" + memberId;
+
+                            return matchQueueService.requestIntegrationTest(memberId, nickName, elo)
+                                    .doOnError(error -> log.error("Error requestIntegrationTest: " + error.getMessage()))
+                                    .retry(3)
+                                    .onErrorResume(error -> Mono.empty());
+                        }, 1)
+                )
+                .then(matchQueueService.getRequestCount()
+                        .map(requestCount -> ResponseEntity.ok(new MessageEntity("success", requestCount)))
+                );
     }
 }
 

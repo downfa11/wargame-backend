@@ -21,29 +21,116 @@ services:
       - MYSQL_USER=mysqluser
       - MYSQL_PASSWORD=mysqlpw
 
-  kafka:
+  kafka-0:
     image: bitnami/kafka:3.7.0
     restart: always
-    container_name: kafka
+    container_name: kafka-0
     ports:
-      - '9094:9094'
+      - '10000:9094'
     environment:
       - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=true
       # KRaft settings
-      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@kafka:9093
+      - KAFKA_CFG_BROKER_ID=0
       - KAFKA_CFG_NODE_ID=0
+      - KAFKA_KRAFT_CLUSTER_ID=kraft-cluster
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@kafka-0:9093,1@kafka-1:9093,2@kafka-2:9093
       - KAFKA_CFG_PROCESS_ROLES=controller,broker
       # Listeners
       - ALLOW_PLAINTEXT_LISTENER=yes
       - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094
-      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092,EXTERNAL://127.0.0.1:9094
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka-0:9092,EXTERNAL://127.0.0.1:10000
       - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT,PLAINTEXT:PLAINTEXT
       - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
       - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+      # Kafka Cluster settings
+      - KAFKA_CFG_OFFSETS_TOPIC_REPLICATION_FACTOR=3
+      - KAFKA_CFG_TRANSACTION_STATE_LOG_REPLICATION_FACTOR=3
+      - KAFKA_CFG_TRANSACTION_STATE_LOG_MIN_ISR=2
+      - KAFKA_CFG_DEFAULT_REPLICATION_FACTOR=3
+      - KAFKA_CFG_MIN_INSYNC_REPLICAS=2
+      - KAFKA_CFG_UNCLEAN_LEADER_ELECTION_ENABLE=false
+      - KAFKA_CFG_LOG_RETENTION_HOURS=168  # 메시지 보관 기간
+      - KAFKA_CFG_LOG_SEGMENT_BYTES=1073741824  # 세그먼트 크기
+      - KAFKA_CFG_LOG_RETENTION_BYTES=10737418240  # 총 로그 보관 용량
+      - KAFKA_CFG_SASL_ENABLED_MECHANISMS=PLAIN
+      - KAFKA_CFG_INTER_BROKER_PROTOCOL=SASL_PLAINTEXT
+      - KAFKA_CFG_SSL_PROTOCOL=TLSv1.2
     networks:
       - wargame_network
-    volumes:
-     - "kafka:/bitnami/kafka"
+
+  kafka-1:
+    image: bitnami/kafka:3.7.0
+    restart: always
+    container_name: kafka-1
+    ports:
+      - '10001:9094'
+    environment:
+      - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=true
+      # KRaft settings
+      - KAFKA_CFG_BROKER_ID=1
+      - KAFKA_CFG_NODE_ID=1
+      - KAFKA_KRAFT_CLUSTER_ID=kraft-cluster
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@kafka-0:9093,1@kafka-1:9093,2@kafka-2:9093
+      - KAFKA_CFG_PROCESS_ROLES=controller,broker
+      # Listeners
+      - ALLOW_PLAINTEXT_LISTENER=yes
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka-1:9092,EXTERNAL://127.0.0.1:10001
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+      # Kafka Cluster settings
+      - KAFKA_CFG_OFFSETS_TOPIC_REPLICATION_FACTOR=3
+      - KAFKA_CFG_TRANSACTION_STATE_LOG_REPLICATION_FACTOR=3
+      - KAFKA_CFG_TRANSACTION_STATE_LOG_MIN_ISR=2
+      - KAFKA_CFG_DEFAULT_REPLICATION_FACTOR=3
+      - KAFKA_CFG_MIN_INSYNC_REPLICAS=2
+      - KAFKA_CFG_UNCLEAN_LEADER_ELECTION_ENABLE=false
+      - KAFKA_CFG_LOG_RETENTION_HOURS=168  # 메시지 보관 기간
+      - KAFKA_CFG_LOG_SEGMENT_BYTES=1073741824  # 세그먼트 크기
+      - KAFKA_CFG_LOG_RETENTION_BYTES=10737418240  # 총 로그 보관 용량
+      - KAFKA_CFG_SASL_ENABLED_MECHANISMS=PLAIN
+      - KAFKA_CFG_INTER_BROKER_PROTOCOL=SASL_PLAINTEXT
+      - KAFKA_CFG_SSL_PROTOCOL=TLSv1.2
+    networks:
+      - wargame_network
+
+  kafka-2:
+    image: bitnami/kafka:3.7.0
+    restart: always
+    container_name: kafka-2
+    ports:
+      - '10002:9094'
+    environment:
+      - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=true
+      # KRaft settings
+      - KAFKA_CFG_BROKER_ID=2
+      - KAFKA_CFG_NODE_ID=2
+      - KAFKA_KRAFT_CLUSTER_ID=kraft-cluster
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@kafka-0:9093,1@kafka-1:9093,2@kafka-2:9093
+      - KAFKA_CFG_PROCESS_ROLES=controller,broker
+      # Listeners
+      - ALLOW_PLAINTEXT_LISTENER=yes
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka-2:9092,EXTERNAL://127.0.0.1:10002
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+      # Kafka Cluster settings
+      - KAFKA_CFG_OFFSETS_TOPIC_REPLICATION_FACTOR=3
+      - KAFKA_CFG_TRANSACTION_STATE_LOG_REPLICATION_FACTOR=3
+      - KAFKA_CFG_TRANSACTION_STATE_LOG_MIN_ISR=2
+      - KAFKA_CFG_DEFAULT_REPLICATION_FACTOR=3
+      - KAFKA_CFG_MIN_INSYNC_REPLICAS=2
+      - KAFKA_CFG_UNCLEAN_LEADER_ELECTION_ENABLE=false
+      - KAFKA_CFG_LOG_RETENTION_HOURS=168  # 메시지 보관 기간
+      - KAFKA_CFG_LOG_SEGMENT_BYTES=1073741824  # 세그먼트 크기
+      - KAFKA_CFG_LOG_RETENTION_BYTES=10737418240  # 총 로그 보관 용량
+      - KAFKA_CFG_SASL_ENABLED_MECHANISMS=PLAIN
+      - KAFKA_CFG_INTER_BROKER_PROTOCOL=SASL_PLAINTEXT
+      - KAFKA_CFG_SSL_PROTOCOL=TLSv1.2
+    networks:
+      - wargame_network
 
   kafka-ui:
     image: provectuslabs/kafka-ui
@@ -52,26 +139,13 @@ services:
     ports:
       - '8989:8080'
     environment:
-      - KAFKA_CLUSTERS_0_NAME=kraft-standAlone
-      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:9092
+      - KAFKA_CLUSTERS_0_NAME=kraft-cluster
+      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka-0:9092,kafka-1:9092,kafka-2:9092
       - DYNAMIC_CONFIG_ENABLED=true
       - KAFKA_CLUSTERS_0_AUDIT_TOPICAUDITENABLED=true
       - KAFKA_CLUSTERS_0_AUDIT_CONSOLEAUDITENABLED=true
     networks:
       - wargame_network
-
-  axon-server:
-    container_name: axon-server
-    image: axoniq/axonserver:latest-jdk-17-nonroot
-    networks:
-      - wargame_network
-    ports:
-      - "8024:8024"
-      - "8124:8124"
-    volumes:
-      - axonserver-data:/axonserver/data
-      - axonserver-events:/axonserver/events
-      - axonserver-config:/axonserver/config:ro
 
   redis:
     image: redis:6.2
@@ -96,52 +170,66 @@ services:
       - ./db/initdb.d:/docker-entrypoint-initdb.d
       - postgres:/var/lib/postgresql/data
       - ./postgres-schema.sql:/docker-entrypoint-initdb.d/postgres-init-schema.sql
-
-  elasticsearch:
-    image: elasticsearch:8.11.0
-    container_name: elasticsearch
-    networks:
-      - wargame_network
-    environment:
-      - node.name=elasticsearch
-      - discovery.type=single-node
-      - cluster.name=docker-cluster
-      - bootstrap.memory_lock=true
-      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
-      - xpack.security.enabled=false # false for dev
-    ulimits:
-      memlock:
-        soft: -1
-        hard: -1
-    volumes:
-      - elastic:/usr/share/elasticsearch/data
-    ports:
-      - "9300:9300"
-      - "9200:9200"
-
-  feed:
-    image: feed:latest
-    networks:
-      - wargame_network
-    ports:
-      - "8080:8080"
-    depends_on:
-      - postgres
-      - redis
-      - kafka
-    environment:
-      - SPRING_R2DBC_URL=r2dbc:postgresql://postgres:5432/wargame
-      - SPRING_R2DBC_USERNAME=postgresuser
-      - SPRING_R2DBC_PASSWORD=postgrespw
-      - KAFKA_CLUSTERS_BOOTSTRAPSERVERS=kafka:9092
-      - TASK_REQUEST_TOPIC=task.post.request
-      - TASK_RESPONSE_TOPIC=task.post.response
-      - TASK_REQUEST_CONSUMER_GROUP=post-request-consumer-group
-      - TASK_RESPONSE_CONSUMER_GROUP=post-response-consumer-group
-      - SPRING_DATA_REDIS_HOST=redis
-      - SPRING_DATA_REDIS_PORT=6379
-      - SPRING_DATA_REDIS_PASSWORD=1116
-      - SPRING_REDIS_REACTIVE_ENABLED=true
+#  axon-server:
+#    container_name: axon-server
+#    image: axoniq/axonserver:latest-jdk-17-nonroot
+#    networks:
+#      - wargame_network
+#    ports:
+#      - "8024:8024"
+#      - "8124:8124"
+#    volumes:
+#      - axonserver-data:/axonserver/data
+#      - axonserver-events:/axonserver/events
+#      - axonserver-config:/axonserver/config:ro
+#
+#  elasticsearch:
+#    image: elasticsearch:8.11.0
+#    container_name: elasticsearch
+#    networks:
+#      - wargame_network
+#    environment:
+#      - node.name=elasticsearch
+#      - discovery.type=single-node
+#      - cluster.name=docker-cluster
+#      - bootstrap.memory_lock=true
+#      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+#      - xpack.security.enabled=false # false for dev
+#    ulimits:
+#      memlock:
+#        soft: -1
+#        hard: -1
+#    volumes:
+#      - elastic:/usr/share/elasticsearch/data
+#    ports:
+#      - "9300:9300"
+#      - "9200:9200"
+#
+#  feed:
+#    image: feed:latest
+#    networks:
+#      - wargame_network
+#    ports:
+#      - "8080:8080"
+#    depends_on:
+#      - postgres
+#      - redis
+#      - kafka-0
+#      - kafka-1
+#      - kafka-2
+#    environment:
+#      - SPRING_R2DBC_URL=r2dbc:postgresql://postgres:5432/wargame
+#      - SPRING_R2DBC_USERNAME=postgresuser
+#      - SPRING_R2DBC_PASSWORD=postgrespw
+#      - KAFKA_CLUSTERS_BOOTSTRAPSERVERS=kafka-0:9092,kafka-1:9092,kafka-2:9092
+#      - TASK_REQUEST_TOPIC=task.post.request
+#      - TASK_RESPONSE_TOPIC=task.post.response
+#      - TASK_REQUEST_CONSUMER_GROUP=post-request-consumer-group
+#      - TASK_RESPONSE_CONSUMER_GROUP=post-response-consumer-group
+#      - SPRING_DATA_REDIS_HOST=redis
+#      - SPRING_DATA_REDIS_PORT=6379
+#      - SPRING_DATA_REDIS_PASSWORD=1116
+#      - SPRING_REDIS_REACTIVE_ENABLED=true
 
   match:
     image: match:latest
@@ -151,13 +239,13 @@ services:
       - "8081:8080"
     depends_on:
       - redis
-      - kafka
+      - kafka-0
+      - kafka-1
+      - kafka-2
     environment:
-      - KAFKA_CLUSTERS_BOOTSTRAPSERVERS=kafka:9092
+      - KAFKA_CLUSTERS_BOOTSTRAPSERVERS=kafka-0:9092,kafka-1:9092,kafka-2:9092
       - TASK_REQUEST_TOPIC=task.match.request
-      - TASK_RESPONSE_TOPIC=task.match.response
       - TASK_REQUEST_CONSUMER_GROUP=match-request-consumer-group
-      - TASK_RESPONSE_CONSUMER_GROUP=match-response-consumer-group
       - SPRING_DATA_REDIS_HOST=redis
       - SPRING_DATA_REDIS_PORT=6379
       - SPRING_DATA_REDIS_PASSWORD=1116
@@ -165,88 +253,122 @@ services:
       - WAITING_VALUE_MAXALLOW=3
       - SCHEDULER_ENABLED=true
       - SPRING_VAR_MATCHEXPIRETIME=3600
+      - SPRING_VAR_NICKNAMEEXPIRETIME=3600
 
 
-  membership:
-    image: membership:latest
-    networks:
-      - wargame_network
-    ports:
-      - "8082:8080"
-    depends_on:
-      - postgres
-      - kafka
-    environment:
-      - AXON_AXONSERVER_SERVERS=axon-server:8124
-      - AXON_SERIALIZER_EVENTS=jackson
-      - AXON_SERIALIZER_MESSAGES=jackson
-      - AXON_SERIALIZER_GENERAL=xstream
-      - SPRING_R2DBC_URL=r2dbc:postgresql://postgres:5432/wargame
-      - SPRING_R2DBC_USERNAME=postgresuser
-      - SPRING_R2DBC_PASSWORD=postgrespw
-      - KAFKA_CLUSTERS_BOOTSTRAPSERVERS=kafka:9092
-      - TASK_REQUEST_TOPIC=task.membership.request
-      - TASK_RESPONSE_TOPIC=task.membership.response
-      - TASK_REQUEST_CONSUMER_GROUP=membership-request-consumer-group
-      - TASK_RESPONSE_CONSUMER_GROUP=membership-response-consumer-group
-      - SPRING_CLOUD_VAULT_TOKEN=
-      - SPRING_CLOUD_VAULT_SCHEME=http
-      - SPRING_CLOUD_VAULT_HOST=
-      - SPRING_CLOUD_VAULT_PORT=8200
-      - SPRING_MAIL_HOST=smtp.gmail.com
-      - SPRING_MAIL_PORT=587
-      - SPRING_MAIL_USERNAME=
-      - SPRING_MAIL_PASSWORD=
-      - SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH=true
-      - SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE=true
-      - SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_REQUIRED=true
-      - SPRING_MAIL_PROPERTIES_MAIL_SMTP_CONNECTIONTIMEOUT=5000
-      - SPRING_MAIL_PROPERTIES_MAIL_SMTP_TIMEOUT=5000
-      - SPRING_MAIL_PROPERTIES_MAIL_SMTP_WRITETIMEOUT=5000
-      - SPRING_MAIL_AUTH_CODE_EXPIRATION_MILLIS=1800000
+#  membership:
+#    image: membership:latest
+#    networks:
+#      - wargame_network
+#    ports:
+#      - "8082:8080"
+#    depends_on:
+#      - postgres
+#      - axon-server
+#      - kafka-0
+#      - kafka-1
+#      - kafka-2
+#    environment:
+#      - AXON_AXONSERVER_SERVERS=axon-server:8124
+#      - AXON_SERIALIZER_EVENTS=jackson
+#      - AXON_SERIALIZER_MESSAGES=jackson
+#      - AXON_SERIALIZER_GENERAL=xstream
+#      - SPRING_R2DBC_URL=r2dbc:postgresql://postgres:5432/wargame
+#      - SPRING_R2DBC_USERNAME=postgresuser
+#      - SPRING_R2DBC_PASSWORD=postgrespw
+#      - KAFKA_CLUSTERS_BOOTSTRAPSERVERS=kafka-0:9092,kafka-1:9092,kafka-2:9092
+#      - TASK_REQUEST_TOPIC=task.membership.request
+#      - TASK_RESPONSE_TOPIC=task.membership.response
+#      - TASK_REQUEST_CONSUMER_GROUP=membership-request-consumer-group
+#      - TASK_RESPONSE_CONSUMER_GROUP=membership-response-consumer-group
+#      - SPRING_CLOUD_VAULT_TOKEN=
+#      - SPRING_CLOUD_VAULT_SCHEME=http
+#      - SPRING_CLOUD_VAULT_HOST=
+#      - SPRING_CLOUD_VAULT_PORT=8200
+#      - SPRING_MAIL_HOST=smtp.gmail.com
+#      - SPRING_MAIL_PORT=587
+#      - SPRING_MAIL_USERNAME=
+#      - SPRING_MAIL_PASSWORD=
+#      - SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH=true
+#      - SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE=true
+#      - SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_REQUIRED=true
+#      - SPRING_MAIL_PROPERTIES_MAIL_SMTP_CONNECTIONTIMEOUT=5000
+#      - SPRING_MAIL_PROPERTIES_MAIL_SMTP_TIMEOUT=5000
+#      - SPRING_MAIL_PROPERTIES_MAIL_SMTP_WRITETIMEOUT=5000
+#      - SPRING_MAIL_AUTH_CODE_EXPIRATION_MILLIS=1800000
+#
+#  result:
+#    image: result:latest
+#    networks:
+#      - wargame_network
+#    ports:
+#      - "8083:8080"
+#    depends_on:
+#      - elasticsearch
+#      - kafka-0
+#      - kafka-1
+#      - kafka-2
+#    environment:
+#      - KAFKA_CLUSTERS_BOOTSTRAPSERVERS=kafka-0:9092,kafka-1:9092,kafka-2:9092
+#      - TASK_REQUEST_TOPIC=task.result.request
+#      - TASK_RESPONSE_TOPIC=task.result.response
+#      - TASK_REQUEST_CONSUMER_GROUP=result-request-consumer-group
+#      - TASK_RESPONSE_CONSUMER_GROUP=result-response-consumer-group
+#      - EVENT_PRODUCE_TOPIC=event.result
+#      - SPRING_DATA_ELASTICSEARCH_CLIENT_REACTIVE_ENDPOINTS=elasticsearch:9200
+#      - SPRING_ELASTICSEARCH_REST_URIS=http://elasticsearch:9200
+#      - AWS_OS_ENDPOINT=
+#      - AWS_OS_ACCOUNT=
+#      - AWS_OS_PASSWORD=
+#
+#  result-query:
+#    image: result-query:latest
+#    networks:
+#      - wargame_network
+#    ports:
+#      - "8084:8080"
+#    depends_on:
+#      - kafka-0
+#      - kafka-1
+#      - kafka-2
+#    environment:
+#      - DYNAMODB_ACCESSKEY=
+#      - DYNAMODB_SECRETKEY=
+#      - KAFKA_CLUSTERS_BOOTSTRAPSERVERS=kafka-0:9092,kafka-1:9092,kafka-2:9092
+#      - EVENT_CONSUMER_TOPIC=event.result
+#      - EVENT_CONSUMER_GROUP=event-result-consumer-group
+#      - AXON_AXONSERVER_ENABLED=false
+#      - SPRING_R2DBC_URL=r2dbc:mysql://mysql:3306/wargame
+#      - SPRING_R2DBC_USERNAME=mysqluser
+#      - SPRING_R2DBC_PASSWORD=mysqlpw
 
-  result:
-    image: result:latest
-    networks:
-      - wargame_network
-    ports:
-      - "8083:8080"
-    depends_on:
-      - kafka
-      - elasticsearch
-    environment:
-      - KAFKA_CLUSTERS_BOOTSTRAPSERVERS=kafka:9092
-      - TASK_REQUEST_TOPIC=task.result.request
-      - TASK_RESPONSE_TOPIC=task.result.response
-      - TASK_REQUEST_CONSUMER_GROUP=result-request-consumer-group
-      - TASK_RESPONSE_CONSUMER_GROUP=result-response-consumer-group
-      - EVENT_PRODUCE_TOPIC=event.result
-      - SPRING_DATA_ELASTICSEARCH_CLIENT_REACTIVE_ENDPOINTS=elasticsearch:9200
-      - SPRING_ELASTICSEARCH_REST_URIS=http://elasticsearch:9200
 
-  result-query:
-    image: result-query:latest
-    networks:
-      - wargame_network
-    ports:
-      - "8084:8080"
-    depends_on:
-      - kafka
-    environment:
-      - DYNAMODB_ACCESSKEY=
-      - DYNAMODB_SECRETKEY=
-      - KAFKA_CLUSTERS_BOOTSTRAPSERVERS=kafka:9092
-      - EVENT_CONSUMER_TOPIC=event.result
-      - EVENT_CONSUMER_GROUP=event-result-consumer-group
-      - AXON_AXONSERVER_ENABLED=false
-      - SPRING_R2DBC_URL=r2dbc:mysql://mysql:3306/wargame
-      - SPRING_R2DBC_USERNAME=mysqluser
-      - SPRING_R2DBC_PASSWORD=mysqlpw
+#  prometheus:
+#    image: prom/prometheus
+#    networks:
+#      - wargame_network
+#    volumes:
+#      - ./prometheus/volume:/prometheus
+#      - ./prometheus/config:/etc/prometheus
+#    ports:
+#      - 9090:9090
+#    command:
+#      - '--config.file=/etc/prometheus/prometheus.yml'
+#    restart: always
+
+#  grafana:
+#    image: grafana/grafana
+#    networks:
+#      - wargame_network
+#    volumes:
+#      - ./grafana/volume:/var/lib/grafana
+#    ports:
+#      - 3090:3090
+#    restart: always
+#    user: root
+
 
 volumes:
-  kafka:
-    driver: local
-
   elastic:
     driver: local
 
@@ -273,30 +395,6 @@ volumes:
       o: bind
       type: none
       device: /axon-server-se/config
-
-#  prometheus:
-#    image: prom/prometheus
-#    networks:
-#      - wargame_network
-#    volumes:
-#      - ./prometheus/volume:/prometheus
-#      - ./prometheus/config:/etc/prometheus
-#    ports:
-#      - 9090:9090
-#    command:
-#      - '--config.file=/etc/prometheus/prometheus.yml'
-#    restart: always
-
-#  grafana:
-#    image: grafana/grafana
-#    networks:
-#      - wargame_network
-#    volumes:
-#      - ./grafana/volume:/var/lib/grafana
-#    ports:
-#      - 3090:3090
-#    restart: always
-#    user: root
 
 networks:
   wargame_network:

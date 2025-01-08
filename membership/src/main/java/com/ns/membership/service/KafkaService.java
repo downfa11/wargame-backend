@@ -34,19 +34,11 @@ public class KafkaService implements ApplicationRunner {
 
     private final ReactiveKafkaConsumerTemplate<String, Task> taskRequestConsumerTemplate;
     private final ReactiveKafkaConsumerTemplate<String, Task> taskResponseConsumerTemplate;
-    private final ReactiveKafkaProducerTemplate<String, Task> taskProducerTemplate;
 
-    private final ObjectMapper objectMapper;
-
-
+    private final TaskService taskService;
     private final UserService userService;
-    private ConcurrentHashMap<String, Task> taskResults = new ConcurrentHashMap<>();
-    private final int MAX_TASK_RESULT_SIZE = 5000;
 
-    public Mono<Void> sendTask(String topic, Task task){
-        return taskProducerTemplate.send(topic, task.getTaskID(), task)
-                .then();
-    }
+
 
     @Override
     public void run(ApplicationArguments args){
@@ -59,9 +51,8 @@ public class KafkaService implements ApplicationRunner {
                 .receiveAutoAck()
                 .doOnNext(r -> {
                     Task task = r.value();
-                    List<SubTask> subTasks = task.getSubTaskList();
 
-                    for(var subtask : subTasks){
+                    for(var subtask : task.getSubTaskList()){
                         mapSubTaskToMembership(task.getTaskID(), subtask);
                         log.info("TaskResponseConsumerTemplate received : "+subtask);
                     }
@@ -74,8 +65,8 @@ public class KafkaService implements ApplicationRunner {
         taskRequestConsumerTemplate
                 .receiveAutoAck()
                 .doOnNext(record -> {
-                    log.info("received: "+record);
-                    handleTaskRequest(record.value());
+                    log.info("received: "+record.value());
+                    taskService.handleTaskRequest(record.value());
                 })
                 .doOnError(e -> log.error("Error receiving: " + e))
                 .subscribe();
@@ -116,14 +107,6 @@ public class KafkaService implements ApplicationRunner {
         }
     }
 
-    private void handleTaskRequest(Task task){
-        if (taskResults.size() >= MAX_TASK_RESULT_SIZE) {
-            taskResults.clear();
-            log.info("taskResults cleared due to exceeding the maximum size.");
-        }
-
-        taskResults.put(task.getTaskID(), task);
-    }
 
     private void handleMatchUserName(String taskId, SubTask subtask) {
         Long membershipId = Long.parseLong(subtask.getMembershipId());
@@ -131,9 +114,9 @@ public class KafkaService implements ApplicationRunner {
         userService.getMembershipById(membershipId)
                 .flatMap(user -> {
                     List<SubTask> subTasks = createSubTaskListMatchUserNameByMembershipId(membershipId, user.getName());
-                    return sendTask("task.match.request", createTaskMatchUserNameByMembershipId(taskId, membershipId, subTasks));
+                    return taskService.sendTask("task.match.request", createTaskMatchUserNameByMembershipId(taskId, membershipId, subTasks));
                 })
-                .doOnError(e -> log.error("Error handling MatchUserName for membershipId {}: {}", membershipId, e.getMessage()))
+                .doOnError(e -> log.error("Error handleMatchUserName {}: {}", membershipId, e.getMessage()))
                 .subscribe();
     }
 
@@ -162,11 +145,11 @@ public class KafkaService implements ApplicationRunner {
         userService.getMembershipById(membershipId)
                 .flatMap(user -> {
                     List<SubTask> subTasks = createSubTaskListPostUserNameByMembershipId(membershipId, user.getName());
-                    return sendTask("task.post.request",
+                    return taskService.sendTask("task.post.request",
                             createTaskPostUserNameByMembershipId(taskId, membershipId, subTasks));
 
                 })
-                .doOnError(e -> log.error("Error handling MatchUserName for membershipId {}: {}", membershipId, e.getMessage()))
+                .doOnError(e -> log.error("Error handlePostUserName {}: {}", membershipId, e.getMessage()))
                 .subscribe();
     }
 
@@ -194,9 +177,9 @@ public class KafkaService implements ApplicationRunner {
         userService.getMembershipById(membershipId)
                 .flatMap(user -> {
                     List<SubTask> subTasks = createSubTaskListCommentUserNameByMembershipId(membershipId, user.getName());
-                    return sendTask("task.post.request", createTaskCommentUserNameByMembershipId(taskId, membershipId, subTasks));
+                    return taskService.sendTask("task.post.request", createTaskCommentUserNameByMembershipId(taskId, membershipId, subTasks));
                 })
-                .doOnError(e -> log.error("Error handling MatchUserName for membershipId {}: {}", membershipId, e.getMessage()))
+                .doOnError(e -> log.error("Error handleCommentUserName {}: {}", membershipId, e.getMessage()))
                 .subscribe();
     }
 
@@ -225,9 +208,9 @@ public class KafkaService implements ApplicationRunner {
         userService.getMembershipById(membershipId)
                 .flatMap(user -> {
                     List<SubTask> subTasks = createSubTaskListMatchUserResponseByMembershipId(user, membershipId);
-                    return sendTask("task.match.request",createTaskMatchUserResponseByMembershipId(taskId,membershipId,subTasks));
+                    return taskService.sendTask("task.match.request",createTaskMatchUserResponseByMembershipId(taskId,membershipId,subTasks));
                 })
-                .doOnError(e -> log.error("Error handling MatchUserName for membershipId {}: {}", membershipId, e.getMessage()))
+                .doOnError(e -> log.error("Error handleMatchUserResponse {}: {}", membershipId, e.getMessage()))
                 .subscribe();
     }
 
@@ -253,10 +236,11 @@ public class KafkaService implements ApplicationRunner {
 
         userService.getMembershipById(membershipId)
                 .flatMap(user -> {
-                    Boolean hasCode = user.getCode().equals("");
+                    Boolean hasCode = user.getCode().isBlank();
+                    log.info("hasCode: "+ hasCode);
                     List<SubTask> subTasks = createSubTaskListMatchUserHasCodeByMembershipId(membershipId, hasCode);
-                    return sendTask("task.match.request", createTaskMatchUserHasCodeByMembershipId(taskId, membershipId, subTasks));
-                });
+                    return taskService.sendTask("task.match.request", createTaskMatchUserHasCodeByMembershipId(taskId, membershipId, subTasks));
+                }).subscribe();
     }
 
     private Task createTaskMatchUserHasCodeByMembershipId(String taskId, Long membershipId, List<SubTask> subTasks){
@@ -281,7 +265,7 @@ public class KafkaService implements ApplicationRunner {
         String spaceId = String.valueOf(subtask.getData());
 
         userService.updateSpaceId(membershipId, spaceId)
-                .doOnError(e -> log.error("Error handling MatchUserCode for membershipId {}: {}", membershipId, e.getMessage()))
+                .doOnError(e -> log.error("Error handleMatchUserCode {}: {}", membershipId, e.getMessage()))
                 .subscribe();
     }
 
@@ -294,9 +278,9 @@ public class KafkaService implements ApplicationRunner {
                     List<SubTask> subTasks = createSubTaskListResultMembershipElo(membershipId, membershipEloRequest);
 
                     log.info("membershipEloRequest result : "+membershipEloRequest);
-                    return sendTask("task.result.request", createTaskMembershipEloRequest(taskId, membershipId, subTasks));
+                    return taskService.sendTask("task.result.request", createTaskMembershipEloRequest(taskId, membershipId, subTasks));
                 })
-                .doOnError(e -> log.error("Error handling handleResultMembershipElo for membershipId {}: {}", membershipId, e.getMessage()))
+                .doOnError(e -> log.error("Error handleResultMembershipElo {}: {}", membershipId, e.getMessage()))
                 .subscribe();
     }
 
@@ -327,14 +311,15 @@ public class KafkaService implements ApplicationRunner {
     private void handleResultUserEloUpdate(SubTask subtask) {
         Long membershipId = Long.parseLong(subtask.getMembershipId());
         Long updatedElo = (Long) subtask.getData();
-        userService.modifyMemberEloByEvent(String.valueOf(membershipId), updatedElo);
+        userService.modifyMemberEloByEvent(String.valueOf(membershipId), updatedElo)
+                .subscribe();
     }
 
     private void handleResultUserDodge(SubTask subtask) {
         Long membershipId = Long.parseLong(subtask.getMembershipId());
 
         userService.updateSpaceId(membershipId, "")
-                .doOnError(e -> log.error("Error handling ResultUserDodge for membershipId {}: {}", membershipId, e.getMessage()))
+                .doOnError(e -> log.error("Error handleResultUserDodge {}: {}", membershipId, e.getMessage()))
                 .subscribe();
     }
 
@@ -344,55 +329,6 @@ public class KafkaService implements ApplicationRunner {
                 .elo(user.getElo())
                 .name(user.getName())
                 .spaceCode(user.getCode()).build();
-    }
-
-    public Mono<List<PostSummary>> getUserPosts(Long membershipId) {
-        List<SubTask> subTasks = createSubTaskListPostByMembershipId(membershipId);
-        Task task = createTaskPostByMembershipId(membershipId, subTasks);
-
-        return sendTask("task.post.response",task)
-                .then(waitForUserPostsTaskResult(task.getTaskID())
-                        .subscribeOn(Schedulers.boundedElastic()));
-    }
-
-    private Task createTaskPostByMembershipId(Long membershipId, List<SubTask> subTasks){
-        return createTask(
-                "Post Response",
-                String.valueOf(membershipId),
-                subTasks);
-    }
-    private List<SubTask> createSubTaskListPostByMembershipId(Long membershipId){
-        List<SubTask> subTasks = new ArrayList<>();
-        subTasks.add(createSubPostByMembershipId(membershipId));
-
-        return subTasks;
-    }
-
-    private SubTask createSubPostByMembershipId(Long membershipId){
-        return createSubTask("PostByMembershipId",
-                        String.valueOf(membershipId),
-                        SubTask.TaskType.post,
-                        SubTask.TaskStatus.ready,
-                        membershipId);
-    }
-
-    private Mono<List<PostSummary>> waitForUserPostsTaskResult(String taskId) {
-        return Flux.interval(Duration.ofMillis(500))
-                        .map(tick -> taskResults.get(taskId))
-                        .filter(Objects::nonNull)
-                        .take(1)
-                        .map(this::convertToPostSummaries)
-                        .next()
-                        .timeout(Duration.ofSeconds(3))
-                        .switchIfEmpty(Mono.error(new RuntimeException("Timeout waitForUserPostsTaskResult for taskId " + taskId)));
-    }
-
-
-    private List<PostSummary> convertToPostSummaries(Task task) {
-        return task.getSubTaskList().stream()
-                .filter(subTaskItem -> subTaskItem.getStatus().equals(SubTask.TaskStatus.success))
-                .map(subTaskItem -> objectMapper.convertValue(subTaskItem.getData(), PostSummary.class))
-                .toList();
     }
 
 }
