@@ -69,9 +69,9 @@ jobs:
           cd helm-chart
           git config --local user.email "downfa11@naver.com"
           git config --local user.name "downfa11"
-          git checkout -b dev || git checkout dev
-          git pull origin dev
-          
           git add .
-          git commit -m "Update Helm charts for Canary deployment: Tag=${{ env.BUILD_ID }}"
-          git push origin dev
+          
+          git commit -m "Update Helm charts: Tag=${{ env.BUILD_ID }}"
+          current_branch=$(git branch --show-current)
+          git checkout -b ${{ env.HELM_BRANCH }} && git merge ${current_branch}
+          git push --force origin ${{ env.HELM_BRANCH }}
