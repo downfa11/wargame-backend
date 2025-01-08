@@ -1,4 +1,4 @@
-name: MSA deployment(Canary)
+name: MSA deployment (Canary)
 
 env:
   BUILD_ID: ${{ github.sha }}
@@ -6,19 +6,13 @@ env:
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
-    strategy:
-      matrix:
-        module: ["membership", "match", "result-query", "result", "feed"]
-        ecr_repository: ["downfa11/wargame_membership", "downfa11/wargame_match","downfa11/wargame_result_query","downfa11/wargame_result","downfa11/wargame_feed"]
-        helm_path: ["membership-chart", "match-chart", "result-query-chart", "result-chart", "feed-chart"]
 
     steps:
       - uses: actions/checkout@v4
@@ -37,14 +31,19 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build, tag, and push docker image to Amazon ECR
-        env:
-          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          REPOSITORY: ${{ matrix.ecr_repository }}
-          IMAGE_TAG: ${{ github.sha }}
+      - name: Build, tag, and push docker images to ECR
         run: |
-          envsubst < Dockerfile.template | docker build -t $REGISTRY/$REPOSITORY:$IMAGE_TAG -f - .
-          docker push $REGISTRY/$REPOSITORY:$IMAGE_TAG
+          modules=("membership" "match" "result-query" "result" "feed")
+          repositories=("downfa11/wargame_membership" "downfa11/wargame_match" "downfa11/wargame_result_query" "downfa11/wargame_result" "downfa11/wargame_feed")
+          
+          for i in ${!modules[@]}; do
+            MODULE=${modules[$i]}
+            REPOSITORY=${repositories[$i]}
+            IMAGE_TAG=${{ github.sha }}
+            
+            envsubst < Dockerfile.template | docker build -t $REGISTRY/$REPOSITORY:$IMAGE_TAG -f - .
+            docker push $REGISTRY/$REPOSITORY:$IMAGE_TAG
+          done
 
       - name: Checkout Helm Repository
         uses: actions/checkout@v3
@@ -56,14 +55,19 @@ jobs:
 
       - name: Update Helm values with new image tag
         run: |
-            yq -i ".image.tag = \"${{ env.BUILD_ID }}\"" helm-chart/${{matrix.helm_path}}/values-dev.yaml
+          charts=("membership-chart" "match-chart" "result-query-chart" "result-chart" "feed-chart")
+          
+          for i in ${!charts[@]}; do
+            CHART=${charts[$i]}
+            yq -i ".image.tag = \"${{ env.BUILD_ID }}\"" helm-chart/$CHART/values-dev.yaml
+          done
 
-      - name: Commit and Push HELM changes
+      - name: Commit and Push Helm changes
         run: |
           cd helm-chart
           git config --local user.email "downfa11@naver.com"
           git config --local user.name "downfa11"
           git checkout -b dev || git checkout dev
           git add .
-          git commit -m "Update Helm chart for Canary: Module=${{ matrix.module }}, Tag=${{ env.BUILD_ID }}"
-          git push origin ${{ env.HELM_BRANCH }}
+          git commit -m "Update Helm charts for Canary deployment: Tag=${{ env.BUILD_ID }}"
+          git push origin dev
