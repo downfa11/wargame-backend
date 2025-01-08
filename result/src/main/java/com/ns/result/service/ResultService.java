@@ -33,17 +33,18 @@ import reactor.core.scheduler.Schedulers;
 @Service
 @RequiredArgsConstructor
 public class ResultService{
-
     @Value("${event.produce.topic}")
     private String eventTopic;
 
+    private final ReactiveKafkaProducerTemplate<String, ResultRequestEvent> eventProducerTemplate;
+
     private final ResultRepository resultRepository;
     private final ReactiveKafkaProducerTemplate<String, Task> taskProducerTemplate;
-    private final ReactiveKafkaProducerTemplate<String, ResultRequestEvent> eventProducerTemplate;
     private final ObjectMapper objectMapper;
 
     private final EloService eloService;
     private final TaskService taskService;
+    private final OpenSearchService openSearchService;
 
     private final int RESULT_SEARCH_SIZE = 30;
 
@@ -163,14 +164,17 @@ public class ResultService{
 
     public Mono<Result> saveResult(ResultRequestEvent request) {
         Result document = mapToResultDocument(request);
-        return resultRepository.save(document)
-                .flatMap(savedResult -> eventProducerTemplate
-                        .send(eventTopic, "result-query", mapToResultReqeustEvent(savedResult))
-                        .doOnSuccess(senderResult -> log.info("ResultRequestEvent 발행됨. " + eventTopic))
-                        .doOnError(e -> log.error("메시지 전송 중 오류 발생: ", e))
-                        .thenReturn(savedResult));
+        return resultRepository.save(document) // todo. OpenSearchService.saveResult(document)
+                .doOnTerminate(() -> eventSend(document));
     }
 
+    public Mono<Result> eventSend(Result savedResult){
+        return eventProducerTemplate
+                .send(eventTopic, "result-query", mapToResultReqeustEvent(savedResult))
+                .doOnSuccess(senderResult -> log.info("ResultRequestEvent 발행됨. " + eventTopic))
+                .doOnError(e -> log.error("메시지 전송 중 오류 발생: ", e))
+                .thenReturn(savedResult);
+    }
 
     public Flux<Result> getGameResultsByName(String name, int offset) {
         return resultRepository.searchByUserName(name, RESULT_SEARCH_SIZE, offset);
