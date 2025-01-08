@@ -37,13 +37,13 @@ jobs:
         run: |
           modules=("membership" "match" "result-query" "result" "feed")
           repositories=("downfa11/wargame_membership" "downfa11/wargame_match" "downfa11/wargame_result_query" "downfa11/wargame_result" "downfa11/wargame_feed")
-          
+
           for i in ${!modules[@]}; do
             MODULE=${modules[$i]}
             REPOSITORY=${repositories[$i]}
             IMAGE_TAG=${{ github.sha }}
-            
-            envsubst < Dockerfile.template | docker build -t $REGISTRY/$REPOSITORY:$IMAGE_TAG -f - .
+
+            docker build --build-arg MODULE=$MODULE -t $REGISTRY/$REPOSITORY:$IMAGE_TAG .
             docker push $REGISTRY/$REPOSITORY:$IMAGE_TAG
           done
 
