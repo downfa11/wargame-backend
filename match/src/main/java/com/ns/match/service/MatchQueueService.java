@@ -13,10 +13,13 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.redisson.api.RLockReactive;
+import org.redisson.api.RedissonReactiveClient;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.data.redis.core.ScanOptions;
@@ -43,18 +46,19 @@ public class MatchQueueService {
     @Value("${spring.var.nicknameexpiretime:300}")
     private int nickNameExpireTime;
 
+    private final String MATCH_WAIT_KEY ="users:queue:%s:wait";
+    private final String MATCH_WAIT_KEY_FOR_SCAN ="users:queue:*:wait";
     public static final Long MAX_ALLOW_USER_COUNT = 10L;
+
 
     public static final ObjectMapper mapper = new ObjectMapper();
 
+    private final RedissonReactiveClient redissonReactiveClient;
 
     private final ReactiveRedisTemplate<String, String> reactiveRedisTemplate;
 
     private final KafkaService kafkaService;
     private final TaskService taskService;
-
-    private final String MATCH_WAIT_KEY ="users:queue:%s:wait";
-    private final String MATCH_WAIT_KEY_FOR_SCAN ="users:queue:*:wait";
 
 
     public enum MatchStatus {
@@ -64,9 +68,9 @@ public class MatchQueueService {
 
     public Mono<String> registerMatchQueue(final String queue, final Long userId) {
         String lockKey = "lock:" + queue;
-        String lockValue = UUID.randomUUID().toString();
+        RLockReactive lock = redissonReactiveClient.getLock(lockKey);
 
-        return acquireLock(lockKey,lockValue)
+        return acquireLock(lock)
                 .flatMap(locked -> {
                     if (!locked) {
                         return Mono.just("fail");
@@ -82,7 +86,7 @@ public class MatchQueueService {
                                 else return Mono.just("fail");
 
                             })
-                            .doFinally(signal -> releaseLock(lockKey, lockValue).subscribe());
+                            .doFinally(signal -> releaseLock(lock, locked).subscribe());
                 });
     }
 
@@ -167,26 +171,24 @@ public class MatchQueueService {
                 .flatMap(result -> reactiveRedisTemplate.expire(memberKey, Duration.ofSeconds(nickNameExpireTime)));
     }
 
-    public Mono<Boolean> acquireLock(String lockKey, String lockValue) {
-        return reactiveRedisTemplate.opsForValue().setIfAbsent(lockKey, lockValue, Duration.ofSeconds(10));
+    private Mono<Boolean> acquireLock(RLockReactive lock) {
+        return lock.tryLock(10, 30, TimeUnit.SECONDS);
     }
 
-    private Mono<Boolean> releaseLock(String lockKey, String lockValue) {
-        return reactiveRedisTemplate.opsForValue().get(lockKey)
-                .flatMap(currentValue -> {
-                    if (lockValue.equals(currentValue)) {
-                        return reactiveRedisTemplate.opsForValue().delete(lockKey).map(deleted -> deleted != null && deleted);
-                    }
-                    return Mono.just(false);
-                });
+    private Mono<Boolean> releaseLock(RLockReactive lock, boolean locked) {
+        if (locked) {
+            return Mono.fromRunnable(() -> lock.unlock()).thenReturn(true);
+        } else {
+            return Mono.just(false);
+        }
     }
 
 
     public Mono<Void> cancelMatchQueue(Long userId) {
         String lockKey = "lock:cancelMatchQueue:" + userId;
-        String lockValue = UUID.randomUUID().toString();
+        RLockReactive lock = redissonReactiveClient.getLock(lockKey);
 
-        return acquireLock(lockKey, lockValue)
+        return acquireLock(lock)
                 .flatMap(locked -> {
                     if (!locked) {
                         return Mono.error(new RuntimeException("Unable to acquire lock"));
@@ -194,8 +196,7 @@ public class MatchQueueService {
 
                     return getUserResponse(userId)
                             .flatMap(userResponse -> handleCancelMatchResponse(userResponse, userId))
-                            .doFinally(signal -> releaseLock(lockKey, lockValue)
-                                    .subscribe())
+                            .doFinally(signal -> releaseLock(lock, locked).subscribe())
                             .onErrorResume(e -> Mono.error(new RuntimeException("waitForMatchTaskResult error : ", e)));
                 });
     }
@@ -219,9 +220,9 @@ public class MatchQueueService {
     // 반복해서 매칭중인지 호출하는 로직
     public Mono<Long> getRank(final String queue, final Long userId) {
         String lockKey = "lock:getRank:" + userId;
-        String lockValue = UUID.randomUUID().toString();
+        RLockReactive lock = redissonReactiveClient.getLock(lockKey);
 
-        return acquireLock(lockKey, lockValue)
+        return acquireLock(lock)
                 .flatMap(locked -> {
                     if (!locked) {
                         return Mono.just(-1L); // 잠금 획득 실패 시 -1 반환
@@ -234,7 +235,7 @@ public class MatchQueueService {
                                 }
                                 return calculateRank(queue, nickname, userId);
                             })
-                            .doFinally(signal -> releaseLock(lockKey, lockValue).subscribe());
+                            .doFinally(signal -> releaseLock(lock, locked).subscribe());
                 })
                 .doOnError(error -> log.error("Error getRank: ", error));
     }
@@ -279,9 +280,9 @@ public class MatchQueueService {
     public Mono<Tuple2<MatchStatus, MatchResponse>> getMatchResponse(Long memberId) {
         String key = "matchInfo:" + memberId;
         String lockKey = "lock:getMatchResponse:" + memberId;
-        String lockValue = UUID.randomUUID().toString();
+        RLockReactive lock = redissonReactiveClient.getLock(lockKey);
 
-        return acquireLock(lockKey, lockValue)
+        return acquireLock(lock)
                 .flatMap(locked -> {
                     if (!locked) {
                         return Mono.error(new RuntimeException("Unable to acquire lock"));
@@ -289,8 +290,7 @@ public class MatchQueueService {
 
                     return handleMatchResponseFromQueue(key, memberId)
                             .switchIfEmpty(handleIfEmptyInQueue(memberId))
-                            .doFinally(signal -> releaseLock(lockKey, lockValue)
-                                    .subscribe());
+                            .doFinally(signal -> releaseLock(lock, locked).subscribe());
                 });
     }
 
@@ -348,9 +348,9 @@ public class MatchQueueService {
         }
 
         String lockKey = "lock:scheduleMatchUser";
-        String lockValue = UUID.randomUUID().toString();
+        RLockReactive lock = redissonReactiveClient.getLock(lockKey);
 
-        acquireLock(lockKey, lockValue)
+        acquireLock(lock)
                 .flatMap(locked -> {
                     if (!locked) {
                         log.info("already running");
@@ -365,9 +365,9 @@ public class MatchQueueService {
                             .map(this::extractQueueName)
                             .collectList()
                             .flatMap(this::processAllQueue)
-                            .then();
+                            .thenReturn(locked);
                 })
-                .doFinally(signal -> releaseLock(lockKey, lockValue).subscribe())
+                .flatMap(locked -> releaseLock(lock, locked))
                 .subscribe();
     }
 
