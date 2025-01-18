@@ -1,8 +1,8 @@
 package com.ns.match.controller;
 
 
-import com.ns.common.MessageEntity;
-import com.ns.common.Utils.JwtTokenProvider;
+import com.ns.common.utils.MessageEntity;
+import com.ns.common.utils.JwtTokenProvider;
 import com.ns.match.dto.MatchRequest;
 import com.ns.match.service.MatchQueueService;
 import java.util.concurrent.atomic.AtomicLong;

@@ -4,8 +4,8 @@ import static com.ns.resultquery.ResultQueryMapper.getAllTeamClientRequests;
 import static com.ns.resultquery.ResultQueryMapper.getMembershipResultEventDto;
 import static com.ns.resultquery.ResultQueryMapper.getResultEventDto;
 
-import com.ns.common.ClientRequest;
-import com.ns.common.ResultRequestEvent;
+import com.ns.common.dto.ClientRequest;
+import com.ns.common.events.ResultRequestEvent;
 import com.ns.resultquery.dto.MembershipResultEventDto;
 import com.ns.resultquery.dto.ResultEventDto;
 import com.ns.resultquery.service.ResultQueryService;
@@ -18,12 +18,8 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.kafka.core.reactive.ReactiveKafkaConsumerTemplate;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 @Slf4j
 @Component

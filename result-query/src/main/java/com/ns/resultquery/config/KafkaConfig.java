@@ -1,6 +1,6 @@
 package com.ns.resultquery.config;
 
-import com.ns.common.ResultRequestEvent;
+import com.ns.common.events.ResultRequestEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerConfig;

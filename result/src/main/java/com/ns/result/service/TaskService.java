@@ -1,6 +1,6 @@
 package com.ns.result.service;
 
-import com.ns.common.Task;
+import com.ns.common.task.Task;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

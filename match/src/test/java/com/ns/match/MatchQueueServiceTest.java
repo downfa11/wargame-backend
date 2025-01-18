@@ -4,7 +4,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
-import com.ns.common.Task;
 import com.ns.match.dto.MatchUserResponse;
 import com.ns.match.service.KafkaService;
 import com.ns.match.service.MatchQueueService;

@@ -1,31 +1,21 @@
 package com.ns.membership.service;
 
-import static com.ns.common.TaskUseCase.createSubTask;
-import static com.ns.common.TaskUseCase.createTask;
+import static com.ns.common.task.TaskUseCase.createSubTask;
+import static com.ns.common.task.TaskUseCase.createTask;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ns.common.MembershipEloRequest;
-import com.ns.common.SubTask;
-import com.ns.common.Task;
+import com.ns.common.dto.MembershipEloRequest;
+import com.ns.common.task.SubTask;
+import com.ns.common.task.Task;
 import com.ns.membership.entity.User;
 import com.ns.membership.entity.dto.MatchUserResponse;
-import com.ns.membership.entity.dto.PostSummary;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
-import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.kafka.core.reactive.ReactiveKafkaConsumerTemplate;
-import org.springframework.kafka.core.reactive.ReactiveKafkaProducerTemplate;
 import org.springframework.stereotype.Service;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
-import reactor.core.publisher.Sinks;
-import reactor.core.scheduler.Schedulers;
 
 @Slf4j
 @Service

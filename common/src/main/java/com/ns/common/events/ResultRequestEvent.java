@@ -1,5 +1,6 @@
-package com.ns.common;
+package com.ns.common.events;
 
+import com.ns.common.dto.ClientRequest;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

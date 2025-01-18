@@ -1,13 +1,13 @@
 package com.ns.membership.axon.aggregate;
 
 
-import com.ns.membership.axon.common.CreateMemberCommand;
-import com.ns.membership.axon.common.ModifyMemberCommand;
-import com.ns.membership.axon.common.ModifyMemberEloCommand;
+import com.ns.common.command.ModifyMemberEloCommand;
+import com.ns.common.events.ModifyMemberEloEvent;
+import com.ns.common.events.RollbackModifyMemberEloEvent;
+import com.ns.membership.axon.command.CreateMemberCommand;
+import com.ns.membership.axon.command.ModifyMemberCommand;
 import com.ns.membership.axon.event.CreateMemberEvent;
-import com.ns.membership.axon.event.ModifyMemberEloEvent;
 import com.ns.membership.axon.event.ModifyMemberEvent;
-import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,6 +30,8 @@ public class MemberAggregate {
     private String id;
 
     private Long membershipId;
+
+    private Long previousElo;
     private Long elo;
 
     private String account;
@@ -77,9 +79,14 @@ public class MemberAggregate {
     @EventSourcingHandler
     public void onModifyMemberEloEvent(ModifyMemberEloEvent event){
         log.info("ModifyMemberEloEvent Sourcing Handler");
+
+        previousElo = this.elo;
+
         id = event.getAggregateIdentifier();
         membershipId = Long.parseLong(event.getMembershipId());
         elo=event.getElo();
+
+        apply(new RollbackModifyMemberEloEvent(event.getAggregateIdentifier(), previousElo));
     }
 
 
@@ -94,5 +101,12 @@ public class MemberAggregate {
         password = event.getPassword();
         updatedAt = LocalDateTime.now();
     }
+
+    @EventSourcingHandler
+    public void onRollbackModifyMemberEloEvent(RollbackModifyMemberEloEvent event) {
+        log.info("Reverting Elo score for member: " + event.getAggregateIdentifier());
+        elo = event.getPreviousElo();
+    }
+
 }
 

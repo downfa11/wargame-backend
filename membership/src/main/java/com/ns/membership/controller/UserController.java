@@ -1,10 +1,9 @@
 package com.ns.membership.controller;
 
-import com.ns.common.MessageEntity;
-import com.ns.common.Utils.JwtTokenProvider;
+import com.ns.common.utils.MessageEntity;
+import com.ns.common.utils.JwtTokenProvider;
 import com.ns.membership.entity.User;
 import com.ns.membership.entity.dto.*;
-import com.ns.membership.service.KafkaService;
 import com.ns.membership.service.MailService;
 import com.ns.membership.service.UserService;
 import lombok.RequiredArgsConstructor;

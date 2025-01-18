@@ -2,8 +2,8 @@ package com.ns.match.service;
 
 import static com.ns.match.service.MatchQueueService.mapper;
 
-import com.ns.common.SubTask;
-import com.ns.common.Task;
+import com.ns.common.task.SubTask;
+import com.ns.common.task.Task;
 import com.ns.match.dto.MatchUserResponse;
 import java.time.Duration;
 import java.util.Objects;

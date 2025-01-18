@@ -1,6 +1,6 @@
 package com.ns.result;
 
-import com.ns.common.ResultRequestEvent;
+import com.ns.common.events.ResultRequestEvent;
 import com.ns.result.domain.entity.Result;
 import org.springframework.stereotype.Component;
 

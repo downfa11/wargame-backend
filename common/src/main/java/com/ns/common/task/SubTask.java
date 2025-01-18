@@ -1,4 +1,4 @@
-package com.ns.common;
+package com.ns.common.task;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

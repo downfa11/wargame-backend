@@ -1,7 +1,7 @@
 package com.ns.result.config;
 
-import com.ns.common.ResultRequestEvent;
-import com.ns.common.Task;
+import com.ns.common.events.ResultRequestEvent;
+import com.ns.common.task.Task;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerConfig;

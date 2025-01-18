@@ -1,18 +1,17 @@
 package com.ns.membership.service;
 
 
-import static com.ns.common.TaskUseCase.createSubTask;
-import static com.ns.common.TaskUseCase.createTask;
+import static com.ns.common.task.TaskUseCase.createSubTask;
+import static com.ns.common.task.TaskUseCase.createTask;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ns.common.SubTask;
-import com.ns.common.Task;
-import com.ns.common.Utils.JwtToken;
-import com.ns.common.Utils.JwtTokenProvider;
-import com.ns.membership.Utils.VaultAdapter;
-import com.ns.membership.axon.common.CreateMemberCommand;
-import com.ns.membership.axon.common.ModifyMemberCommand;
-import com.ns.membership.axon.common.ModifyMemberEloCommand;
+import com.ns.common.command.ModifyMemberEloCommand;
+import com.ns.common.task.SubTask;
+import com.ns.common.task.Task;
+import com.ns.common.utils.JwtToken;
+import com.ns.common.utils.JwtTokenProvider;
+import com.ns.membership.axon.command.CreateMemberCommand;
+import com.ns.membership.axon.command.ModifyMemberCommand;
 import com.ns.membership.entity.User;
 import com.ns.membership.entity.dto.PostSummary;
 import com.ns.membership.entity.dto.UserCreateRequest;
@@ -42,7 +41,7 @@ public class UserService{
     private final UserR2dbcRepository userRepository;
     private final JwtTokenProvider jwtTokenProvider;
     private final ObjectMapper objectMapper;
-    private final VaultAdapter vaultAdapter;
+    // private final VaultAdapter vaultAdapter;
 
     public Mono<User> getMembershipById(Long membershipId){
         return userRepository.findById(membershipId);

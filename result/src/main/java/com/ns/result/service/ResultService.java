@@ -1,17 +1,17 @@
 package com.ns.result.service;
 
 
-import static com.ns.common.TaskUseCase.createSubTask;
-import static com.ns.common.TaskUseCase.createTask;
+import static com.ns.common.task.TaskUseCase.createSubTask;
+import static com.ns.common.task.TaskUseCase.createTask;
 import static com.ns.result.ResultMapper.mapToResultDocument;
 import static com.ns.result.ResultMapper.mapToResultReqeustEvent;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ns.common.ClientRequest;
-import com.ns.common.MembershipEloRequest;
-import com.ns.common.ResultRequestEvent;
-import com.ns.common.SubTask;
-import com.ns.common.Task;
+import com.ns.common.dto.ClientRequest;
+import com.ns.common.dto.MembershipEloRequest;
+import com.ns.common.events.ResultRequestEvent;
+import com.ns.common.task.SubTask;
+import com.ns.common.task.Task;
 import com.ns.result.domain.entity.Result;
 import com.ns.result.repository.ResultRepository;
 import java.time.Duration;

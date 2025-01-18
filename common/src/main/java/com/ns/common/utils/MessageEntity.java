@@ -1,4 +1,4 @@
-package com.ns.common;
+package com.ns.common.utils;
 
 import lombok.Data;
 

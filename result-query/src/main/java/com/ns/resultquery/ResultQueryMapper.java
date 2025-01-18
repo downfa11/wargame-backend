@@ -1,7 +1,7 @@
 package com.ns.resultquery;
 
-import com.ns.common.ClientRequest;
-import com.ns.common.ResultRequestEvent;
+import com.ns.common.dto.ClientRequest;
+import com.ns.common.events.ResultRequestEvent;
 import com.ns.resultquery.dto.MembershipResultEventDto;
 import com.ns.resultquery.dto.ResultEventDto;
 import com.ns.resultquery.repository.ChampRepository;

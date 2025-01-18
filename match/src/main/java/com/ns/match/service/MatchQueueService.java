@@ -1,12 +1,12 @@
 package com.ns.match.service;
 
-import static com.ns.common.TaskUseCase.createSubTask;
-import static com.ns.common.TaskUseCase.createTask;
+import static com.ns.common.task.TaskUseCase.createSubTask;
+import static com.ns.common.task.TaskUseCase.createTask;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ns.common.SubTask;
-import com.ns.common.Task;
+import com.ns.common.task.SubTask;
+import com.ns.common.task.Task;
 import com.ns.match.dto.MatchResponse;
 import com.ns.match.dto.MatchUserResponse;
 import java.time.Duration;
@@ -177,10 +177,11 @@ public class MatchQueueService {
 
     private Mono<Boolean> releaseLock(RLockReactive lock, boolean locked) {
         if (locked) {
-            return Mono.fromRunnable(() -> lock.unlock()).thenReturn(true);
-        } else {
-            return Mono.just(false);
+            return Mono.fromRunnable(() -> lock.unlock())
+                    .thenReturn(true);
         }
+
+        return Mono.just(false);
     }
 
 

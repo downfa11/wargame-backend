@@ -1,10 +1,10 @@
 package com.ns.result.service;
 
-import com.ns.common.ClientRequest;
-import com.ns.common.ResultRequestEvent;
-import com.ns.common.SubTask;
-import com.ns.common.Task;
-import com.ns.common.TaskUseCase;
+import com.ns.common.dto.ClientRequest;
+import com.ns.common.events.ResultRequestEvent;
+import com.ns.common.task.SubTask;
+import com.ns.common.task.Task;
+import com.ns.common.task.TaskUseCase;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;

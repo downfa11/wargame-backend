@@ -1,7 +1,7 @@
 package com.ns.membership.service;
 
 
-import com.ns.common.Task;
+import com.ns.common.task.Task;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

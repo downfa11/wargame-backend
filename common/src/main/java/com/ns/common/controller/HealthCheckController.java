@@ -1,4 +1,4 @@
-package com.ns.common;
+package com.ns.common.controller;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

@@ -1,23 +1,19 @@
 package com.ns.result.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ns.common.MembershipEloRequest;
-import com.ns.common.ResultRequestEvent;
-import com.ns.common.SubTask;
-import com.ns.common.Task;
-import java.time.Duration;
+import com.ns.common.events.ResultRequestEvent;
+import com.ns.common.task.SubTask;
+import com.ns.common.task.Task;
+import com.ns.result.axon.GameFinishedCommand;
 import java.util.List;
-import java.util.Objects;
-import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.axonframework.commandhandling.gateway.CommandGateway;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.kafka.core.reactive.ReactiveKafkaConsumerTemplate;
 import org.springframework.stereotype.Service;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
 
 @Slf4j
 @Service
@@ -31,7 +27,7 @@ public class KafkaService implements ApplicationRunner {
     private final DodgeService dodgeService;
     private final ObjectMapper objectMapper;
 
-
+    private final CommandGateway commandGateway;
 
     @Override
     public void run(ApplicationArguments args){
@@ -70,20 +66,13 @@ public class KafkaService implements ApplicationRunner {
     public void mapReceivedResultSubTask(SubTask subtask){
             ResultRequestEvent result = objectMapper.convertValue(subtask.getData(), ResultRequestEvent.class);
 
-            if ("success".equals(result.getState())) {
-                resultService.updateElo(result)
-                            .doOnSuccess(resultId -> log.info("Updated Elo : " + resultId))
-                        .then(resultService.saveResult(result)
-                                .doOnSuccess(savedResult -> log.info("Result saved: " + savedResult)))
-                        .subscribe();
+            GameFinishedCommand axonCommand = new GameFinishedCommand(result);
 
-            } else if ("dodge".equals(result.getState())) {
-                dodgeService.dodge(result)
-                        .doOnSuccess(dodgedResult -> log.info("Result dodged: " + dodgedResult))
-                        .subscribe();
-            } else {
-                log.warn("Unknown state: " + result.getState());
-            }
+            Mono.fromFuture(() -> commandGateway.send(axonCommand))
+                    .doOnSuccess(success -> log.info("GameFinishedCommand sent successfully: " + success))
+                    .doOnError(throwable -> log.error("Failed to send GameFinishedCommand: " + throwable))
+                    .then().subscribe();
+
     }
 
     private void doTaskRequestConsumerTemplate(){

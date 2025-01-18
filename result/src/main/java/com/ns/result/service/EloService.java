@@ -1,9 +1,8 @@
 package com.ns.result.service;
 
-import com.ns.common.MembershipEloRequest;
+import com.ns.common.dto.MembershipEloRequest;
 import java.util.List;
 import org.springframework.stereotype.Service;
-import reactor.core.publisher.Mono;
 
 @Service
 public class EloService {

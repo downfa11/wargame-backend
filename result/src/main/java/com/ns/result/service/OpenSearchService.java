@@ -1,9 +1,6 @@
 package com.ns.result.service;
 
-import static com.ns.result.ResultMapper.mapToResultDocument;
-
 import com.fasterxml.jackson.databind.JsonNode;
-import com.ns.common.ResultRequestEvent;
 import com.ns.result.domain.dto.SearchRequestTemplate;
 import com.ns.result.domain.entity.Result;
 import java.time.LocalDateTime;
