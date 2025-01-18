@@ -1,7 +1,7 @@
 package com.ns.feed.service;
 
-import com.ns.common.SubTask;
-import com.ns.common.Task;
+import com.ns.common.task.SubTask;
+import com.ns.common.task.Task;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.ApplicationArguments;

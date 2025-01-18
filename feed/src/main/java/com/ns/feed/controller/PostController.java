@@ -1,8 +1,8 @@
 package com.ns.feed.controller;
 
 
-import com.ns.common.MessageEntity;
-import com.ns.common.Utils.JwtTokenProvider;
+import com.ns.common.utils.MessageEntity;
+import com.ns.common.utils.JwtTokenProvider;
 import com.ns.feed.entity.dto.PostModifyRequest;
 import com.ns.feed.entity.dto.PostRegisterRequest;
 import com.ns.feed.entity.dto.PostResponse;

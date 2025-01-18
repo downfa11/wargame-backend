@@ -1,12 +1,14 @@
 package com.ns.feed.service;
 
 
-import static com.ns.common.TaskUseCase.createSubTask;
-import static com.ns.common.TaskUseCase.createTask;
+import static com.ns.common.task.TaskUseCase.createSubTask;
+import static com.ns.common.task.TaskUseCase.createTask;
 
-import com.ns.common.SubTask;
-import com.ns.common.Task;
+import com.ns.common.task.SubTask;
+import com.ns.common.task.Task;
 import com.ns.feed.entity.Post;
+import com.ns.feed.entity.dto.Banner;
+import com.ns.feed.entity.dto.BannerListWrapper;
 import com.ns.feed.entity.dto.PostModifyRequest;
 import com.ns.feed.entity.dto.PostRegisterRequest;
 import com.ns.feed.entity.dto.PostResponse;
@@ -24,6 +26,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
+import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.kafka.core.reactive.ReactiveKafkaProducerTemplate;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
@@ -41,33 +44,33 @@ public class PostService {
 
     private final ReactiveRedisTemplate<String, String> reactiveRedisTemplate;
     private final ReactiveRedisTemplate<String, Long> reactiveRedisTemplate_long;
-    private final String BOARD_LIKES_KEY ="boards:likes:%s";
-    private final String BOARD_VIEWS_KEY ="boards:views:%s";
+    private final String BOARD_LIKES_KEY = "boards:likes:%s";
+    private final String BOARD_VIEWS_KEY = "boards:views:%s";
 
     private final PostR2dbcRepository postR2dbcRepository;
 
     private final TaskService taskService;
     private final CommentService commentService;
     private final CategoryService categoryService;
+    private final ImageService imageService;
 
 
-    public Mono<Void> sendTask(String topic, Task task){
-        log.info("send ["+topic+"]: "+task.toString());
+    public Mono<Void> sendTask(String topic, Task task) {
+        log.info("send [" + topic + "]: " + task.toString());
         String key = task.getTaskID();
         return taskProducerTemplate.send(topic, key, task).then();
     }
 
-    public Mono<Post> create(Long userId, PostRegisterRequest request){
+    public Mono<Post> create(Long userId, PostRegisterRequest request) {
         long categoryId = request.getCategoryId();
 
         return categoryService.findById(categoryId)
                 .switchIfEmpty(Mono.error(new RuntimeException(NOT_FOUND_CATEGORY_ERROR_MESSAGE)))
                 .flatMap(category -> getUserNameByPost(userId)
-                        .flatMap(userName -> postR2dbcRepository.save(createPost(request, userId, userName))
-                ));
+                        .flatMap(userName -> postR2dbcRepository.save(createPost(request, userId, userName))));
     }
 
-    private Post createPost(PostRegisterRequest request, Long userId, String userName){
+    private Post createPost(PostRegisterRequest request, Long userId, String userName) {
         return Post.builder()
                 .userId(userId)
                 .nickname(userName)
@@ -81,36 +84,36 @@ public class PostService {
                 .build();
     }
 
-    public Mono<Post> modify(PostModifyRequest request){
+    public Mono<Post> modify(PostModifyRequest request) {
         long boardId = request.getBoardId();
         return postR2dbcRepository.findById(boardId)
                 .switchIfEmpty(Mono.error(new RuntimeException(NOT_FOUND_POST_ERROR_MESSAGE)))
                 .flatMap(post -> getUserNameByPost(post.getUserId())
                         .flatMap(nickname -> categoryService.findById(request.getCategoryId())
                                 .switchIfEmpty(Mono.error(new RuntimeException(NOT_FOUND_CATEGORY_ERROR_MESSAGE)))
-                        .flatMap(category -> {
-                            post.setCategoryId(request.getCategoryId());
-                            post.setNickname(nickname);
-                            post.setSortStatus(request.getSortStatus());
-                            post.setTitle(request.getTitle());
-                            post.setContent(request.getContent());
-                            post.setEventStartDate(request.getEventStartDate());
-                            post.setEventEndDate(request.getEventEndDate());
-                            return postR2dbcRepository.save(post);
-                        }))
-                );
+                                .flatMap(category -> {
+                                    post.setCategoryId(request.getCategoryId());
+                                    post.setNickname(nickname);
+                                    post.setSortStatus(request.getSortStatus());
+                                    post.setTitle(request.getTitle());
+                                    post.setContent(request.getContent());
+                                    post.setEventStartDate(request.getEventStartDate());
+                                    post.setEventEndDate(request.getEventEndDate());
+                                    return postR2dbcRepository.save(post);
+                                })
+                        ));
 
     }
 
-    public Flux<Post> findAll(){
+    public Flux<Post> findAll() {
         return postR2dbcRepository.findAll();
     }
 
     public Mono<Page<PostSummary>> findPostAllPagination(Long categoryId, PageRequest pageRequest) {
         Mono<List<PostSummary>> postsMono = postR2dbcRepository.findAllByCategoryId(categoryId, pageRequest)
                 .flatMap(post -> getPostViews(post.getId())
-                                .flatMap(views -> getLikesCount(post.getId())
-                                        .map(likes -> updatePostSummary(post, views, likes)))
+                        .flatMap(views -> getLikesCount(post.getId())
+                                .map(likes -> updatePostSummary(post, views, likes)))
                 ).collectList();
 
         Mono<Long> countMono = postR2dbcRepository.countByCategoryId(categoryId);
@@ -119,14 +122,14 @@ public class PostService {
                 .map(tuple -> new PageImpl<>(tuple.getT1(), pageRequest, tuple.getT2()));
     }
 
-    private PostSummary updatePostSummary(Post post, Long views, Long likes){
+    private PostSummary updatePostSummary(Post post, Long views, Long likes) {
         PostSummary summary = PostSummary.of(post);
         summary.setViews(views);
         summary.setLikes(likes);
         return summary;
     }
 
-    public Mono<PostResponse> findPostResponseById(Long membershipId){
+    public Mono<PostResponse> findPostResponseById(Long membershipId) {
         return postR2dbcRepository.findById(membershipId)
                 .flatMap(post -> incrPostViews(membershipId)
                         .flatMap(views -> getLikesCount(membershipId)
@@ -135,7 +138,7 @@ public class PostService {
                 .flatMap(this::fetchCommentsForPost);
     }
 
-    public Mono<PostResponse> updatePostResponseById(Long membershipId){
+    public Mono<PostResponse> updatePostResponseById(Long membershipId) {
         return postR2dbcRepository.findById(membershipId)
                 .flatMap(post -> getPostViews(membershipId)
                         .flatMap(views -> getLikesCount(membershipId)
@@ -144,24 +147,24 @@ public class PostService {
                 .flatMap(this::fetchCommentsForPost);
     }
 
-    private PostResponse updatePostResponse(Post post, Long views, Long likes){
+    private PostResponse updatePostResponse(Post post, Long views, Long likes) {
         PostResponse response = PostResponse.of(post);
         response.setViews(views);
         response.setLikes(likes);
         return response;
     }
 
-    public Mono<Post> findPostById(Long id){
+    public Mono<Post> findPostById(Long id) {
         return postR2dbcRepository.findById(id);
     }
 
-    public Mono<Long> incrPostViews(Long boardId){
-         return reactiveRedisTemplate_long.opsForValue()
-                 .increment(BOARD_VIEWS_KEY.formatted(boardId))
-                 .switchIfEmpty(Mono.just(0L));
+    public Mono<Long> incrPostViews(Long boardId) {
+        return reactiveRedisTemplate_long.opsForValue()
+                .increment(BOARD_VIEWS_KEY.formatted(boardId))
+                .switchIfEmpty(Mono.just(0L));
     }
 
-    public Mono<Long> getPostViews(Long boardId){
+    public Mono<Long> getPostViews(Long boardId) {
         return reactiveRedisTemplate_long.opsForValue()
                 .get(BOARD_VIEWS_KEY.formatted(boardId))
                 .switchIfEmpty(Mono.just(0L));
@@ -191,21 +194,22 @@ public class PostService {
                 .doOnSuccess(posts -> {
                     if (posts.isEmpty()) {
                         log.warn("No posts found {}", membershipId);
+                    } else {
+                        log.info("success findAllByUserId");
                     }
-                    else log.info("success findAllByUserId");
                 });
     }
 
     public Mono<Void> deleteById(Long boardId) {
         return postR2dbcRepository.findById(boardId)
-                        .switchIfEmpty(Mono.error(new RuntimeException(NOT_FOUND_POST_ERROR_MESSAGE)))
-                        .flatMap(post ->{
-                                // redis에 기록된 조회수도 지워야한다.
-                                reactiveRedisTemplate_long.unlink(BOARD_VIEWS_KEY.formatted(boardId));
-                                reactiveRedisTemplate.unlink(BOARD_LIKES_KEY.formatted(boardId));
-                                return commentService.deleteByBoardId(boardId)
-                                        .then(postR2dbcRepository.deleteById(boardId));
-                        });
+                .switchIfEmpty(Mono.error(new RuntimeException(NOT_FOUND_POST_ERROR_MESSAGE)))
+                .flatMap(post -> {
+                    // redis에 기록된 조회수도 지워야한다.
+                    reactiveRedisTemplate_long.unlink(BOARD_VIEWS_KEY.formatted(boardId));
+                    reactiveRedisTemplate.unlink(BOARD_LIKES_KEY.formatted(boardId));
+                    return commentService.deleteByBoardId(boardId)
+                            .then(postR2dbcRepository.deleteById(boardId));
+                });
     }
 
     // 해당 사용자는 좋아요를 눌렀는가?
@@ -248,24 +252,24 @@ public class PostService {
         List<SubTask> subTasks = createSubTaskListPostUserNameByMembershipId(membershipId);
         Task task = createTaskGetUserName(membershipId, subTasks);
 
-        return sendTask("task.membership.response",task)
+        return sendTask("task.membership.response", task)
                 .then(waitForGetUserNameTaskFeed(task.getTaskID())
                         .subscribeOn(Schedulers.boundedElastic()));
     }
 
-    private Task createTaskGetUserName(Long membershipId, List<SubTask> subTasks){
+    private Task createTaskGetUserName(Long membershipId, List<SubTask> subTasks) {
         return createTask("Post Response", String.valueOf(membershipId), subTasks);
     }
 
-    private List<SubTask> createSubTaskListPostUserNameByMembershipId(Long membershipId){
+    private List<SubTask> createSubTaskListPostUserNameByMembershipId(Long membershipId) {
         List<SubTask> subTasks = new ArrayList<>();
         subTasks.add(createSubTaskPostUserNameByMembershipId(membershipId));
 
         return subTasks;
     }
 
-    private SubTask createSubTaskPostUserNameByMembershipId(Long membershipId){
-        return  createSubTask("PostUserNameByMembershipId",
+    private SubTask createSubTaskPostUserNameByMembershipId(Long membershipId) {
+        return createSubTask("PostUserNameByMembershipId",
                 String.valueOf(membershipId),
                 SubTask.TaskType.post,
                 SubTask.TaskStatus.ready,
@@ -281,13 +285,13 @@ public class PostService {
                 .flatMap(subTasks -> sendPostByMembershipIdTask(taskId, membershipId, subTasks));
     }
 
-    private Mono<List<SubTask>> createSubTaskPostSummaryList(List<PostSummary> posts){
+    private Mono<List<SubTask>> createSubTaskPostSummaryList(List<PostSummary> posts) {
         return Flux.fromIterable(posts)
                 .map(this::createSubTaskPostSummary)
                 .collectList();
     }
 
-    private SubTask createSubTaskPostSummary(PostSummary postSummary){
+    private SubTask createSubTaskPostSummary(PostSummary postSummary) {
         return createSubTask("PostSummary",
                 String.valueOf(postSummary.getId()),
                 SubTask.TaskType.post,
@@ -295,30 +299,43 @@ public class PostService {
                 postSummary);
     }
 
-    private Mono<Void> sendPostByMembershipIdTask(String taskId, String membershipId, List<SubTask> subTasks){
-        return sendTask("task.membership.request",
-                createTask(taskId,
-                        "Post Response",
-                        membershipId,
-                        subTasks));
+    private Mono<Void> sendPostByMembershipIdTask(String taskId, String membershipId, List<SubTask> subTasks) {
+        return sendTask("task.membership.request", createTask(taskId, "Post Response", membershipId, subTasks));
     }
 
-    public Mono<List<PostResponse>> findLatestAnnounces(Integer count){
+    public Mono<BannerListWrapper> findLatestAnnounces(Integer count) {
         return postR2dbcRepository.findLatestAnnounces(count)
+                .flatMap(post -> imageService.findImageUrlsById(post.getId())
+                        .map(imageUrls -> PostResponse.of(post, imageUrls)))
                 .collectList()
                 .map(posts -> posts.stream()
-                        .map(PostResponse::of)
-                        .collect(Collectors.toList()));
+                        .map(post -> createBanner(post.getTitle(), generatePostUrl(post.getId()), post.getFirstImageUrl()))
+                        .collect(Collectors.toList()))
+                .map(banners -> new BannerListWrapper(banners));
     }
 
-    public Mono<List<PostResponse>> findInProgressEvents(){
+    public Mono<BannerListWrapper> findInProgressEvents() {
         return postR2dbcRepository.findInProgressEvents(LocalDateTime.now())
+                .flatMap(post -> imageService.findImageUrlsById(post.getId())
+                        .map(imageUrls -> PostResponse.of(post, imageUrls)))
                 .collectList()
                 .map(posts -> posts.stream()
-                        .map(PostResponse::of)
-                        .collect(Collectors.toList()));
+                        .map(post -> createBanner(post.getTitle(), generatePostUrl(post.getId()), post.getFirstImageUrl()))
+                        .collect(Collectors.toList()))
+                .map(banners -> new BannerListWrapper(banners));
     }
 
+    private Banner createBanner(String name, String url, String imageUrl) {
+        return Banner.builder()
+                .name(name)
+                .url(url)
+                .imageUrl(imageUrl)
+                .build();
+    }
+
+    private String generatePostUrl(Long postId) {
+        return String.format("/v1/posts/%d", postId);
+    }
 
     private Mono<String> waitForGetUserNameTaskFeed(String taskId) {
         return Flux.interval(Duration.ofMillis(500))
@@ -331,6 +348,7 @@ public class PostService {
                 })
                 .next()
                 .timeout(Duration.ofSeconds(3))
-                .switchIfEmpty(Mono.error(new RuntimeException("Timeout waitForGetUserNameTaskFeed for taskId " + taskId)));
+                .switchIfEmpty(
+                        Mono.error(new RuntimeException("Timeout waitForGetUserNameTaskFeed for taskId " + taskId)));
     }
 }

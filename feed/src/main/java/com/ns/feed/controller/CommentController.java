@@ -1,7 +1,7 @@
 package com.ns.feed.controller;
 
-import com.ns.common.MessageEntity;
-import com.ns.common.Utils.JwtTokenProvider;
+import com.ns.common.utils.MessageEntity;
+import com.ns.common.utils.JwtTokenProvider;
 import com.ns.feed.entity.dto.CommentModifyRequest;
 import com.ns.feed.entity.dto.CommentRegisterRequest;
 import com.ns.feed.service.CommentService;

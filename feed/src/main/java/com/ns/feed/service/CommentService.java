@@ -1,11 +1,11 @@
 package com.ns.feed.service;
 
 
-import static com.ns.common.TaskUseCase.createSubTask;
-import static com.ns.common.TaskUseCase.createTask;
+import static com.ns.common.task.TaskUseCase.createSubTask;
+import static com.ns.common.task.TaskUseCase.createTask;
 
-import com.ns.common.SubTask;
-import com.ns.common.Task;
+import com.ns.common.task.SubTask;
+import com.ns.common.task.Task;
 import com.ns.feed.entity.Comment;
 import com.ns.feed.entity.Post;
 import com.ns.feed.entity.dto.CommentModifyRequest;
