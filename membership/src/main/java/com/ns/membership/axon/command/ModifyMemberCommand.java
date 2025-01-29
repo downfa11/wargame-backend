@@ -1,4 +1,4 @@
-package com.ns.membership.axon.common;
+package com.ns.membership.axon.command;
 
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;

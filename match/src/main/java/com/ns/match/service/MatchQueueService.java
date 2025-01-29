@@ -341,7 +341,7 @@ public class MatchQueueService {
                 });
     }
 
-    @Scheduled(initialDelay = 3000, fixedDelay = 1000)
+    @Scheduled(initialDelay = 3000, fixedDelay = 3000)
     public void scheduleMatchUser() {
         if (!scheduling) {
             log.info("passed scheduling..");

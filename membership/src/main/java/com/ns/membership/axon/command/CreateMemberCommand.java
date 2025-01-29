@@ -1,4 +1,4 @@
-package com.ns.membership.axon.common;
+package com.ns.membership.axon.command;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
