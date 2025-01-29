@@ -30,10 +30,11 @@ public class KafkaService implements ApplicationRunner {
 
     private void doTaskRequestConsumerTemplate(){
         this.TaskRequestConsumerTemplate
-                .receiveAutoAck()
+                .receive()
                 .doOnNext(record -> {
                     log.info("received: "+record.value());
                     taskService.handleTaskRequest(record.value());
+                    record.receiverOffset().acknowledge();
                 })
                 .doOnError(e -> log.error("Error doTaskRequestConsumerTemplate: " + e))
                 .subscribe();

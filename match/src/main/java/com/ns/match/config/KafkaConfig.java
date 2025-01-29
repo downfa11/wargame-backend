@@ -48,9 +48,7 @@ public class KafkaConfig {
         producerProps.put(ProducerConfig.RETRIES_CONFIG, 3); // default = 0
         producerProps.put(ProducerConfig.RETRY_BACKOFF_MS_CONFIG, 100); // retry interval
 
-        return new ReactiveKafkaProducerTemplate<>(
-                SenderOptions.create(producerProps)
-        );
+        return new ReactiveKafkaProducerTemplate<>(SenderOptions.create(producerProps));
     }
 
     @Bean

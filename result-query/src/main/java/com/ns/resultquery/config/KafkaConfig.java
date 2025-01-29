@@ -41,6 +41,7 @@ public class KafkaConfig {
         consumerProps.put(JsonDeserializer.VALUE_DEFAULT_TYPE, ResultRequestEvent.class.getName());
         consumerProps.put(ConsumerConfig.GROUP_ID_CONFIG, eventConsumerGroup);
         consumerProps.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest");
+        consumerProps.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
 
         ReceiverOptions<String, ResultRequestEvent> receiverOptions = ReceiverOptions.<String, ResultRequestEvent>create(consumerProps)
                 .subscription(Collections.singleton(eventTopic));

@@ -56,10 +56,11 @@ public class GameResultEventHandler implements ApplicationRunner {
     @Override
     public void run(ApplicationArguments args){
         this.reactiveKafkaConsumerTemplate
-                .receiveAutoAck()
+                .receive()
                 .doOnNext(r -> {
                     eventGateway.publish(r.value());
                     log.info("ResultRequestEvent publish to eventGateway");
+                    r.receiverOffset().acknowledge();
                 })
                 .doOnError(e -> log.error("Error receiving: " + e))
                 .subscribe();

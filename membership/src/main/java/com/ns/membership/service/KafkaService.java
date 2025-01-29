@@ -38,7 +38,7 @@ public class KafkaService implements ApplicationRunner {
 
     private void doTaskResponseConsumerTemplate(){
          taskResponseConsumerTemplate
-                .receiveAutoAck()
+                .receive()
                 .doOnNext(r -> {
                     Task task = r.value();
 
@@ -46,6 +46,7 @@ public class KafkaService implements ApplicationRunner {
                         mapSubTaskToMembership(task.getTaskID(), subtask);
                         log.info("TaskResponseConsumerTemplate received : "+subtask);
                     }
+                    r.receiverOffset().acknowledge();
                 })
                 .doOnError(e -> log.error("Error receiving: " + e))
                 .subscribe();
@@ -53,10 +54,11 @@ public class KafkaService implements ApplicationRunner {
 
     private void doTaskRequestConsumerTemplate(){
         taskRequestConsumerTemplate
-                .receiveAutoAck()
+                .receive()
                 .doOnNext(record -> {
                     log.info("received: "+record.value());
                     taskService.handleTaskRequest(record.value());
+                    record.receiverOffset().acknowledge();
                 })
                 .doOnError(e -> log.error("Error receiving: " + e))
                 .subscribe();
