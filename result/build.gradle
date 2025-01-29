@@ -51,6 +51,13 @@ dependencies {
 
     // httpclient5
     implementation 'org.apache.httpcomponents.client5:httpclient5:5.3.1'
+
+    //Axon Framework
+    implementation group: 'org.axonframework', name: 'axon-configuration', version: "$axonVersion"
+    implementation group: 'org.axonframework', name: 'axon-spring-boot-starter', version: "$axonVersion"
+
+    //redis
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis-reactive'
 }
 
 tasks.named('bootBuildImage') {

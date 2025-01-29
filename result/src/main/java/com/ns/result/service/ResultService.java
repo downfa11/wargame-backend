@@ -23,6 +23,7 @@ import java.util.Random;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.kafka.core.reactive.ReactiveKafkaProducerTemplate;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
@@ -32,11 +33,12 @@ import reactor.core.scheduler.Schedulers;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class ResultService{
+public class ResultService {
     @Value("${event.produce.topic}")
     private String eventTopic;
 
     private final ReactiveKafkaProducerTemplate<String, ResultRequestEvent> eventProducerTemplate;
+    private final ReactiveRedisTemplate<String, String> reactiveRedisTemplate;
 
     private final ResultRepository resultRepository;
     private final ReactiveKafkaProducerTemplate<String, Task> taskProducerTemplate;
@@ -46,11 +48,12 @@ public class ResultService{
     private final TaskService taskService;
     private final OpenSearchService openSearchService;
 
+
     private final int RESULT_SEARCH_SIZE = 30;
 
 
-    public Mono<Void> sendTask(String topic, Task task){
-        log.info("send ["+topic+"]: "+task.toString());
+    public Mono<Void> sendTask(String topic, Task task) {
+        log.info("send [" + topic + "]: " + task.toString());
         String key = task.getTaskID();
         return taskProducerTemplate.send(topic, key, task).then();
     }
@@ -60,37 +63,40 @@ public class ResultService{
         List<ClientRequest> redTeams = resultRequest.getRedTeams();
 
         // requestMemberElo의 리스트를 통해 membershipId,elo 형태로 membership-service로부터 요청을 받는다.
-        return Mono.zip(requestMembershipElos(blueTeams),  requestMembershipElos(redTeams))
+        return Mono.zip(requestMembershipElos(blueTeams), requestMembershipElos(redTeams))
                 .flatMap(tuple -> {
                     List<MembershipEloRequest> blueEloRequests = tuple.getT1();
                     List<MembershipEloRequest> redEloRequests = tuple.getT2();
 
-                    log.info("[test] blue MembershipEloRequest : "+ blueEloRequests);
-                    log.info("[test] red MembershipEloRequest : "+ redEloRequests);
+                    log.info("[test] blue MembershipEloRequest : " + blueEloRequests);
+                    log.info("[test] red MembershipEloRequest : " + redEloRequests);
 
                     // 받은 내용을 가지고, 각 팀 별로 TeamElo를 계산한다.
                     Long blueTeamEloSum = eloService.calcTeamEloSum(blueEloRequests);
                     Long redTeamEloSum = eloService.calcTeamEloSum(redEloRequests);
 
-                    log.info("[test] 각 팀별 EloSum(blue, red) : "+ blueTeamEloSum+", "+redTeamEloSum);
+                    log.info("[test] 각 팀별 EloSum(blue, red) : " + blueTeamEloSum + ", " + redTeamEloSum);
 
                     boolean isWin = resultRequest.getWinTeam().equalsIgnoreCase("blue"); //todo. blue 문자열로 받았었나? 치맨가;;;
 
                     // TeamElo를 통해 승패에 따른 Elo 점수 변동값을 연산한다.
-                    List<MembershipEloRequest> blueTeamNewEloRequests = eloService.updateTeamElo(blueEloRequests, redTeamEloSum, isWin);
-                    List<MembershipEloRequest> redTeamNewEloRequests = eloService.updateTeamElo(redEloRequests, blueTeamEloSum, !isWin);
+                    List<MembershipEloRequest> blueTeamNewEloRequests = eloService.updateTeamElo(blueEloRequests,
+                            redTeamEloSum, isWin);
+                    List<MembershipEloRequest> redTeamNewEloRequests = eloService.updateTeamElo(redEloRequests,
+                            blueTeamEloSum, !isWin);
 
                     // 각 membershipId,newElo 를 requestMemberElo 형태로 membership-service에 다시 전달한다.
                     return updateMembershipEloRequest(blueTeamNewEloRequests, redTeamNewEloRequests);
                 });
     }
 
-    private Mono<Void> updateMembershipEloRequest(List<MembershipEloRequest> blueTeamNewEloRequests, List<MembershipEloRequest> redTeamNewEloRequests){
+    private Mono<Void> updateMembershipEloRequest(List<MembershipEloRequest> blueTeamNewEloRequests,
+                                                  List<MembershipEloRequest> redTeamNewEloRequests) {
         List<MembershipEloRequest> combinedNewEloRequests = new ArrayList<>();
         combinedNewEloRequests.addAll(blueTeamNewEloRequests);
         combinedNewEloRequests.addAll(redTeamNewEloRequests);
 
-        log.info("[test] 최종 combinedNewEloRequests : "+ combinedNewEloRequests);
+        log.info("[test] 최종 combinedNewEloRequests : " + combinedNewEloRequests);
 
         return sendTask("task.membership.response",
                 sendMembershipNewEloRequests(combinedNewEloRequests));
@@ -98,7 +104,7 @@ public class ResultService{
 
 
     // requestMemberElo의 리스트를 통해 membershipId,elo 형태로 membership-service로부터 요청을 받는다.
-    private Mono<List<MembershipEloRequest>> requestMembershipElos(List<ClientRequest> teams){
+    private Mono<List<MembershipEloRequest>> requestMembershipElos(List<ClientRequest> teams) {
         Task task = createTask("Result Response",
                 null,
                 mapTeamMembershipElos(teams));
@@ -116,25 +122,26 @@ public class ResultService{
                 .map(task -> convertToMembershipEloRequest(task))
                 .next()
                 .timeout(Duration.ofSeconds(3))
-                .switchIfEmpty(Mono.error(new RuntimeException("Timeout waitForMembershipEloTaskResult for taskId " + taskId)));
+                .switchIfEmpty(Mono.error(
+                        new RuntimeException("Timeout waitForMembershipEloTaskResult for taskId " + taskId)));
 
     }
 
-    private List<MembershipEloRequest> convertToMembershipEloRequest(Task task){
+    private List<MembershipEloRequest> convertToMembershipEloRequest(Task task) {
         return task.getSubTaskList().stream()
                 .filter(subTaskItem -> subTaskItem.getStatus().equals(SubTask.TaskStatus.success))
                 .map(subTaskItem -> objectMapper.convertValue(subTaskItem.getData(), MembershipEloRequest.class))
                 .toList();
     }
 
-    private List<SubTask> mapTeamMembershipElos(List<ClientRequest> teams){
+    private List<SubTask> mapTeamMembershipElos(List<ClientRequest> teams) {
         return teams.stream()
                 .map(ClientRequest::getMembershipId)
                 .map(this::createRequestMembershipEloSubTask)
                 .toList();
     }
 
-    private SubTask createRequestMembershipEloSubTask(Long membershipId){
+    private SubTask createRequestMembershipEloSubTask(Long membershipId) {
         return createSubTask(
                 "RequestMembershipElo",
                 String.valueOf(membershipId),
@@ -153,7 +160,7 @@ public class ResultService{
                         .toList());
     }
 
-    private SubTask createSubTaskEloUpdate(MembershipEloRequest membershipEloRequest){
+    private SubTask createSubTaskEloUpdate(MembershipEloRequest membershipEloRequest) {
         return createSubTask("Elo Update",
                 String.valueOf(membershipEloRequest.getMembershipId()),
                 SubTask.TaskType.membership,
@@ -168,7 +175,7 @@ public class ResultService{
                 .doOnTerminate(() -> eventSend(document));
     }
 
-    public Mono<Result> eventSend(Result savedResult){
+    public Mono<Result> eventSend(Result savedResult) {
         return eventProducerTemplate
                 .send(eventTopic, "result-query", mapToResultReqeustEvent(savedResult))
                 .doOnSuccess(senderResult -> log.info("ResultRequestEvent 발행됨. " + eventTopic))
@@ -177,14 +184,47 @@ public class ResultService{
     }
 
     public Flux<Result> getGameResultsByName(String name, int offset) {
-        return resultRepository.searchByUserName(name, RESULT_SEARCH_SIZE, offset);
+        String key = "results:" + name;
+
+        return reactiveRedisTemplate.opsForList().range(key, offset, offset + RESULT_SEARCH_SIZE - 1)
+                .map(this::convertJsonToResult)
+                .switchIfEmpty(Flux.defer(() -> resultRepository.searchByUserName(name, RESULT_SEARCH_SIZE, offset)
+                            .flatMap(result -> {
+                                log.info("없어서 조회하고 캐싱한거임.");
+                                String resultJson = convertResultToJson(result);
+                                return reactiveRedisTemplate.opsForList().rightPush(key, resultJson).thenReturn(result);
+                            })
+                            .doOnTerminate(() -> {
+                                reactiveRedisTemplate.expire(key, Duration.ofHours(1)).subscribe(); // 전적 결과 TTL 1hour
+                            })));
     }
+
+    private String convertResultToJson(Result result) {
+        try {
+            ObjectMapper objectMapper = new ObjectMapper();
+            return objectMapper.writeValueAsString(result);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    public Result convertJsonToResult(String json) {
+        try {
+            ObjectMapper objectMapper = new ObjectMapper();
+            return objectMapper.readValue(json, Result.class);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
 
     public Flux<Result> getGameResultsByMembershipId(Long membershipId, int offset) {
         return resultRepository.searchByMembershipId(membershipId, RESULT_SEARCH_SIZE, offset);
     }
 
-    public Flux<Result> getResultList(){
+    public Flux<Result> getResultList() {
         return resultRepository.findAll();
     }
 
