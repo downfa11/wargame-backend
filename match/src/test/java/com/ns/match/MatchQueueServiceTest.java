@@ -4,9 +4,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
-import com.ns.match.dto.MatchUserResponse;
-import com.ns.match.service.KafkaService;
-import com.ns.match.service.MatchQueueService;
+import com.ns.match.application.service.MatchUserResponse;
+import com.ns.match.adapter.in.kafka.KafkaService;
+import com.ns.match.application.service.MatchQueueService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

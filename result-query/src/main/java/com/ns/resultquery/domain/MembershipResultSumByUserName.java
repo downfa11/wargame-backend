@@ -1,6 +1,6 @@
 package com.ns.resultquery.domain;
 
-import com.ns.resultquery.axon.query.ChampStat;
+import com.ns.resultquery.adapter.axon.query.ChampStat;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
