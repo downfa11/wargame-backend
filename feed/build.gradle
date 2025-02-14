@@ -71,4 +71,9 @@ docker {
     buildArgs(['JAR_FILE':tasks.bootJar.outputs.files.singleFile.name])
 }
 
+test {
+    useJUnitPlatform()
+}
+
+
 tasks.register("prepareKotlinBuildScriptModel"){}

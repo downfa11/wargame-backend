@@ -2,6 +2,11 @@ package com.ns.feed.adapter.in.web;
 
 import com.ns.common.utils.MessageEntity;
 import com.ns.common.utils.JwtTokenProvider;
+import com.ns.feed.application.port.in.comment.DeleteCommentUseCase;
+import com.ns.feed.application.port.in.comment.FindCommentUseCase;
+import com.ns.feed.application.port.in.comment.ModifyCommentUseCase;
+import com.ns.feed.application.port.in.comment.RegisterCommentUseCase;
+import com.ns.feed.application.port.out.comment.DeleteCommentPort;
 import com.ns.feed.dto.CommentModifyRequest;
 import com.ns.feed.dto.CommentRegisterRequest;
 import com.ns.feed.application.service.CommentService;
@@ -23,11 +28,17 @@ public class CommentController {
     private final String UNABLE_TO_MODIFY_COMMENT_ERROR_MESSAGE = "Unable to modify the comment.";
 
 
-    private final CommentService commentService;
+    private final RegisterCommentUseCase registerCommentUseCase;
+    private final ModifyCommentUseCase modifyCommentUseCase;
+    private final DeleteCommentUseCase deleteCommentUseCase;
+    private final FindCommentUseCase findCommentUseCase;
+
     private final JwtTokenProvider jwtTokenProvider;
 
     @PostMapping("")
-    public Mono<ResponseEntity<MessageEntity>> createComment(@RequestParam Long membershipId, @RequestBody CommentRegisterRequest request, ServerWebExchange exchange) {
+    public Mono<ResponseEntity<MessageEntity>> createComment(@RequestParam Long membershipId,
+                                                             @RequestBody CommentRegisterRequest request,
+                                                             ServerWebExchange exchange) {
 //        return jwtTokenProvider.getMembershipIdByToken(exchange)
 //                .flatMap(membershipId -> {
 //                    if (membershipId == 0) {
@@ -39,13 +50,15 @@ public class CommentController {
 //                })
 //                .onErrorResume(e -> Mono.just(ResponseEntity.ok().body(new MessageEntity("Fail", "JwtToken is Invalid."))));
 
-        return commentService.create(membershipId, request)
-                            .map(comment -> ResponseEntity.ok().body(new MessageEntity("Success", comment)))
-                            .defaultIfEmpty(ResponseEntity.ok().body(new MessageEntity("Fail", POST_RESULT_EMPTY_ERROR_MESSAGE)));
+        return registerCommentUseCase.create(membershipId, request)
+                .map(comment -> ResponseEntity.ok().body(new MessageEntity("Success", comment)))
+                .defaultIfEmpty(ResponseEntity.ok().body(new MessageEntity("Fail", POST_RESULT_EMPTY_ERROR_MESSAGE)));
     }
 
     @PatchMapping("")
-    public Mono<ResponseEntity<MessageEntity>> modifyComment(@RequestParam Long membershipId, @RequestBody CommentModifyRequest request, ServerWebExchange exchange) {
+    public Mono<ResponseEntity<MessageEntity>> modifyComment(@RequestParam Long membershipId,
+                                                             @RequestBody CommentModifyRequest request,
+                                                             ServerWebExchange exchange) {
 //        return jwtTokenProvider.getMembershipIdByToken(exchange)
 //                .flatMap(membershipId -> {
 //                    if (membershipId == 0)
@@ -62,20 +75,16 @@ public class CommentController {
 //                            });
 //                })
 //                .defaultIfEmpty(ResponseEntity.ok().body(new MessageEntity("Fail", "Comment not found.")));
-                    return commentService.findById(request.getCommentId())
-                            .flatMap(comment -> {
-                                if (!comment.getUserId().equals(membershipId))
-                                    return Mono.just(ResponseEntity.ok().body(new MessageEntity("Fail", UNAUTHORIZED_MODIFY_COMMENT_ERROR_MESSAGE)));
-
-                                return commentService.modify(request)
-                                        .map(updatedComment -> ResponseEntity.ok().body(new MessageEntity("Success", updatedComment)))
-                                        .defaultIfEmpty(ResponseEntity.ok().body(new MessageEntity("Fail", UNABLE_TO_MODIFY_COMMENT_ERROR_MESSAGE)));
-                            }).defaultIfEmpty(ResponseEntity.ok().body(new MessageEntity("Fail", NOT_FOUND_COMMENT_ERROR_MESSAGE)));
+        return modifyCommentUseCase.modify(membershipId, request)
+                .map(updatedComment -> ResponseEntity.ok().body(new MessageEntity("Success", updatedComment)))
+                .defaultIfEmpty(
+                        ResponseEntity.ok().body(new MessageEntity("Fail", UNABLE_TO_MODIFY_COMMENT_ERROR_MESSAGE)))
+                .defaultIfEmpty(ResponseEntity.ok().body(new MessageEntity("Fail", NOT_FOUND_COMMENT_ERROR_MESSAGE)));
 
     }
 
-    @GetMapping("/{id}")
-    public Mono<ResponseEntity<MessageEntity>> findCommentById(@PathVariable Long id, ServerWebExchange exchange) {
+    @GetMapping("/{commentId}")
+    public Mono<ResponseEntity<MessageEntity>> findCommentById(@PathVariable Long commentId, ServerWebExchange exchange) {
 
 //        return jwtTokenProvider.getMembershipIdByToken(exchange)
 //                .flatMap(membershipId -> {
@@ -87,13 +96,14 @@ public class CommentController {
 //                            .map(comment -> ResponseEntity.ok().body(new MessageEntity("Success", comment)))
 //                            .defaultIfEmpty(ResponseEntity.ok().body(new MessageEntity("Fail", "Comment is empty.")));
 //                });
-                    return commentService.findById(id)
-                            .map(comment -> ResponseEntity.ok().body(new MessageEntity("Success", comment)))
-                            .defaultIfEmpty(ResponseEntity.ok().body(new MessageEntity("Fail", POST_RESULT_EMPTY_ERROR_MESSAGE)));
+        return findCommentUseCase.findByCommentId(commentId)
+                .map(comment -> ResponseEntity.ok().body(new MessageEntity("Success", comment)))
+                .defaultIfEmpty(ResponseEntity.ok().body(new MessageEntity("Fail", POST_RESULT_EMPTY_ERROR_MESSAGE)));
     }
 
     @DeleteMapping("/{commentId}")
-    public Mono<ResponseEntity<MessageEntity>> deleteComment(@RequestParam Long membershipId, @PathVariable Long commentId, ServerWebExchange exchange) {
+    public Mono<ResponseEntity<MessageEntity>> deleteComment(@RequestParam Long membershipId,
+                                                             @PathVariable Long commentId, ServerWebExchange exchange) {
 
 //        return jwtTokenProvider.getMembershipIdByToken(exchange)
 //                .flatMap(membershipId -> {
@@ -113,15 +123,9 @@ public class CommentController {
 //                .map(deleted-> ResponseEntity.ok().body(new MessageEntity("Success", commentId)));
 //
 //    }
-                    return commentService.findById(commentId)
-                            .flatMap(comment ->
-                            {
-                                if (!comment.getUserId().equals(membershipId))
-                                    return Mono.just(ResponseEntity.ok().body(new MessageEntity("Fail", UNAUTHORIZED_DELETE_COMMENT_ERROR_MESSAGE)));
-
-                                return commentService.deleteByCommentId(commentId)
-                                        .then(Mono.just(ResponseEntity.ok().body(new MessageEntity("Success", commentId))));
-                            }).map(deleted-> ResponseEntity.ok().body(new MessageEntity("Success", commentId)));
+        return deleteCommentUseCase.delete(commentId)
+                .then(Mono.just(ResponseEntity.ok().body(new MessageEntity("Success", commentId))))
+                .map(deleted -> ResponseEntity.ok().body(new MessageEntity("Success", commentId)));
 
 
     }

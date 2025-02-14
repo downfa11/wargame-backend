@@ -1,167 +1,97 @@
 package com.ns.feed.application.service;
 
 
-import static com.ns.common.task.TaskUseCase.createSubTask;
-import static com.ns.common.task.TaskUseCase.createTask;
+import static com.ns.feed.exception.ErrorCode.NOT_FOUND_COMMENT_ERROR_MESSAGE;
+import static com.ns.feed.exception.ErrorCode.NOT_FOUND_POST_ERROR_MESSAGE;
 
-import com.ns.common.task.SubTask;
-import com.ns.common.task.Task;
-import com.ns.feed.adapter.out.kafka.TaskService;
-import com.ns.feed.adapter.out.persistence.Comment;
-import com.ns.feed.adapter.out.persistence.Post;
+import com.ns.common.anotation.UseCase;
+import com.ns.feed.adapter.out.persistence.comment.Comment;
+import com.ns.feed.adapter.out.persistence.post.Post;
+import com.ns.feed.application.port.in.comment.DeleteCommentUseCase;
+import com.ns.feed.application.port.in.comment.FindCommentUseCase;
+import com.ns.feed.application.port.in.comment.ModifyCommentUseCase;
+import com.ns.feed.application.port.in.comment.RegisterCommentUseCase;
+import com.ns.feed.application.port.out.TaskProducerPort;
+import com.ns.feed.application.port.out.comment.DeleteCommentPort;
+import com.ns.feed.application.port.out.comment.FindCommentPort;
+import com.ns.feed.application.port.out.comment.ModifyCommentPort;
+import com.ns.feed.application.port.out.comment.RegisterCommentPort;
+import com.ns.feed.application.port.out.post.FindPostPort;
+import com.ns.feed.application.port.out.post.ModifyPostPort;
 import com.ns.feed.dto.CommentModifyRequest;
 import com.ns.feed.dto.CommentRegisterRequest;
 import com.ns.feed.dto.CommentResponse;
-import com.ns.feed.adapter.out.persistence.CommentR2dbcRepository;
-import com.ns.feed.adapter.out.persistence.PostR2dbcRepository;
-import java.time.Duration;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
+import com.ns.feed.exception.FeedException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
 
 
-@Service
+@UseCase
 @Slf4j
 @RequiredArgsConstructor
-public class CommentService {
-    private final String NOT_FOUND_COMMENT_ERROR_MESSAGE = "Comment not found";
-    private final String NOT_FOUND_POST_ERROR_MESSAGE = "Post not found";
+public class CommentService implements RegisterCommentUseCase, ModifyCommentUseCase, DeleteCommentUseCase,
+        FindCommentUseCase {
 
-    private final CommentR2dbcRepository commentR2dbcRepository;
-    private final PostR2dbcRepository postR2dbcRepository;
+    private final RegisterCommentPort registerCommentPort;
+    private final ModifyCommentPort modifyCommentPort;
+    private final DeleteCommentPort deleteCommentPort;
+    private final FindCommentPort findCommentPort;
 
-    private final TaskService taskService;
+    private final ModifyPostPort modifyPostPort;
+    private final FindPostPort findPostPort;
+    private final TaskProducerPort taskProducerPort;
 
-
+    @Override
     public Mono<CommentResponse> create(Long userId, CommentRegisterRequest request) {
-        long boardId = request.getBoardId();
-        String content = request.getBody();
-
-        return postR2dbcRepository.findById(boardId)
-                .switchIfEmpty(Mono.error(new RuntimeException(NOT_FOUND_POST_ERROR_MESSAGE)))
-                .flatMap(post -> getUserNameByComment(userId)
-                            .flatMap(nickName -> {
-                                Comment comment = createComment(userId, boardId, nickName, content);
-                                return commentR2dbcRepository.save(comment)
-                                    .flatMap(savedComment -> updateCommentsCount(post, savedComment))
-                                    .map(CommentResponse::of);
-                                }));
-    }
-
-    private Comment createComment(Long userId, Long boardId, String nickName, String content){
-        return Comment.builder()
-                .userId(userId)
-                .nickname(nickName)
-                .boardId(boardId)
-                .content(content)
-                .build();
+        return findPostPort.findPostByPostId(request.getBoardId())
+                .switchIfEmpty(Mono.error(new FeedException(NOT_FOUND_POST_ERROR_MESSAGE)))
+                .flatMap(post -> taskProducerPort.getUserNameByComment(userId)
+                                .flatMap(nickName -> registerCommentPort.registerComment(userId, nickName, request)
+                                .zipWith(Mono.just(post)))
+                .flatMap(tuple -> updateCommentsCount(tuple.getT2(), tuple.getT1()))
+                                .map(CommentResponse::of));
     }
 
     private Mono<Comment> updateCommentsCount(Post post, Comment comment){
         Long curComments = post.getComments();
         post.setComments(curComments + 1);
-        return postR2dbcRepository.save(post)
+        return modifyPostPort.update(post)
                 .then(Mono.just(comment));
     }
 
-    public Mono<CommentResponse> modify(CommentModifyRequest request) {
-        String content = request.getBody();
 
-        return commentR2dbcRepository.findById(request.getCommentId())
-                .switchIfEmpty(Mono.error(new RuntimeException(NOT_FOUND_COMMENT_ERROR_MESSAGE)))
-                .flatMap(comment -> {
-                    comment.setContent(content);
-                    return getUserNameByComment(comment.getUserId())
-                            .doOnNext(nickname -> comment.setNickname(nickname))
-                            .then(commentR2dbcRepository.save(comment)); })
-                        .flatMap(savedComment -> Mono.just(CommentResponse.of(savedComment)));
+    @Override
+    public Mono<Void> delete(Long commentId) {
+        return deleteCommentPort.deleteByCommentId(commentId);
     }
 
-    public Mono<CommentResponse> findById(Long id){
-        return commentR2dbcRepository.findById(id)
+    @Override
+    public Mono<CommentResponse> findByCommentId(Long commentId) {
+        return findCommentPort.findCommentByCommentId(commentId)
                 .map(comment -> {
                     CommentResponse commentResponse = CommentResponse.of(comment);
                     return commentResponse;
                 });
     }
 
-    public Flux<CommentResponse> findByBoardId(Long boardId){
-        return commentR2dbcRepository.findByBoardId(boardId)
-                .map(comment -> CommentResponse.of(comment));
-    }
-
-    public Flux<Comment> findAllByBoardId(Long boardId) {return commentR2dbcRepository.findByBoardId(boardId);}
-
-    public Mono<Void> deleteByCommentId(Long commentId) {
-        return commentR2dbcRepository.findById(commentId)
-                .switchIfEmpty(Mono.error(new RuntimeException(NOT_FOUND_COMMENT_ERROR_MESSAGE)))
+    @Override
+    public Mono<CommentResponse> modify(Long membershipId, CommentModifyRequest request) {
+        return findCommentPort.findCommentByCommentId(request.getCommentId())
+                .switchIfEmpty(Mono.error(new FeedException(NOT_FOUND_COMMENT_ERROR_MESSAGE)))
                 .flatMap(comment -> {
-                    long boardId = comment.getBoardId();
+                    comment.setContent(request.getBody());
 
-                    return postR2dbcRepository.findById(boardId)
-                            .switchIfEmpty(Mono.error(new RuntimeException(NOT_FOUND_POST_ERROR_MESSAGE)))
-                            .flatMap(post -> {
-                                Long curComments = post.getComments();
-                                post.setComments(curComments - 1);
-                                return postR2dbcRepository.save(post);
-                            })
-                            .then(commentR2dbcRepository.deleteById(commentId));
-                });
-    }
-
-    public Flux<Void> deleteByBoardId(Long boardId){
-        return commentR2dbcRepository.findByBoardId(boardId)
-                .flatMap(comment -> deleteByCommentId(comment.getId()));
-    }
-
-    public Mono<String> getUserNameByComment(Long membershipId) {
-        List<SubTask> subTasks = createSubTaskListCommentUserNameByMembershipId(membershipId);
-        Task task = createTaskCommentUserNameByMembershipId(membershipId, subTasks);
-
-        return taskService.sendTask("task.membership.response",task)
-                .then(waitForGetUserNameTaskComment(task.getTaskID())
-                        .subscribeOn(Schedulers.boundedElastic()));
-    }
-
-    private Task createTaskCommentUserNameByMembershipId(Long membershipId, List<SubTask> subTasks){
-        return createTask(
-                "Comment Response",
-                String.valueOf(membershipId),
-                subTasks);
-    }
-
-    private List<SubTask> createSubTaskListCommentUserNameByMembershipId(Long membershipId){
-        List<SubTask> subTasks = new ArrayList<>();
-        subTasks.add(createSubTaskCommentUserNameByMembershipId(membershipId));
-
-        return subTasks;
-    }
-
-    private SubTask createSubTaskCommentUserNameByMembershipId(Long membershipId){
-        return createSubTask("CommentUserNameByMembershipId",
-                String.valueOf(membershipId),
-                SubTask.TaskType.post,
-                SubTask.TaskStatus.ready,
-                membershipId);
-    }
-
-    private Mono<String> waitForGetUserNameTaskComment(String taskId) {
-        return Flux.interval(Duration.ofMillis(500))
-                .map(tick -> taskService.getTaskResults(taskId))
-                .filter(Objects::nonNull)
-                .take(1)
-                .map(task -> {
-                    SubTask subTask = task.getSubTaskList().get(0);
-                    return String.valueOf(subTask.getData());
+                    return taskProducerPort.getUserNameByComment(comment.getUserId())
+                            .flatMap(nickname -> modifyCommentPort.modifyComment(membershipId, nickname, request));
                 })
-                .next()
-                .timeout(Duration.ofSeconds(3))
-                .switchIfEmpty(Mono.error(new RuntimeException("Timeout waitForUserPostsTaskComment for taskId " + taskId)));
+                .map(savedComment -> CommentResponse.of(savedComment));
     }
+
+    @Override
+    public Flux<CommentResponse> findAllByBoardId(Long boardId) {
+        return findCommentPort.findCommentResponseByPostId(boardId);
+    }
+
 }

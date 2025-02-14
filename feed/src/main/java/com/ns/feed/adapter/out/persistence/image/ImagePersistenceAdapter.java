@@ -1,18 +1,23 @@
-package com.ns.feed.application.service;
+package com.ns.feed.adapter.out.persistence.image;
 
-import com.ns.feed.adapter.out.persistence.Image;
-import com.ns.feed.adapter.out.persistence.ImageR2dbcRepository;
+import com.ns.common.anotation.PersistanceAdapter;
+import com.ns.feed.application.port.out.image.DeleteImagePort;
+import com.ns.feed.application.port.out.image.FindImagePort;
+import com.ns.feed.application.port.out.image.UpdateImagePort;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
+import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-@Service
+@Slf4j
+@PersistanceAdapter
 @RequiredArgsConstructor
-public class ImageService {
+public class ImagePersistenceAdapter implements UpdateImagePort, DeleteImagePort, FindImagePort {
+
     private final ImageR2dbcRepository imageR2dbcRepository;
 
+    @Override
     public Mono<Image> createImage(Long postId, String url) {
         Image image = new Image().builder()
                 .postId(postId)
@@ -21,6 +26,7 @@ public class ImageService {
         return imageR2dbcRepository.save(image);
     }
 
+    @Override
     public Mono<Image> updateImage(Long id, Image image) {
         return imageR2dbcRepository.findById(id)
                 .flatMap(existingImage -> {
@@ -30,18 +36,21 @@ public class ImageService {
                 });
     }
 
-    public Mono<List<String>> findImageUrlsById(Long postId) {
-        return imageR2dbcRepository.findByPostId(postId)
-                .map(Image::getUrl)
-                .collectList();
-    }
-
+    @Override
     public Mono<Void> deleteImage(Long id) {
         return imageR2dbcRepository.deleteById(id);
     }
 
-    public Flux<Void> deleteImageByPostId(Long postId){
+    @Override
+    public Flux<Void> deleteImageByPostId(Long postId) {
         return imageR2dbcRepository.findByPostId(postId)
                 .flatMap(image -> imageR2dbcRepository.deleteById(image.getId()));
+    }
+
+    @Override
+    public Mono<List<String>> findImageUrlsById(Long postId) {
+        return imageR2dbcRepository.findByPostId(postId)
+                .map(Image::getUrl)
+                .collectList();
     }
 }

@@ -1,5 +1,6 @@
 package com.ns.feed.adapter.in.web;
 
+import com.ns.feed.application.port.in.post.FindPostUseCase;
 import com.ns.feed.dto.BannerListWrapper;
 import com.ns.feed.application.service.PostService;
 import lombok.RequiredArgsConstructor;
@@ -13,16 +14,15 @@ import reactor.core.publisher.Mono;
 @RequiredArgsConstructor
 @RequestMapping("/banner")
 public class BannerController {
-
-    private final PostService postService;
+    private final FindPostUseCase findPostUseCase;
 
     @GetMapping("/announce/latest")
     public Mono<BannerListWrapper> getLatestBanners(@RequestParam(defaultValue = "5") int count) {
-        return postService.findLatestAnnounces(count);
+        return findPostUseCase.findLatestAnnounces(count);
     }
 
     @GetMapping("/event/in-progress")
     public Mono<BannerListWrapper> getEventBanners() {
-        return postService.findInProgressEvents();
+        return findPostUseCase.findInProgressEvents();
     }
 }

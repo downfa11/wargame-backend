@@ -1,6 +1,6 @@
 package com.ns.feed.dto;
 
-import com.ns.feed.adapter.out.persistence.Post;
+import com.ns.feed.adapter.out.persistence.post.Post;
 import java.time.LocalDateTime;
 import java.util.List;
 import lombok.AllArgsConstructor;

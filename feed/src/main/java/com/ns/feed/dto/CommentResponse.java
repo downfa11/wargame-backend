@@ -1,6 +1,6 @@
 package com.ns.feed.dto;
 
-import com.ns.feed.adapter.out.persistence.Comment;
+import com.ns.feed.adapter.out.persistence.comment.Comment;
 import lombok.*;
 
 import java.time.LocalDateTime;

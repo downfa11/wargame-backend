@@ -43,7 +43,7 @@ public class KafkaConfig {
 
 
     @Bean
-    public ReactiveKafkaProducerTemplate<String, Task> TaskProducerTemplate() {
+    public ReactiveKafkaProducerTemplate<String, Task> taskProducerTemplate() {
         Map<String, Object> producerProps = new HashMap<>();
         producerProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         producerProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
@@ -60,7 +60,7 @@ public class KafkaConfig {
     }
 
     @Bean
-    public ReactiveKafkaConsumerTemplate<String, Task> TaskRequestConsumerTemplate() {
+    public ReactiveKafkaConsumerTemplate<String, Task> taskRequestConsumerTemplate() {
         Map<String, Object> consumerProps = new HashMap<>();
         consumerProps.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         consumerProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
@@ -78,7 +78,7 @@ public class KafkaConfig {
     }
 
     @Bean
-    public ReactiveKafkaConsumerTemplate<String, Task> TaskResponseConsumerTemplate() {
+    public ReactiveKafkaConsumerTemplate<String, Task> taskResponseConsumerTemplate() {
         Map<String, Object> consumerProps = new HashMap<>();
         consumerProps.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         consumerProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
