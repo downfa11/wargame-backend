@@ -1,6 +1,5 @@
-package com.ns.common.events;
+package com.ns.common;
 
-import com.ns.common.dto.ClientRequest;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -12,7 +11,7 @@ import java.util.List;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class ResultRequestEvent {
+public class GameFinishedEvent {
     private String spaceId;
     private String state; // dodge: 비정상적인 상황, success:정상적인 상황
 

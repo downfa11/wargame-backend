@@ -1,4 +1,4 @@
-package com.ns.common.command;
+package com.ns.result.adapter.axon.command;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -8,10 +8,13 @@ import org.axonframework.modelling.command.TargetAggregateIdentifier;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class RollbackEloModificationCommand {
+public class RollbackUpdateEloCommand {
+
+    private String rollbackId;
 
     @TargetAggregateIdentifier
     private String aggregateIdentifier;
 
-    private Long previousElo;
+    private String membershipId;
+    private Long Elo;
 }
