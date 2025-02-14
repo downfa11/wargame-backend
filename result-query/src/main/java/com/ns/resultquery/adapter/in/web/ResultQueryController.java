@@ -1,9 +1,11 @@
 package com.ns.resultquery.adapter.in.web;
 
+import static com.ns.resultquery.exception.ErrorCode.RETRIEVE_DATA_ERROR_MESSAGE;
+
 import com.ns.resultquery.adapter.axon.query.ChampStat;
 import com.ns.resultquery.adapter.axon.query.CountSumByChamp;
 import com.ns.resultquery.adapter.axon.query.CountSumByMembership;
-import com.ns.resultquery.application.service.ResultQueryService;
+import com.ns.resultquery.application.port.in.FindStatisticsUseCase;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -19,22 +21,21 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/result")
+@RequestMapping("/statistics")
 public class ResultQueryController {
-    private final String RETRIEVE_DATA_ERROR_MESSAGE = "Error retrieving data: ";
 
-    private final ResultQueryService resultQueryService;
+    private final FindStatisticsUseCase findStatisticsUseCase;
 
     @GetMapping(path = "/query/champ/{champName}")
     Mono<Map<String, String>> getQueryToResultSumByChampName(@PathVariable String champName) {
-        return resultQueryService.queryToResultSumByChampName(champName)
+        return findStatisticsUseCase.findStatiscticsByChampion(champName)
                 .map(this::getResultSumByChampName)
                 .onErrorResume(e -> Mono.just(Collections.singletonMap("error", RETRIEVE_DATA_ERROR_MESSAGE + e.getMessage())));
     }
 
     @GetMapping(path = "/query/user/{userName}")
     Mono<Map<String, Object>> getQueryToResultSumByUserName(@PathVariable String userName) {
-        return resultQueryService.queryToResultByUserName(userName)
+        return findStatisticsUseCase.findStatiscticsByUserName(userName)
                 .map(this::getResultSumByUserName)
                 .onErrorResume(e -> Mono.just(Collections.singletonMap("error", RETRIEVE_DATA_ERROR_MESSAGE + e.getMessage())));
     }

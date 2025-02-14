@@ -1,13 +1,17 @@
 package com.ns.resultquery.adapter.out.dynamo;
 
+import com.ns.common.anotation.PersistanceAdapter;
 import com.ns.resultquery.adapter.axon.QueryResultSumByChampName;
 import com.ns.resultquery.adapter.axon.QueryResultSumByUserName;
 import com.ns.resultquery.adapter.axon.query.ChampStat;
 import com.ns.resultquery.adapter.axon.query.CountSumByChamp;
 import com.ns.resultquery.adapter.axon.query.CountSumByMembership;
+import com.ns.resultquery.application.port.out.FindStatisticsPort;
+import com.ns.resultquery.application.port.out.InsertChampStatisticsPort;
+import com.ns.resultquery.application.port.out.InsertUserStatisticsPort;
 import com.ns.resultquery.domain.MembershipResultSumByUserName;
 import com.ns.resultquery.domain.ResultSumByChampName;
-import com.ns.resultquery.dto.InsertResultCountDto;
+import com.ns.resultquery.domain.dto.InsertResultCountDto;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
@@ -37,8 +41,8 @@ import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemResponse;
 
 @Slf4j
-@Component
-public class DynamoDBAdapter {
+@PersistanceAdapter
+public class DynamoDBAdapter implements InsertUserStatisticsPort, InsertChampStatisticsPort {
     private static final String CHAMP_TABLE_NAME = "wargame-champ-query";
     private static final String MEMBERSHIP_TABLE_NAME = "wargame-membership-query";
     private static final String CURRENT_SEASON = "1";

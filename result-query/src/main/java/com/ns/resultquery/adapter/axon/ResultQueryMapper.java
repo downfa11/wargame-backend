@@ -1,10 +1,10 @@
 package com.ns.resultquery.adapter.axon;
 
-import com.ns.common.dto.ClientRequest;
-import com.ns.common.events.ResultRequestEvent;
-import com.ns.resultquery.dto.MembershipResultEventDto;
-import com.ns.resultquery.dto.ResultEventDto;
+import com.ns.common.ClientRequest;
+import com.ns.common.GameFinishedEvent;
 import com.ns.resultquery.adapter.out.persistence.ChampRepository;
+import com.ns.resultquery.domain.dto.MembershipResultEventDto;
+import com.ns.resultquery.domain.dto.ResultEventDto;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -60,7 +60,7 @@ public class ResultQueryMapper {
                 .build();
     }
 
-    public static List<ClientRequest> getAllTeamClientRequests(ResultRequestEvent event){
+    public static List<ClientRequest> getAllTeamClientRequests(GameFinishedEvent event){
         List<ClientRequest> allClients = new ArrayList<>();
         allClients.addAll(event.getBlueTeams());
         allClients.addAll(event.getRedTeams());
