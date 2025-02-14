@@ -1,4 +1,4 @@
-package com.ns.feed.adapter.out.persistence;
+package com.ns.feed.adapter.out.persistence.post;
 
 import java.time.LocalDateTime;
 import org.springframework.data.domain.Pageable;
@@ -9,7 +9,7 @@ import reactor.core.publisher.Mono;
 
 public interface PostR2dbcRepository extends ReactiveCrudRepository<Post,Long> {
 
-    Flux<Post> findByUserId(Long id);
+    Flux<Post> findAllByUserId(Long userId);
     Flux<Post> findAllByCategoryId(Long categoryId, Pageable pageable);
     Mono<Long> countByCategoryId(Long categoryId);
 

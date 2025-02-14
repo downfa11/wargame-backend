@@ -1,6 +1,6 @@
-package com.ns.result.adapter.out.persistence;
+package com.ns.result.adapter.out.persistence.elasticsearch;
 
-import com.ns.common.dto.ClientRequest;
+import com.ns.common.ClientRequest;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

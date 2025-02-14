@@ -1,4 +1,4 @@
-package com.ns.common.dto;
+package com.ns.result.adapter.axon;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -11,5 +11,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class MembershipEloRequest {
     private Long membershipId;
+    private String team;
     private Long elo;
 }

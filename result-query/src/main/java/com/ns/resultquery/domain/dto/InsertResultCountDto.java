@@ -1,4 +1,4 @@
-package com.ns.resultquery.dto;
+package com.ns.resultquery.domain.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

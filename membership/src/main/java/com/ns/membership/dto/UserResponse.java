@@ -12,10 +12,8 @@ public class UserResponse {
     private Long id;
     private String account;
     private String password;
-    private Long elo;
     private String name;
     private String email;
-    private String code;
     private String jwtToken;
     private String refreshToken;
     private LocalDateTime createAt;
@@ -27,8 +25,6 @@ public class UserResponse {
                 .password(user.getPassword())
                 .name(user.getName())
                 .email(user.getEmail())
-                .elo(user.getElo())
-                .code(user.getCode())
                 .refreshToken(user.getRefreshToken())
                 .createAt(user.getCreatedAt())
                 .updateAt(user.getUpdatedAt())

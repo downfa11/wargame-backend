@@ -1,6 +1,5 @@
-package com.ns.result.adapter.out.persistence;
+package com.ns.result.adapter.out.persistence.elasticsearch;
 
-import com.ns.result.adapter.out.persistence.Result;
 import org.springframework.data.elasticsearch.annotations.Query;
 import org.springframework.data.elasticsearch.repository.ReactiveElasticsearchRepository;
 import reactor.core.publisher.Flux;

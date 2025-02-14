@@ -9,7 +9,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
 @Repository
-public class UserRepositoryImplement implements UserRepository{
+public class UserRepositoryImpl implements UserRepository{
 
     private ConcurrentHashMap<Long, User> userHashmap = new ConcurrentHashMap<>();
     private AtomicLong sequence = new AtomicLong(1L);

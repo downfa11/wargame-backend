@@ -1,4 +1,4 @@
-package com.ns.feed.adapter.out.persistence;
+package com.ns.feed.adapter.out.persistence.comment;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
