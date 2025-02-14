@@ -1,21 +1,25 @@
 package com.ns.membership.adapter.axon.command;
 
+import com.ns.common.utils.SelfValidating;
 import jakarta.validation.constraints.NotNull;
-import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.NoArgsConstructor;
 import org.axonframework.modelling.command.TargetAggregateIdentifier;
 
 @Data
 @Builder
-@AllArgsConstructor
-public class ModifyMemberCommand {
+@NoArgsConstructor
+@EqualsAndHashCode(callSuper = false)
+public class ModifyMemberCommand extends SelfValidating<ModifyMemberCommand> {
 
     @NotNull
     @TargetAggregateIdentifier
     private String aggregateIdentifier;
+
     @NotNull
-    private String membershipId;
+    private Long membershipId;
     @NotNull
     private String account;
     @NotNull
@@ -25,5 +29,14 @@ public class ModifyMemberCommand {
     @NotNull
     private String password;
 
-    //todo. code, refreshToken 변동도 이벤트로 처리하나?
+    public ModifyMemberCommand(String aggregateIdentifier, Long membershipId, String account, String name, String email, String password) {
+        this.aggregateIdentifier = aggregateIdentifier;
+        this.membershipId = membershipId;
+        this.account = account;
+        this.name = name;
+        this.email = email;
+        this.password = password;
+
+        this.validateSelf();
+    }
 }

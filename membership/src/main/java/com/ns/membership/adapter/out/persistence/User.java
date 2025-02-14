@@ -24,9 +24,7 @@ public class User {
     private String email;
     private String password;
     private String name;
-    private Long elo;
 
-    private String code;
     private String refreshToken;
 
     @CreatedDate

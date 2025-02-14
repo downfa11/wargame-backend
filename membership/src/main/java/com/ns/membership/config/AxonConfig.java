@@ -13,7 +13,7 @@ public class AxonConfig {
 
     @Bean
     public SnapshotTriggerDefinition snapshotTrigger(Snapshotter snapshotter) {
-        return new EventCountSnapshotTriggerDefinition(snapshotter, 3);
+        return new EventCountSnapshotTriggerDefinition(snapshotter, 100);
     }
 
     @Bean

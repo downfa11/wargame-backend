@@ -1,26 +1,36 @@
 package com.ns.membership.adapter.axon.event;
 
 
+import com.ns.common.utils.SelfValidating;
+import com.ns.membership.adapter.axon.command.ModifyMemberCommand;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 
 @Data
 @Builder
-@AllArgsConstructor
 @NoArgsConstructor
-public class ModifyMemberEvent {
-    // - 개인정보 변경 이벤트
-    //    - 이메일 인증이 필요한 비밀번호 변경
-    //    - 초기 이메일 변경
-    //    - account, name도 변경시 updatedAt(LocalDateTime)도 함께 변해야한다
+@EqualsAndHashCode(callSuper = false)
+public class ModifyMemberEvent extends SelfValidating<ModifyMemberCommand> {
 
     private String aggregateIdentifier;
-    private String membershipId;
+    private Long membershipId;
 
     private String account;
     private String name;
     private String email;
     private String password;
+
+    public ModifyMemberEvent(String aggregateIdentifier, Long membershipId, String account, String name, String email, String password) {
+        this.aggregateIdentifier = aggregateIdentifier;
+        this.membershipId = membershipId;
+        this.account = account;
+        this.name = name;
+        this.email = email;
+        this.password = password;
+
+        this.validateSelf();
+    }
 }
