@@ -1,6 +1,7 @@
 package com.ns.match.application.service;
 
-import static com.ns.match.application.service.MatchQueueService.MAX_ALLOW_USER_COUNT;
+
+import static com.ns.match.adapter.out.RedisMatchProcessAdapter.MAX_ALLOW_USER_COUNT;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

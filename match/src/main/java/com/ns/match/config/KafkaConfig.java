@@ -52,7 +52,7 @@ public class KafkaConfig {
     }
 
     @Bean
-    public ReactiveKafkaConsumerTemplate<String, Task> TaskRequestConsumerTemplate() {
+    public ReactiveKafkaConsumerTemplate<String, Task> taskRequestConsumerTemplate() {
         Map<String, Object> consumerProps = new HashMap<>();
         consumerProps.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         consumerProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
