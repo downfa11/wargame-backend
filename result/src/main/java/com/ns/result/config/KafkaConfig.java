@@ -1,6 +1,5 @@
 package com.ns.result.config;
 
-import com.ns.common.events.ResultRequestEvent;
 import com.ns.common.task.Task;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -44,7 +43,7 @@ public class KafkaConfig {
 
 
     @Bean
-    public ReactiveKafkaProducerTemplate<String, Task> TaskProducerTemplate() {
+    public ReactiveKafkaProducerTemplate<String, Task> taskProducerTemplate() {
         Map<String, Object> producerProps = new HashMap<>();
         producerProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         producerProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
@@ -61,18 +60,7 @@ public class KafkaConfig {
     }
 
     @Bean
-    public ReactiveKafkaProducerTemplate<String, ResultRequestEvent> eventProducerTemplate() {
-        Map<String, Object> producerProps = new HashMap<>();
-        producerProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
-        producerProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
-        producerProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
-        return new ReactiveKafkaProducerTemplate<>(
-                SenderOptions.create(producerProps)
-        );
-    }
-
-    @Bean
-    public ReactiveKafkaConsumerTemplate<String, Task> TaskRequestConsumerTemplate() {
+    public ReactiveKafkaConsumerTemplate<String, Task> taskRequestConsumerTemplate() {
         Map<String, Object> consumerProps = new HashMap<>();
         consumerProps.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         consumerProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
@@ -90,7 +78,7 @@ public class KafkaConfig {
     }
 
     @Bean
-    public ReactiveKafkaConsumerTemplate<String, Task> TaskResponseConsumerTemplate() {
+    public ReactiveKafkaConsumerTemplate<String, Task> taskResponseConsumerTemplate() {
         Map<String, Object> consumerProps = new HashMap<>();
         consumerProps.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         consumerProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);

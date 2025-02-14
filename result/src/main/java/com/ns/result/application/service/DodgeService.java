@@ -1,7 +1,7 @@
 package com.ns.result.application.service;
 
-import com.ns.common.dto.ClientRequest;
-import com.ns.common.events.ResultRequestEvent;
+import com.ns.common.ClientRequest;
+import com.ns.common.GameFinishedEvent;
 import com.ns.common.task.SubTask;
 import com.ns.common.task.Task;
 import com.ns.common.task.TaskUseCase;
@@ -21,21 +21,21 @@ public class DodgeService {
     private final TaskUseCase taskUseCase;
 
 
-    public Mono<Void> dodge(ResultRequestEvent result) {
-        List<ClientRequest> allTeams = getAllTeams(result);
+//    public Mono<Void> dodge(GameFinishedEvent result) {
+//        List<ClientRequest> allTeams = getAllTeams(result);
+//
+//        if (allTeams.isEmpty()) {
+//            log.warn("각 팀이 비어 있습니다!");
+//            return Mono.empty();
+//        }
+//
+//        return Flux.fromIterable(allTeams)
+//                .flatMap(client -> Mono.just(createDodgeSubTask(client.getMembershipId())))
+//                .collectList()
+//                .flatMap(subTasks -> resultService.sendTask("task.membership.response", createDodgeTask(subTasks)));
+//    }
 
-        if (allTeams.isEmpty()) {
-            log.warn("각 팀이 비어 있습니다!");
-            return Mono.empty();
-        }
-
-        return Flux.fromIterable(allTeams)
-                .flatMap(client -> Mono.just(createDodgeSubTask(client.getMembershipId())))
-                .collectList()
-                .flatMap(subTasks -> resultService.sendTask("task.membership.response", createDodgeTask(subTasks)));
-    }
-
-    private List<ClientRequest> getAllTeams(ResultRequestEvent result){
+    private List<ClientRequest> getAllTeams(GameFinishedEvent result){
         List<ClientRequest> allTeams = new ArrayList<>();
         allTeams.addAll(result.getBlueTeams());
         allTeams.addAll(result.getRedTeams());
