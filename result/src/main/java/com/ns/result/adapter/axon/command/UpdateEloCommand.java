@@ -2,15 +2,14 @@ package com.ns.result.adapter.axon.command;
 
 import com.ns.common.utils.SelfValidating;
 import jakarta.validation.constraints.NotNull;
-import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
 import lombok.EqualsAndHashCode;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.axonframework.modelling.command.TargetAggregateIdentifier;
 
 @Builder
-@Data
+@Getter
 @EqualsAndHashCode(callSuper = false)
 @NoArgsConstructor
 public class UpdateEloCommand extends SelfValidating<UpdateEloCommand> {

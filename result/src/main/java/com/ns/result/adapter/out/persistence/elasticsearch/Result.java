@@ -1,18 +1,17 @@
 package com.ns.result.adapter.out.persistence.elasticsearch;
 
 import com.ns.common.ClientRequest;
+import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
-import java.util.List;
-
-@Data
+@Getter
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor

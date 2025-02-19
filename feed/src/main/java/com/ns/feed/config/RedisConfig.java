@@ -16,16 +16,12 @@ import org.springframework.data.redis.serializer.*;
 public class RedisConfig implements ApplicationListener<ApplicationReadyEvent> {
     private final ReactiveRedisTemplate<String, String> reactiveRedisTemplate;
 
-
-
     @Override
     public void onApplicationEvent(ApplicationReadyEvent event) {
         reactiveRedisTemplate.opsForValue().get("1")
                 .doOnSuccess(i->log.info("Initialize to redis"))
                 .doOnError((err) -> log.error("Failed to init redis: {}",err.getMessage()))
                 .subscribe();
-
-        // reactiveRedisTemplate.opsForList().leftPush("list1","hello").subscribe();
 
     }
 

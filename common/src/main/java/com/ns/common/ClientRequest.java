@@ -1,16 +1,15 @@
 package com.ns.common;
 
+import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.util.List;
-
-@Data
+@Getter
 @Builder
-@AllArgsConstructor
 @NoArgsConstructor
+@AllArgsConstructor
 public class ClientRequest {
     private Long membershipId;
     private int socket;
@@ -33,5 +32,4 @@ public class ClientRequest {
     private float attspeed;
     private int movespeed;
     private List<Integer> itemList;
-
 }

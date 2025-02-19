@@ -1,9 +1,11 @@
 package com.ns.feed.dto;
 
 import com.ns.feed.adapter.out.persistence.post.Post;
-import lombok.*;
-
 import java.time.LocalDateTime;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Data
 @Builder

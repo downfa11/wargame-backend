@@ -11,7 +11,7 @@ import com.ns.result.adapter.axon.event.UpdateEloEvent;
 import com.ns.result.application.service.PlayerService;
 import jakarta.validation.constraints.NotNull;
 import java.util.UUID;
-import lombok.Data;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.axonframework.commandhandling.CommandHandler;
@@ -21,7 +21,7 @@ import org.axonframework.modelling.command.AggregateIdentifier;
 import org.axonframework.spring.stereotype.Aggregate;
 
 @Aggregate(snapshotTriggerDefinition = "snapshotTrigger", cache = "snapshotCache")
-@Data
+@Getter
 @Slf4j
 @NoArgsConstructor
 public class PlayerAggregate {

@@ -3,12 +3,12 @@ package com.ns.result.adapter.axon.command;
 import com.ns.common.utils.SelfValidating;
 import jakarta.validation.constraints.NotNull;
 import lombok.Builder;
-import lombok.Data;
 import lombok.EqualsAndHashCode;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Builder
-@Data
+@Getter
 @EqualsAndHashCode(callSuper = false)
 @NoArgsConstructor
 public class CreatePlayerCommand extends SelfValidating<CreatePlayerCommand> {

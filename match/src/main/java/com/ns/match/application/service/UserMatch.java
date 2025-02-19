@@ -1,9 +1,9 @@
 package com.ns.match.application.service;
 
 import lombok.Builder;
-import lombok.Data;
+import lombok.Getter;
 
-@Data
+@Getter
 @Builder
 public class UserMatch {
     private String membershipId;

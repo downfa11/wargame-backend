@@ -1,16 +1,11 @@
 package com.ns.common.task;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
 import java.util.List;
+import lombok.Builder;
+import lombok.Getter;
 
+@Getter
 @Builder
-@Data
-@AllArgsConstructor
-@NoArgsConstructor
 public class Task {
     private String taskID;
     private String taskName;

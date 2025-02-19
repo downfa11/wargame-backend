@@ -1,11 +1,11 @@
 package com.ns.result.adapter.axon.command;
 
 import lombok.AllArgsConstructor;
-import lombok.Data;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.axonframework.modelling.command.TargetAggregateIdentifier;
 
-@Data
+@Getter
 @AllArgsConstructor
 @NoArgsConstructor
 public class RollbackUpdateEloCommand {

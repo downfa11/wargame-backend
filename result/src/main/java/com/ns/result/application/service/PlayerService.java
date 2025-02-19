@@ -31,12 +31,13 @@ public class PlayerService {
                 .doOnError(throwable -> log.error("createMemberByEvent throwable : ", throwable))
                 .then();
     }
-    public Mono<Player> create(String membershipId, String aggregateIdentifier){
-        Player player = new Player();
-        player.setMembershipId(membershipId);
-        player.setAggregateIdentifier(aggregateIdentifier);
-        player.setElo(2000L);
-        player.setCode("");
+
+    public Mono<Player> create(String membershipId, String aggregateIdentifier) {
+        Player player = Player.builder()
+                .membershipId(membershipId)
+                .aggregateIdentifier(aggregateIdentifier)
+                .elo(2000L)
+                .code("").build();
 
         return playerRepository.save(player);
     }
@@ -53,7 +54,7 @@ public class PlayerService {
                 });
     }
 
-    public Mono<Player> updateElo(String membershipId, Long increase){
+    public Mono<Player> updateElo(String membershipId, Long increase) {
         return playerRepository.findByMembershipId(membershipId)
                 .flatMap(u -> {
                     Long newElo = u.getElo() + increase;
@@ -62,8 +63,11 @@ public class PlayerService {
                 });
     }
 
-    public Mono<Player> findByMembershipId(String membershipId) { return playerRepository.findByMembershipId(membershipId);}
-    public Flux<Player> findAll(){
+    public Mono<Player> findByMembershipId(String membershipId) {
+        return playerRepository.findByMembershipId(membershipId);
+    }
+
+    public Flux<Player> findAll() {
         return playerRepository.findAll();
     }
 
@@ -76,10 +80,10 @@ public class PlayerService {
                     return Mono.fromFuture(() -> commandGateway.send(command))
                             .doOnError(throwable -> log.error("Failed to start Elo Update Saga", throwable))
                             .then(Mono.defer(() -> queryToPlayerByMembershipId(membershipId)));
-        });
+                });
     }
 
-    public Mono<QueryPlayer> queryToPlayerByMembershipId(String membershipId){
+    public Mono<QueryPlayer> queryToPlayerByMembershipId(String membershipId) {
         return Mono.fromFuture(() -> queryGateway.query(
                 new FindPlayerAggregateQuery(membershipId), QueryPlayer.class));
     }

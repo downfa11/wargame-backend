@@ -54,17 +54,18 @@ public class PlayerController {
 
     @GetMapping("/test/room")
     public Mono<Void> testSuccessGameRoom(@RequestParam String state){
-        GameFinishedCommand command = new GameFinishedCommand();
-        command.setSpaceId("12345");
-        command.setState(state);
-        command.setChannel(1);
-        command.setRoom(10);
-        command.setWinTeam("blue");
-        command.setLoseTeam("red");
-        command.setBlueTeams(List.of(new ClientRequest(), new ClientRequest()));
-        command.setRedTeams(List.of(new ClientRequest(), new ClientRequest()));
-        command.setDateTime("2025-02-01T12:00:00Z");
-        command.setGameDuration(120);
+        GameFinishedCommand command = GameFinishedCommand.builder()
+                .spaceId("12345")
+                .state(state)
+                .channel(1)
+                .room(1)
+                .winTeam("blue")
+                .loseTeam("red")
+                .blueTeams(List.of(new ClientRequest(), new ClientRequest()))
+                .redTeams(List.of(new ClientRequest(), new ClientRequest()))
+                .dateTime("2025-02-01T12:00:00Z")
+                .gameDuration(120)
+                .build();
 
         SubTask subTask = SubTask.builder()
                 .taskType(result)

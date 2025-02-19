@@ -1,8 +1,5 @@
 package com.ns.common.utils;
 
-import lombok.Data;
-
-@Data
 public class MessageEntity {
 
     private String message;

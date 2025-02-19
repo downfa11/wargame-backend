@@ -1,14 +1,10 @@
 package com.ns.common.task;
 
-import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.Getter;
 
-@Data
+@Getter
 @Builder
-@NoArgsConstructor
-@AllArgsConstructor
 public class SubTask {
     private String membershipId;
     private String subTaskName;

@@ -1,10 +1,9 @@
 package com.ns.membership.dto;
 
 import com.ns.membership.adapter.out.persistence.User;
+import java.time.LocalDateTime;
 import lombok.Builder;
 import lombok.Data;
-
-import java.time.LocalDateTime;
 
 @Data
 @Builder

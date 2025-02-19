@@ -1,15 +1,13 @@
 package com.ns.membership.adapter.axon.event;
 
 import com.ns.common.utils.SelfValidating;
-import com.ns.membership.adapter.axon.command.CreateMemberCommand;
 import jakarta.validation.constraints.NotNull;
-import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
 import lombok.EqualsAndHashCode;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-@Data
+@Getter
 @Builder
 @EqualsAndHashCode(callSuper = false)
 @NoArgsConstructor

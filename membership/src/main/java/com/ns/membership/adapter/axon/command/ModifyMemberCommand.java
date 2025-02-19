@@ -3,12 +3,12 @@ package com.ns.membership.adapter.axon.command;
 import com.ns.common.utils.SelfValidating;
 import jakarta.validation.constraints.NotNull;
 import lombok.Builder;
-import lombok.Data;
 import lombok.EqualsAndHashCode;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.axonframework.modelling.command.TargetAggregateIdentifier;
 
-@Data
+@Getter
 @Builder
 @NoArgsConstructor
 @EqualsAndHashCode(callSuper = false)

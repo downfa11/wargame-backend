@@ -3,7 +3,6 @@ package com.ns.resultquery.application.service;
 import com.ns.common.anotation.UseCase;
 import com.ns.resultquery.application.port.in.InsertChampStatisticsUseCase;
 import com.ns.resultquery.application.port.in.InsertUserStatisticsUseCase;
-import com.ns.resultquery.application.port.out.FindStatisticsPort;
 import com.ns.resultquery.application.port.out.InsertChampStatisticsPort;
 import com.ns.resultquery.application.port.out.InsertUserStatisticsPort;
 import com.ns.resultquery.domain.dto.InsertResultCountDto;
