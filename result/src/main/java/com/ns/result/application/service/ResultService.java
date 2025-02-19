@@ -1,10 +1,8 @@
 package com.ns.result.application.service;
 
 
-import static com.ns.common.task.TaskUseCase.createTask;
 import static com.ns.result.adapter.out.persistence.elasticsearch.ResultMapper.mapToResultDocument;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ns.common.ClientRequest;
 import com.ns.common.GameFinishedEvent;
 import com.ns.result.adapter.out.persistence.elasticsearch.Result;
@@ -15,7 +13,7 @@ import java.util.List;
 import java.util.Random;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.redis.core.ReactiveRedisTemplate;
+import org.springframework.data.redis.core.ReactiveRedisOperations;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -24,7 +22,7 @@ import reactor.core.publisher.Mono;
 @Service
 @RequiredArgsConstructor
 public class ResultService {
-    private final ReactiveRedisTemplate<String, String> reactiveRedisTemplate;
+    private final ReactiveRedisOperations<String, Result> resultRedisTemplate;
     private final ResultRepository resultRepository;
     private final int RESULT_SEARCH_SIZE = 30;
 
@@ -40,53 +38,29 @@ public class ResultService {
     public Flux<Result> getGameResultsByName(String name, int offset) {
         String key = "results:name:" + name + "offset:" + offset;
 
-        return reactiveRedisTemplate.opsForList().range(key, 0, -1)
+        return resultRedisTemplate.opsForList().range(key, 0, -1)
                 .doOnNext(results -> log.info("캐시에서 가져옴"))
-                .map(this::convertJsonToResult)
                 .switchIfEmpty(Flux.defer(() -> resultRepository.searchByUserName(name, RESULT_SEARCH_SIZE, offset)
                         .flatMap(result -> {
                             log.info("캐시가 없어");
-                            String resultJson = convertResultToJson(result);
-                            return reactiveRedisTemplate.opsForList().rightPush(key, resultJson)
+                            return resultRedisTemplate.opsForList().rightPush(key, result)
                                     .thenReturn(result);
                         })
-                        .doOnTerminate(() -> reactiveRedisTemplate.expire(key, Duration.ofHours(1)).subscribe())));
+                        .doOnTerminate(() -> resultRedisTemplate.expire(key, Duration.ofHours(1)).subscribe())));
     }
 
     public Flux<Result> getGameResultsByMembershipId(Long membershipId, int offset) {
         String key = "results:membershipId:" + membershipId + "offset:" + offset;
 
-        return reactiveRedisTemplate.opsForList().range(key, 0, -1)
+        return resultRedisTemplate.opsForList().range(key, 0, -1)
                 .doOnNext(results -> log.info("캐시에서 가져옴"))
-                .map(this::convertJsonToResult)
                 .switchIfEmpty(Flux.defer(() -> resultRepository.searchByMembershipId(membershipId, RESULT_SEARCH_SIZE, offset)
                         .flatMap(result -> {
                             log.info("캐시가 없어");
-                            String resultJson = convertResultToJson(result);
-                            return reactiveRedisTemplate.opsForList().rightPush(key, resultJson)
+                            return resultRedisTemplate.opsForList().rightPush(key, result)
                                     .thenReturn(result);
                         })
-                        .doOnTerminate(() -> reactiveRedisTemplate.expire(key, Duration.ofHours(1)).subscribe())));
-    }
-
-    private String convertResultToJson(Result result) {
-        try {
-            ObjectMapper objectMapper = new ObjectMapper();
-            return objectMapper.writeValueAsString(result);
-        } catch (Exception e) {
-            e.printStackTrace();
-            return null;
-        }
-    }
-
-    public Result convertJsonToResult(String json) {
-        try {
-            ObjectMapper objectMapper = new ObjectMapper();
-            return objectMapper.readValue(json, Result.class);
-        } catch (Exception e) {
-            e.printStackTrace();
-            return null;
-        }
+                        .doOnTerminate(() -> resultRedisTemplate.expire(key, Duration.ofHours(1)).subscribe())));
     }
 
 

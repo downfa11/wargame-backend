@@ -62,6 +62,9 @@ dependencies {
 
     //redis
     implementation 'org.springframework.boot:spring-boot-starter-data-redis-reactive'
+
+    //Snappy
+    implementation 'org.xerial.snappy:snappy-java:1.1.8.4'
 }
 
 tasks.named('bootBuildImage') {
