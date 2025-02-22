@@ -1,6 +1,6 @@
 package com.ns.match.config;
 
-import com.ns.common.Task;
+import com.ns.common.task.Task;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -48,13 +48,11 @@ public class KafkaConfig {
         producerProps.put(ProducerConfig.RETRIES_CONFIG, 3); // default = 0
         producerProps.put(ProducerConfig.RETRY_BACKOFF_MS_CONFIG, 100); // retry interval
 
-        return new ReactiveKafkaProducerTemplate<>(
-                SenderOptions.create(producerProps)
-        );
+        return new ReactiveKafkaProducerTemplate<>(SenderOptions.create(producerProps));
     }
 
     @Bean
-    public ReactiveKafkaConsumerTemplate<String, Task> TaskRequestConsumerTemplate() {
+    public ReactiveKafkaConsumerTemplate<String, Task> taskRequestConsumerTemplate() {
         Map<String, Object> consumerProps = new HashMap<>();
         consumerProps.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         consumerProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);

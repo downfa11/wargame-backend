@@ -16,7 +16,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Grant execute permission for gradlew
         run: chmod +x ./gradlew
 
@@ -57,7 +57,7 @@ jobs:
 
       - name: Update Helm values with new image tag
         run: |
-          charts=("membership-chart" "match-chart" "result-query-chart" "result-chart" "feed-chart")
+          charts=("iocp-chart" "membership-chart" "match-chart" "result-query-chart" "result-chart" "feed-chart")
           
           for i in ${!charts[@]}; do
             CHART=${charts[$i]}

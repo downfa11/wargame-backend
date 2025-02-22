@@ -1,0 +1,22 @@
+groups:
+  - name: HeapUsageAlerts
+    rules:
+      - alert: HighHeapUsage
+        expr: jvm_memory_used_bytes{area="heap"} / jvm_memory_max_bytes{area="heap"} > 0.8
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "High Heap Usage"
+          description: "Heap usage exceeds 80% - triggering heap dump"
+
+  - name: ThreadBlockingAlerts
+    rules:
+      - alert: ThreadBlockingDetected
+        expr: jvm_threads_daemon < 10
+        for: 30s
+        labels:
+          severity: warning
+        annotations:
+          summary: "Thread Blocking Detected"
+          description: "Daemon thread count is too low, possible blocking detected - triggering thread dump"

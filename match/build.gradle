@@ -37,8 +37,11 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-webflux'
     testImplementation 'io.projectreactor:reactor-test'
 
-    //redis
+    //redis (Redisson)
     implementation 'org.springframework.boot:spring-boot-starter-data-redis-reactive'
+    implementation 'org.redisson:redisson:3.23.5'
+
+
 
     //kafka
     implementation 'io.projectreactor.kafka:reactor-kafka:1.3.19'

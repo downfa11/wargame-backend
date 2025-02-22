@@ -1,13 +1,11 @@
 package com.ns.match;
 
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
-import com.ns.common.Task;
-import com.ns.match.dto.MatchUserResponse;
-import com.ns.match.service.KafkaService;
-import com.ns.match.service.MatchQueueService;
+import com.ns.match.application.port.in.CancleMatchQueueUseCase;
+import com.ns.match.application.port.in.RegisterMatchQueueUseCase;
+import com.ns.match.application.port.out.task.TaskConsumerPort;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -25,10 +23,12 @@ import reactor.test.StepVerifier;
 public class MatchQueueServiceTest {
 
     @Autowired
-    private MatchQueueService matchQueueService;
+    private RegisterMatchQueueUseCase registerMatchQueueUseCase;
+    @Autowired
+    private CancleMatchQueueUseCase cancleMatchQueueUseCase;
 
     @Mock
-    KafkaService kafkaService;
+    TaskConsumerPort taskConsumerPort;
 
     @BeforeEach
     void init(){
@@ -41,18 +41,13 @@ public class MatchQueueServiceTest {
         String queue = "registerQueue";
         Long userId = 5L;
 
-        when(kafkaService.waitForUserHasCodeTaskResult(anyString())).thenReturn(Mono.just(true));
-        when(kafkaService.waitForUserResponseTaskResult(anyString()))
-                .thenReturn(Mono.just(MatchUserResponse.builder()
-                                .membershipId(userId)
-                                .name("player")
-                                .elo(2000L)
-                                .spaceCode("1234")
-                                .build()));
+        when(taskConsumerPort.waitForUserHasCodeTaskResult(anyString())).thenReturn(Mono.just(true));
+        when(taskConsumerPort.waitForUserResponseTaskResult(anyString()))
+                .thenReturn(Mono.just(2000L));
 
         // when (동시에 매칭 등록)
-        Mono<String> task1 = matchQueueService.registerMatchQueue(queue, userId);
-        Mono<String> task2 = matchQueueService.registerMatchQueue(queue, userId);
+        Mono<String> task1 = registerMatchQueueUseCase.registerMatchQueue(queue, userId);
+        Mono<String> task2 = registerMatchQueueUseCase.registerMatchQueue(queue, userId);
         Flux<String> concurrentTasks = Flux.merge(task1, task2);
 
         // then (중복되는 registerMatchQueue 실행하면 안됨)
@@ -70,18 +65,12 @@ public class MatchQueueServiceTest {
         Long userId = 1L;
 
         // when (동시에 매칭을 취소)
-        when(kafkaService.waitForUserHasCodeTaskResult(anyString())).thenReturn(Mono.just(true));
-        when(kafkaService.waitForUserResponseTaskResult(anyString()))
-                .thenReturn(Mono.just(MatchUserResponse.builder()
-                        .membershipId(userId)
-                        .name("player")
-                        .elo(2000L)
-                        .spaceCode("1234")
-                        .build()));
-        matchQueueService.registerMatchQueue(queue, userId);
+        when(taskConsumerPort.waitForUserHasCodeTaskResult(anyString())).thenReturn(Mono.just(true));
+        when(taskConsumerPort.waitForUserResponseTaskResult(anyString())).thenReturn(Mono.just(2000L));
+        registerMatchQueueUseCase.registerMatchQueue(queue, userId);
 
-        Mono<Void> task1 = matchQueueService.cancelMatchQueue(userId);
-        Mono<Void> task2 = matchQueueService.cancelMatchQueue(userId);
+        Mono<Void> task1 = cancleMatchQueueUseCase.cancelMatchQueue(userId);
+        Mono<Void> task2 = cancleMatchQueueUseCase.cancelMatchQueue(userId);
         Flux<Void> concurrentTasks = Flux.merge(task1, task2);
 
         // then (중복되는 cancelMatchQueue는 실행하면 안됨)

@@ -1,11 +1,6 @@
-package com.ns.membership.Utils;
+package com.ns.membership.utils;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-import org.springframework.vault.core.VaultKeyValueOperations;
-import org.springframework.vault.core.VaultKeyValueOperationsSupport;
-import org.springframework.vault.core.VaultTemplate;
-import org.springframework.vault.support.VaultResponse;
 
 @Component
 public class VaultAdapter {

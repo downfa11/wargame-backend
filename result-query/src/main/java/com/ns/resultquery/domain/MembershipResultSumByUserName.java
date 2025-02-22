@@ -1,13 +1,12 @@
 package com.ns.resultquery.domain;
 
-import com.ns.resultquery.axon.query.ChampStat;
+import com.ns.resultquery.adapter.axon.query.ChampStat;
+import java.util.List;
 import lombok.AllArgsConstructor;
-import lombok.Data;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.util.List;
-
-@Data
+@Getter
 @NoArgsConstructor
 @AllArgsConstructor
 public class MembershipResultSumByUserName {

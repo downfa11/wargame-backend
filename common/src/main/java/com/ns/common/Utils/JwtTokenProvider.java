@@ -1,4 +1,4 @@
-package com.ns.common.Utils;
+package com.ns.common.utils;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;

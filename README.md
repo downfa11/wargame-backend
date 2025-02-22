@@ -2,7 +2,7 @@
 
 <br>
 
-![wargame](https://github.com/user-attachments/assets/9f5927d3-b92d-46a9-bc35-9911b53cdb7b)
+![wargame](https://github.com/player-attachments/assets/9f5927d3-b92d-46a9-bc35-9911b53cdb7b)
 
 1인개발로 간단한 실시간 MOBA 게임 프로젝트(AOS)를 진행하고 있습니다.
 

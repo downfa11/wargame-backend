@@ -1,7 +1,6 @@
 package com.ns.result.config;
 
-import com.ns.common.ResultRequestEvent;
-import com.ns.common.Task;
+import com.ns.common.task.Task;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -44,29 +43,24 @@ public class KafkaConfig {
 
 
     @Bean
-    public ReactiveKafkaProducerTemplate<String, Task> TaskProducerTemplate() {
+    public ReactiveKafkaProducerTemplate<String, Task> taskProducerTemplate() {
         Map<String, Object> producerProps = new HashMap<>();
         producerProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         producerProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         producerProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
+        producerProps.put(ProducerConfig.ACKS_CONFIG, "all");
+        producerProps.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, "snappy");
+        producerProps.put(ProducerConfig.BATCH_SIZE_CONFIG, 32768);
+        producerProps.put(ProducerConfig.RETRIES_CONFIG, 3);
+        producerProps.put(ProducerConfig.RETRY_BACKOFF_MS_CONFIG, 100);
+
         return new ReactiveKafkaProducerTemplate<>(
                 SenderOptions.create(producerProps)
         );
     }
 
     @Bean
-    public ReactiveKafkaProducerTemplate<String, ResultRequestEvent> eventProducerTemplate() {
-        Map<String, Object> producerProps = new HashMap<>();
-        producerProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
-        producerProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
-        producerProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
-        return new ReactiveKafkaProducerTemplate<>(
-                SenderOptions.create(producerProps)
-        );
-    }
-
-    @Bean
-    public ReactiveKafkaConsumerTemplate<String, Task> TaskRequestConsumerTemplate() {
+    public ReactiveKafkaConsumerTemplate<String, Task> taskRequestConsumerTemplate() {
         Map<String, Object> consumerProps = new HashMap<>();
         consumerProps.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         consumerProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
@@ -75,6 +69,7 @@ public class KafkaConfig {
         consumerProps.put(JsonDeserializer.VALUE_DEFAULT_TYPE, Task.class.getName());
         consumerProps.put(ConsumerConfig.GROUP_ID_CONFIG, requestConsumerGroup);
         consumerProps.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest");
+        consumerProps.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
 
         ReceiverOptions<String, Task> receiverOptions = ReceiverOptions.<String, Task>create(consumerProps)
                 .subscription(Collections.singleton(taskRequestTopic));
@@ -83,13 +78,15 @@ public class KafkaConfig {
     }
 
     @Bean
-    public ReactiveKafkaConsumerTemplate<String, Task> TaskResponseConsumerTemplate() {
+    public ReactiveKafkaConsumerTemplate<String, Task> taskResponseConsumerTemplate() {
         Map<String, Object> consumerProps = new HashMap<>();
         consumerProps.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         consumerProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         consumerProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
         consumerProps.put(JsonDeserializer.TRUSTED_PACKAGES, "*");
         consumerProps.put(JsonDeserializer.VALUE_DEFAULT_TYPE, Task.class.getName());
+        consumerProps.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest");
+        consumerProps.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
         consumerProps.put(ConsumerConfig.GROUP_ID_CONFIG, responseConsumerGroup);
 
         ReceiverOptions<String, Task> receiverOptions = ReceiverOptions.<String, Task>create(consumerProps)
