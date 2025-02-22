@@ -1,0 +1,77 @@
+name: MSA deployment (Canary)
+
+env:
+  BUILD_ID: ${{ github.sha }}
+  HELM_BRANCH: dev
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x ./gradlew
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-northeast-2
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, and push docker images to ECR
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          modules=("membership" "match" "result-query" "result" "feed")
+          repositories=("downfa11/wargame_membership" "downfa11/wargame_match" "downfa11/wargame_result_query" "downfa11/wargame_result" "downfa11/wargame_feed")
+
+          for i in ${!modules[@]}; do
+            MODULE=${modules[$i]}
+            REPOSITORY=${repositories[$i]}
+            IMAGE_TAG=${{ github.sha }}
+
+            docker build --build-arg MODULE=$MODULE -t $REGISTRY/$REPOSITORY:$IMAGE_TAG .
+            docker push $REGISTRY/$REPOSITORY:$IMAGE_TAG
+          done
+
+      - name: Checkout Helm Repository
+        uses: actions/checkout@v3
+        with:
+          repository: downfa11/wargame-helm
+          path: helm-chart
+          ref: main
+          ssh-key: ${{ secrets.HELM_CHARTS_REPO_KEY }}
+
+      - name: Update Helm values with new image tag
+        run: |
+          charts=("iocp-chart" "membership-chart" "match-chart" "result-query-chart" "result-chart" "feed-chart")
+          
+          for i in ${!charts[@]}; do
+            CHART=${charts[$i]}
+            yq -i ".image.tag = \"${{ env.BUILD_ID }}\"" helm-chart/$CHART/values-dev.yaml
+          done
+
+      - name: Commit and Push Helm changes
+        run: |
+          cd helm-chart
+          git config --local user.email "downfa11@naver.com"
+          git config --local user.name "downfa11"
+          git add .
+          
+          git commit -m "Update Helm charts: Tag=${{ env.BUILD_ID }}"
+          current_branch=$(git branch --show-current)
+          git checkout -b ${{ env.HELM_BRANCH }} && git merge ${current_branch}
+          git push --force origin ${{ env.HELM_BRANCH }}
