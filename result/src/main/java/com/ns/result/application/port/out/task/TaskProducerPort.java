@@ -1,4 +1,4 @@
-package com.ns.result.application.port.out;
+package com.ns.result.application.port.out.task;
 
 import com.ns.common.task.Task;
 import reactor.core.publisher.Mono;
