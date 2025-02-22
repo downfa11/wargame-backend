@@ -17,4 +17,4 @@ EXPOSE 8080
 
 USER appuser
 
-ENTRYPOINT ["java","-jar","${MODULE}.jar"]
+ENTRYPOINT ["java","-XX:+HeapDumpOnOutOfMemoryError", "-XX:HeapDumpPath=/heapdump.hprof","-jar","${MODULE}.jar"]

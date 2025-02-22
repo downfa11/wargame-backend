@@ -7,4 +7,4 @@ ARG JAR_FILE
 COPY ${JAR_FILE} app.jar
 LABEL authors="ns"
 
-ENTRYPOINT ["java", "-jar", "/app.jar"]
+ENTRYPOINT ["java", "-XX:+HeapDumpOnOutOfMemoryError", "-XX:HeapDumpPath=/heapdump.hprof", "-jar", "/app.jar"]
