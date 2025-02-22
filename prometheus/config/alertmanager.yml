@@ -1,0 +1,30 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: "actuator-dump"
+
+receivers:
+  - name: "actuator-dump"
+    webhook_configs:
+      - url: "http://feed:8080/actuator/heapdump"
+        send_resolved: false
+      - url: "http://match:8081/actuator/heapdump"
+        send_resolved: false
+      - url: "http://membership:8082/actuator/heapdump"
+        send_resolved: false
+      - url: "http://result:8083/actuator/heapdump"
+        send_resolved: false
+      - url: "http://result-query:8084/actuator/heapdump"
+        send_resolved: false
+
+      - url: "http://feed:8080/actuator/threaddump"
+        send_resolved: false
+      - url: "http://match:8081/actuator/threaddump"
+        send_resolved: false
+      - url: "http://membership:8082/actuator/threaddump"
+        send_resolved: false
+      - url: "http://result:8083/actuator/threaddump"
+        send_resolved: false
+      - url: "http://result-query:8084/actuator/threaddump"
+        send_resolved: false
