@@ -1,4 +1,4 @@
-package com.ns.result.adapter.axon;
+package com.ns.result.adapter.out;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ns.common.anotation.PersistanceAdapter;
@@ -19,7 +19,7 @@ import reactor.core.publisher.Mono;
 @Slf4j
 @PersistanceAdapter
 @RequiredArgsConstructor
-public class AxonEventAdapter implements SendCommandPort, SendQueryPort {
+public class PlayerEventSourcingAdapter implements SendCommandPort, SendQueryPort {
     private final CommandGateway commandGateway;
     private final QueryGateway queryGateway;
 
