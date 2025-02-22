@@ -13,12 +13,4 @@ public interface UserR2dbcRepository extends ReactiveCrudRepository<User, Long> 
     Flux<User> findByEmail(String email);
     Mono<User> findByAccount(String account);
     Mono<User> findByAccountAndPassword(String account,String password);
-    Flux<User> findByNameOrderByIdDesc(String name);
-
-    @Query("SELECT * FROM users WHERE id IN (:ids)")
-    Flux<User> findUsersByIdList(List<Long> ids);
-
-    @Modifying
-    @Query("DELETE FROM users WHERE name = :name")
-    Mono<Void> deleteByName(String name);
 }
