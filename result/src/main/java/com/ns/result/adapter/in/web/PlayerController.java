@@ -9,7 +9,9 @@ import com.ns.common.task.SubTask;
 import com.ns.result.adapter.axon.command.GameFinishedCommand;
 import com.ns.result.adapter.axon.query.QueryPlayer;
 import com.ns.result.adapter.out.persistence.psql.Player;
-import com.ns.result.application.service.PlayerService;
+import com.ns.result.application.port.in.FindPlayerUseCase;
+import com.ns.result.application.port.in.RegisterPlayerUseCase;
+import com.ns.result.application.port.in.UpdatePlayerUseCase;
 import java.util.List;
 import java.util.Random;
 import lombok.RequiredArgsConstructor;
@@ -29,27 +31,22 @@ import reactor.core.publisher.Mono;
 @RequestMapping("/v1/player")
 @RequiredArgsConstructor
 public class PlayerController {
-    private final PlayerService playerService;
+    private final RegisterPlayerUseCase registerPlayerUseCase;
+    private final UpdatePlayerUseCase updatePlayerUseCase;
+    private final FindPlayerUseCase findPlayerUseCase;
 
     private final CommandGateway commandGateway;
 
     @PostMapping(path="/create")
-    Mono<Void> RegisterPlayerByEvent(@RequestParam String membershipId){
-        return playerService.createPlayerByEvent(membershipId);
+    Mono<QueryPlayer> RegisterPlayerByEvent(@RequestParam String membershipId){
+        return registerPlayerUseCase.createPlayer(membershipId);
     }
 
     @PostMapping(path="/increase-elo/event")
     Mono<QueryPlayer> UpdateEloByEvent(@RequestParam String membershipId){
         Random random = new Random();
-        Long elo = random.nextLong(2000);
-        return playerService.updateEloByEvent(membershipId, elo);
-    }
-
-    @PostMapping(path="/increase-elo/saga")
-    Mono<QueryPlayer> UpdateEloBySaga(@RequestParam String membershipId){
-        Random random = new Random();
-        Long elo = random.nextLong(2000);
-        return playerService.updateEloBySaga(membershipId, elo);
+        Long elo = random.nextLong(1000);
+        return updatePlayerUseCase.updateEloByEvent(membershipId, elo);
     }
 
     @GetMapping("/test/room")
@@ -83,16 +80,11 @@ public class PlayerController {
 
     @GetMapping("/playerList")
     public Flux<Player> findAllPlayers(){
-        return playerService.findAll();
+        return findPlayerUseCase.findAll();
     }
 
     @GetMapping("/player/{membershipId}")
     public Mono<QueryPlayer> findByMembershipId(@PathVariable String membershipId){
-        return playerService.queryToPlayerByMembershipId(membershipId);
-    }
-
-    @GetMapping("/player/db/{membershipId}")
-    public Mono<Player> findByMembershipIddb(@PathVariable String membershipId){
-        return playerService.findByMembershipId(membershipId);
+        return findPlayerUseCase.queryToPlayerByMembershipId(membershipId);
     }
 }

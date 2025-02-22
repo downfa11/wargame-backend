@@ -1,70 +1,70 @@
 package com.ns.result.application.service;
 
 
-import static com.ns.result.adapter.out.persistence.elasticsearch.ResultMapper.mapToResultDocument;
-
 import com.ns.common.ClientRequest;
 import com.ns.common.GameFinishedEvent;
+import com.ns.common.anotation.UseCase;
+import com.ns.common.task.SubTask;
+import com.ns.common.task.Task;
+import com.ns.common.task.TaskUseCase;
 import com.ns.result.adapter.out.persistence.elasticsearch.Result;
-import com.ns.result.adapter.out.persistence.elasticsearch.ResultRepository;
-import java.time.Duration;
+import com.ns.result.application.port.in.FindResultUseCase;
+import com.ns.result.application.port.in.RegisterResultUseCase;
+import com.ns.result.application.port.out.cache.FindRedisPort;
+import com.ns.result.application.port.out.search.FindResultPort;
+import com.ns.result.application.port.out.cache.PushRedisPort;
+import com.ns.result.application.port.out.search.RegisterResultPort;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.redis.core.ReactiveRedisOperations;
-import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 @Slf4j
-@Service
+@UseCase
 @RequiredArgsConstructor
-public class ResultService {
-    private final ReactiveRedisOperations<String, Result> resultRedisTemplate;
-    private final ResultRepository resultRepository;
-    private final int RESULT_SEARCH_SIZE = 30;
+public class ResultService implements RegisterResultUseCase, FindResultUseCase {
+    private final PushRedisPort pushRedisPort;
+    private final FindRedisPort findRedisPort;
 
+    private final RegisterResultPort registerResultPort;
+    private final FindResultPort findResultPort;
 
+    private final TaskUseCase taskUseCase;
+
+    @Override
     public Flux<Result> getResultList() {
-        return resultRepository.findAll();
+        return findResultPort.findAll();
     }
 
-    public Mono<Result> saveResult(GameFinishedEvent gameFinishedEvent) {
-        return resultRepository.save(mapToResultDocument(gameFinishedEvent)); // todo. OpenSearchService.saveResult(document)
-    }
-
+    @Override
     public Flux<Result> getGameResultsByName(String name, int offset) {
-        String key = "results:name:" + name + "offset:" + offset;
-
-        return resultRedisTemplate.opsForList().range(key, 0, -1)
-                .doOnNext(results -> log.info("캐시에서 가져옴"))
-                .switchIfEmpty(Flux.defer(() -> resultRepository.searchByUserName(name, RESULT_SEARCH_SIZE, offset)
-                        .flatMap(result -> {
-                            log.info("캐시가 없어");
-                            return resultRedisTemplate.opsForList().rightPush(key, result)
-                                    .thenReturn(result);
-                        })
-                        .doOnTerminate(() -> resultRedisTemplate.expire(key, Duration.ofHours(1)).subscribe())));
+        String key = "results:name:" + name + ":offset:" + offset;
+        return getGameResultsByKey(key, offset, findResultPort.searchByUserName(name, offset));
     }
 
+    @Override
     public Flux<Result> getGameResultsByMembershipId(Long membershipId, int offset) {
-        String key = "results:membershipId:" + membershipId + "offset:" + offset;
-
-        return resultRedisTemplate.opsForList().range(key, 0, -1)
-                .doOnNext(results -> log.info("캐시에서 가져옴"))
-                .switchIfEmpty(Flux.defer(() -> resultRepository.searchByMembershipId(membershipId, RESULT_SEARCH_SIZE, offset)
-                        .flatMap(result -> {
-                            log.info("캐시가 없어");
-                            return resultRedisTemplate.opsForList().rightPush(key, result)
-                                    .thenReturn(result);
-                        })
-                        .doOnTerminate(() -> resultRedisTemplate.expire(key, Duration.ofHours(1)).subscribe())));
+        String key = "results:membershipId:" + membershipId + ":offset:" + offset;
+        return getGameResultsByKey(key, offset, findResultPort.searchByMembershipId(membershipId, offset));
     }
 
+    private Flux<Result> getGameResultsByKey(String key, int offset, Flux<Result> dbResults) {
+        return findRedisPort.findResultInRange(key, offset)
+                .switchIfEmpty(Flux.defer(() -> dbResults.flatMap(result -> pushRedisPort.pushResult(key, result))));
+    }
+
+
+    @Override
+    public Mono<Result> saveResult(GameFinishedEvent gameFinishedEvent) {
+        return registerResultPort.saveResult(gameFinishedEvent);
+    }
 
     //=============== test ================//
+    @Override
     public Mono<Result> createResultTemp() {
         Random random = new Random();
 
@@ -119,6 +119,45 @@ public class ResultService {
                 .movespeed(random.nextInt(100))
                 .itemList(List.of(random.nextInt(100), random.nextInt(100), random.nextInt(100))) // 3개의 랜덤 아이템
                 .build();
+    }
+
+
+
+
+    //    public Mono<Void> dodge(GameFinishedEvent result) {
+//        List<ClientRequest> allTeams = getAllTeams(result);
+//
+//        if (allTeams.isEmpty()) {
+//            log.warn("각 팀이 비어 있습니다!");
+//            return Mono.empty();
+//        }
+//
+//        return Flux.fromIterable(allTeams)
+//                .flatMap(client -> Mono.just(createDodgeSubTask(client.getMembershipId())))
+//                .collectList()
+//                .flatMap(subTasks -> resultService.sendTask("task.membership.response", createDodgeTask(subTasks)));
+//    }
+
+    private List<ClientRequest> getAllTeams(GameFinishedEvent result){
+        List<ClientRequest> allTeams = new ArrayList<>();
+        allTeams.addAll(result.getBlueTeams());
+        allTeams.addAll(result.getRedTeams());
+        return allTeams;
+    }
+
+    private SubTask createDodgeSubTask(Long membershipId){
+        return taskUseCase.createSubTask("Dodge",
+                String.valueOf(membershipId),
+                SubTask.TaskType.result,
+                SubTask.TaskStatus.ready,
+                membershipId);
+    }
+
+    private Task createDodgeTask(List<SubTask> subTasks){
+        return taskUseCase.createTask(
+                "Dodge Request",
+                null,
+                subTasks);
     }
 }
 

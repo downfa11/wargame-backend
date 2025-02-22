@@ -2,7 +2,8 @@ package com.ns.result.adapter.in.web;
 
 
 import com.ns.result.adapter.out.persistence.elasticsearch.Result;
-import com.ns.result.application.service.ResultService;
+import com.ns.result.application.port.in.FindResultUseCase;
+import com.ns.result.application.port.in.RegisterResultUseCase;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -20,28 +21,27 @@ import reactor.core.publisher.Mono;
 @RequiredArgsConstructor
 public class ResultController {
 
-    private final ResultService resultService;
+    private final RegisterResultUseCase registerResultUseCase;
+    private final FindResultUseCase findResultUseCase;
 
 
+    @GetMapping("/list")
+    public Flux<Result> getResultList(){ return findResultUseCase.getResultList(); }
 
     @GetMapping("/search/name/{name}")
     public Flux<Result> getGameResultsByName(@PathVariable String name, @RequestParam int offset) {
-        return resultService.getGameResultsByName(name, offset);
-    }
-
-    @PostMapping("/temp")
-    public Mono<Result> createResultTemp(){
-        return resultService.createResultTemp();
-    }
-
-    @GetMapping("/list")
-    public Flux<Result> getResultList(){
-        return resultService.getResultList();
+        return findResultUseCase.getGameResultsByName(name, offset);
     }
 
     @GetMapping("/search/id/{membershipId}")
     public Flux<Result> getGameResultsByMembershipId(@PathVariable Long membershipId,  @RequestParam int offset) {
-        return resultService.getGameResultsByMembershipId(membershipId, offset);
+        return findResultUseCase.getGameResultsByMembershipId(membershipId, offset);
     }
+
+    @PostMapping("/temp")
+    public Mono<Result> createResultTemp(){
+        return registerResultUseCase.createResultTemp();
+    }
+
 }
 

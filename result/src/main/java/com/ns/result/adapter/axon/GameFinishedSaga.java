@@ -8,6 +8,8 @@ import com.ns.result.adapter.axon.command.RollbackUpdateEloCommand;
 import com.ns.result.adapter.axon.command.UpdateEloCommand;
 import com.ns.result.adapter.axon.event.RollbackGameResultEvent;
 import com.ns.result.adapter.axon.event.UpdateEloEvent;
+import com.ns.result.application.port.out.player.FindPlayerPort;
+import com.ns.result.application.port.out.player.UpdatePlayerPort;
 import com.ns.result.application.service.EloService;
 import com.ns.result.application.service.PlayerService;
 import com.ns.result.application.service.ResultService;
@@ -34,7 +36,8 @@ import reactor.core.publisher.Mono;
 public class GameFinishedSaga {
 
     private final ResultService resultService;
-    private final PlayerService playerService;
+    private final UpdatePlayerPort updatePlayerPort;
+    private final FindPlayerPort findPlayerPort;
     private final EloService eloService;
 
     private final CommandGateway commandGateway;
@@ -73,7 +76,7 @@ public class GameFinishedSaga {
                     String membershipId = String.valueOf(request.getMembershipId());
                     Long newElo = request.getElo();
 
-                    return playerService.findByMembershipId(membershipId)
+                    return findPlayerPort.findByMembershipId(membershipId)
                             .flatMap(player -> {
                                 commandGateway.send(new UpdateEloCommand(player.getAggregateIdentifier(), membershipId, newElo));
                                 return Mono.empty();
@@ -104,7 +107,7 @@ public class GameFinishedSaga {
     }
 
     private Long getPlayerElo(String membershipId) {
-        return playerService.findByMembershipId(membershipId)
+        return findPlayerPort.findByMembershipId(membershipId)
                 .map(Player::getElo)
                 .block();
     }
@@ -113,8 +116,8 @@ public class GameFinishedSaga {
     public void handle(UpdateEloEvent event) {
         log.info("UpdateEloEvent saga: " + event.toString());
 
-        // 조회용 db에 기록합니다. 오류 발생시 롤백 처리
-        playerService.updateElo(event.getMembershipId(), event.getElo())
+        // 조회용 db에 기록. 오류 발생시 롤백 처리
+        updatePlayerPort.updatePlayer(event.getMembershipId(), event.getElo())
                 .doOnSuccess(player -> {
 
                     // todo. 롤백 테스트시, 여기서 player==null 처리해버리자.
