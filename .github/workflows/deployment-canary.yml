@@ -7,8 +7,6 @@ env:
 on:
   push:
     branches: ["main"]
-  pull_request:
-    branches: ["main"]
 
 jobs:
   build:
@@ -57,7 +55,7 @@ jobs:
 
       - name: Update Helm values with new image tag
         run: |
-          charts=("iocp-chart" "membership-chart" "match-chart" "result-query-chart" "result-chart" "feed-chart")
+          charts=("membership-chart" "match-chart" "result-query-chart" "result-chart" "feed-chart")
           
           for i in ${!charts[@]}; do
             CHART=${charts[$i]}
