@@ -1,13 +1,9 @@
 package com.ns.result.adapter.in.web;
 
 import java.util.List;
-import lombok.AllArgsConstructor;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
 
 @Getter
-@AllArgsConstructor
-@NoArgsConstructor
 public class SearchRequestTemplate {
     private String newIndex;
     private String logGroup;

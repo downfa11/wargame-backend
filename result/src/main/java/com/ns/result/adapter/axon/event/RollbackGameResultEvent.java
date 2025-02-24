@@ -9,8 +9,6 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-@Builder
-
 @Getter
 @EqualsAndHashCode(callSuper = false)
 @NoArgsConstructor

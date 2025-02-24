@@ -2,12 +2,10 @@ package com.ns.result.adapter.axon.event;
 
 import com.ns.common.utils.SelfValidating;
 import jakarta.validation.constraints.NotNull;
-import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-@Builder
 @Getter
 @EqualsAndHashCode(callSuper = false)
 @NoArgsConstructor

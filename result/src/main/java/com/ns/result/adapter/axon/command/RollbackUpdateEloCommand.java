@@ -1,14 +1,15 @@
 package com.ns.result.adapter.axon.command;
 
-import lombok.AllArgsConstructor;
+import com.ns.common.utils.SelfValidating;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.axonframework.modelling.command.TargetAggregateIdentifier;
 
 @Getter
-@AllArgsConstructor
+@EqualsAndHashCode(callSuper = false)
 @NoArgsConstructor
-public class RollbackUpdateEloCommand {
+public class RollbackUpdateEloCommand extends SelfValidating<RollbackUpdateEloCommand> {
 
     private String rollbackId;
 
@@ -17,4 +18,12 @@ public class RollbackUpdateEloCommand {
 
     private String membershipId;
     private Long Elo;
+
+    public RollbackUpdateEloCommand(String rollbackId, String aggregateIdentifier, String membershipId, Long Elo) {
+        this.rollbackId = rollbackId;
+        this.aggregateIdentifier = aggregateIdentifier;
+        this.membershipId = membershipId;
+        this.Elo = Elo;
+        this.validateSelf();
+    }
 }

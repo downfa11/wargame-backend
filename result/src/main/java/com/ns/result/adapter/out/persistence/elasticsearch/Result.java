@@ -13,8 +13,6 @@ import org.springframework.data.elasticsearch.annotations.FieldType;
 
 @Getter
 @Builder
-@AllArgsConstructor
-@NoArgsConstructor
 @Document(indexName ="results")
 public class Result {
     @Id
