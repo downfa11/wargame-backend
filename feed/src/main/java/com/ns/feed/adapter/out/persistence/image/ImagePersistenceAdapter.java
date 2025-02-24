@@ -19,7 +19,7 @@ public class ImagePersistenceAdapter implements UpdateImagePort, DeleteImagePort
 
     @Override
     public Mono<Image> createImage(Long postId, String url) {
-        Image image = new Image().builder()
+        Image image = Image.builder()
                 .postId(postId)
                 .url(url).build();
 
