@@ -3,13 +3,11 @@ package com.ns.membership.adapter.axon.event;
 
 import com.ns.common.utils.SelfValidating;
 import com.ns.membership.adapter.axon.command.ModifyMemberCommand;
-import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Getter
-@Builder
 @NoArgsConstructor
 @EqualsAndHashCode(callSuper = false)
 public class ModifyMemberEvent extends SelfValidating<ModifyMemberCommand> {

@@ -2,13 +2,11 @@ package com.ns.membership.adapter.axon.event;
 
 import com.ns.common.utils.SelfValidating;
 import jakarta.validation.constraints.NotNull;
-import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Getter
-@Builder
 @EqualsAndHashCode(callSuper = false)
 @NoArgsConstructor
 public class CreateMemberEvent  extends SelfValidating<CreateMemberEvent> {

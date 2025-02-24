@@ -2,14 +2,13 @@ package com.ns.membership.adapter.axon.command;
 
 import com.ns.common.utils.SelfValidating;
 import jakarta.validation.constraints.NotNull;
-import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.axonframework.modelling.command.TargetAggregateIdentifier;
 
+
 @Getter
-@Builder
 @NoArgsConstructor
 @EqualsAndHashCode(callSuper = false)
 public class ModifyMemberCommand extends SelfValidating<ModifyMemberCommand> {
