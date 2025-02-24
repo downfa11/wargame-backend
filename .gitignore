@@ -896,3 +896,6 @@ prometheus/volume/data/01JMPBBHED6VGWGAAPPT5FZK8Y/tombstones
 prometheus/volume/data/01JMPBBHED6VGWGAAPPT5FZK8Y/meta.json
 prometheus/volume/data/01JMPBBHED6VGWGAAPPT5FZK8Y/index
 prometheus/volume/data/01JMPBBHED6VGWGAAPPT5FZK8Y/chunks/000001
+prometheus/volume/data/chunks_head/000002
+prometheus/volume/data/wal/00000009
+prometheus/volume/data/wal/checkpoint.00000006/00000000

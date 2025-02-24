@@ -7,16 +7,25 @@ groups:
         labels:
           severity: critical
         annotations:
-          summary: "High Heap Usage"
-          description: "Heap usage exceeds 80% - triggering heap dump"
+          summary: "Heap Usage High: 80%"
+          description: "Heap 사용량이 80% 초과했습니다."
 
   - name: ThreadBlockingAlerts
     rules:
-      - alert: ThreadBlockingDetected
-        expr: jvm_threads_daemon < 10
+      - alert: ThreadBlockingRatio
+        expr: (jvm_threads_state{state="blocked"} / jvm_threads_count) * 100 > 10
         for: 30s
         labels:
           severity: warning
         annotations:
-          summary: "Thread Blocking Detected"
-          description: "Daemon thread count is too low, possible blocking detected - triggering thread dump"
+          summary: "Blocking Thread:entire ratio 10%"
+          description: "쓰레드중 10% 이상 블로킹 상태를 유지하고 있습니다."
+
+      - alert: ThreadBlockingLongDuration
+        expr: jvm_threads_state{state="blocked"} > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Blocking Thread:duration 1min"
+          description: "쓰레드가 1분 이상 블로킹 상태를 유지하고 있습니다."
