@@ -28,7 +28,7 @@ public class ResultQueryMapper {
     private void initializeChampList() {
         champRepository.findAllChampNames()
                 .doOnNext(champ -> {
-                    // log.info(champ.getChampionId() + "번째 챔프의 이름 : " + champ.getName());
+                    log.info(champ.getChampionId() + "번째 챔프의 이름 : " + champ.getName());
                     champList.put(Long.valueOf(champ.getChampionId()), champ.getName());
                 })
                 .then()
