@@ -72,3 +72,7 @@ docker {
 }
 
 tasks.register("prepareKotlinBuildScriptModel"){}
+
+test {
+    useJUnitPlatform()
+}
