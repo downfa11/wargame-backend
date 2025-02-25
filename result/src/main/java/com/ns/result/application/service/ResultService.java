@@ -138,7 +138,7 @@ public class ResultService implements RegisterResultUseCase, FindResultUseCase {
 //                .flatMap(subTasks -> resultService.sendTask("task.membership.response", createDodgeTask(subTasks)));
 //    }
 
-    private List<ClientRequest> getAllTeams(GameFinishedEvent result){
+    public List<ClientRequest> getAllTeams(GameFinishedEvent result){
         List<ClientRequest> allTeams = new ArrayList<>();
         allTeams.addAll(result.getBlueTeams());
         allTeams.addAll(result.getRedTeams());
