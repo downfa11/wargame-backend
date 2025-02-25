@@ -1,9 +1,11 @@
 package com.ns.membership.dto;
 
 import java.time.LocalDateTime;
+import lombok.Builder;
 import lombok.Getter;
 
 @Getter
+@Builder
 public class PostSummary {
     private Long id;
     private SortStatus sortStatus;
