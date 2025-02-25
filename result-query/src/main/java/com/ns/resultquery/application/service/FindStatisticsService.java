@@ -16,12 +16,12 @@ public class FindStatisticsService implements FindStatisticsUseCase {
 
 
     @Override
-    public Mono<CountSumByChamp> findStatiscticsByChampion(String champName) {
+    public Mono<CountSumByChamp> findStatisticsByChampion(String champName) {
         return findStatisticsPort.queryToResultSumByChampName(champName);
     }
 
     @Override
-    public Mono<CountSumByMembership> findStatiscticsByUserName(String userName) {
+    public Mono<CountSumByMembership> findStatisticsByUserName(String userName) {
         return findStatisticsPort.queryToResultByUserName(userName);
     }
 }
