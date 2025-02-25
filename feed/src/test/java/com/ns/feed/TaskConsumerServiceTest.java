@@ -21,9 +21,11 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 public class TaskConsumerServiceTest {
 
-    @InjectMocks private TaskConsumerService taskConsumerService;
+    @InjectMocks
+    private TaskConsumerService taskConsumerService;
 
-    @Mock private TaskConsumerPort taskConsumerPort;
+    @Mock
+    private TaskConsumerPort taskConsumerPort;
 
     private String taskName = "taskId";
     private String subTaskData = "RequestUserName";
@@ -56,9 +58,10 @@ public class TaskConsumerServiceTest {
 
         // when
         for (int i = 0; i <= 5001; i++) {
-            Task task = new Task();
-            task.setTaskID(taskName + i);
-            task.setSubTaskList(Arrays.asList(mockSubTask));
+            Task task = Task.builder()
+                    .taskID(taskName + i)
+                    .subTaskList(Arrays.asList(mockSubTask))
+                    .build();
             taskConsumerService.handleTaskResponse(task);
         }
 
@@ -73,7 +76,8 @@ public class TaskConsumerServiceTest {
     void 회원_서비스로부터_사용자의_이름을_받아오는_메서드() {
         // given
         SubTask mockSubTask = mock(SubTask.class);
-        when(mockSubTask.getData()).thenReturn(subTaskData);
+        Object subtaskData = "name";
+        when(mockSubTask.getData()).thenReturn(subtaskData);
 
         Task mockTask = mock(Task.class);
         when(mockTask.getTaskID()).thenReturn(taskName);
@@ -86,7 +90,7 @@ public class TaskConsumerServiceTest {
 
         // then
         StepVerifier.create(result)
-                .expectNext(subTaskData)
+                .expectNext((String) subtaskData)
                 .verifyComplete();
 
         verify(taskConsumerPort, times(1)).getTaskResults(taskName);

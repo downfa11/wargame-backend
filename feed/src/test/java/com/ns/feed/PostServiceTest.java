@@ -59,7 +59,7 @@ public class PostServiceTest {
     void 게시글을_작성하는_테스트() {
         // Given
         when(taskProducerPort.getUserNameByPost(1L)).thenReturn(Mono.just("User"));
-        when(registerPostPort.registerPost(any())).thenReturn(Mono.just(new Post()));
+        when(registerPostPort.registerPost(any())).thenReturn(Mono.just(Post.builder().build()));
         // When
         PostRegisterRequest request = PostRegisterRequest.builder().build();
         Mono<Post> result = postService.create(1L, request);
@@ -77,7 +77,7 @@ public class PostServiceTest {
     void 게시글을_수정하는_테스트() {
         // Given
         when(taskProducerPort.getUserNameByPost(1L)).thenReturn(Mono.just("User"));
-        when(modifyPostPort.modifyPost(any(), any())).thenReturn(Mono.just(new Post()));
+        when(modifyPostPort.modifyPost(any(), any())).thenReturn(Mono.just(Post.builder().build()));
 
         // When
         PostModifyRequest request = PostModifyRequest.builder().build();
@@ -96,7 +96,7 @@ public class PostServiceTest {
     void 게시글을_삭제하는_메서드() {
         // Given
         Long postId = 1L;
-        when(findPostPort.findPostByPostId(postId)).thenReturn(Mono.just(new Post()));
+        when(findPostPort.findPostByPostId(postId)).thenReturn(Mono.just(Post.builder().build()));
         when(removeLikePort.removeLikeAllByPostId(postId)).thenReturn(Mono.empty());
         when(removePostViewPort.removePostView(postId)).thenReturn(Mono.empty());
         when(deleteCommentPort.deleteByBoardId(postId)).thenReturn(Flux.empty());
@@ -138,7 +138,7 @@ public class PostServiceTest {
     void PostId로_PostResponse를_조회하는_메서드() {
         // Given
         Long postId = 1L;
-        Post post = new Post();
+        Post post = Post.builder().build();
         post.setId(postId);
         when(findPostPort.findPostByPostId(postId)).thenReturn(Mono.just(post));
         when(findLikePort.getLikesCount(postId)).thenReturn(Mono.just(10L));

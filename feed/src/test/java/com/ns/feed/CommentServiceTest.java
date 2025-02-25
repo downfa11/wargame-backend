@@ -29,24 +29,33 @@ import reactor.test.StepVerifier;
 @ExtendWith(MockitoExtension.class)
 public class CommentServiceTest {
 
-    @InjectMocks private CommentService commentService;
+    @InjectMocks
+    private CommentService commentService;
 
-    @Mock private RegisterCommentPort registerCommentPort;
-    @Mock private ModifyCommentPort modifyCommentPort;
-    @Mock private DeleteCommentPort deleteCommentPort;
-    @Mock private FindCommentPort findCommentPort;
+    @Mock
+    private RegisterCommentPort registerCommentPort;
+    @Mock
+    private ModifyCommentPort modifyCommentPort;
+    @Mock
+    private DeleteCommentPort deleteCommentPort;
+    @Mock
+    private FindCommentPort findCommentPort;
 
-    @Mock private ModifyPostPort modifyPostPort;
-    @Mock private FindPostPort findPostPort;
+    @Mock
+    private ModifyPostPort modifyPostPort;
+    @Mock
+    private FindPostPort findPostPort;
 
-    @Mock private TaskProducerPort taskProducerPort;
+    @Mock
+    private TaskProducerPort taskProducerPort;
 
     @Test
     void 댓글을_작성하는_메서드() {
         // given
-        CommentRegisterRequest request = new CommentRegisterRequest();
-        request.setBoardId(1L);
-        request.setBody("Test comment");
+        CommentRegisterRequest request = CommentRegisterRequest.builder()
+                .boardId(1L)
+                .body("Test comment")
+                .build();
 
         // when
         Mono<CommentResponse> result = commentService.create(1L, request);
@@ -88,9 +97,9 @@ public class CommentServiceTest {
     @Test
     void 댓글을_수정하는_메서드() {
         // given
-        CommentModifyRequest request = new CommentModifyRequest();
-        request.setCommentId(1L);
-        request.setBody("Test content");
+        CommentModifyRequest request = CommentModifyRequest.builder()
+                .commentId(1L)
+                .body("Test content").build();
 
         // when
         Mono<CommentResponse> result = commentService.modify(1L, request);
@@ -109,9 +118,10 @@ public class CommentServiceTest {
         // given
         when(findPostPort.findPostByPostId(any())).thenReturn(Mono.empty());
 
-        CommentRegisterRequest request = new CommentRegisterRequest();
-        request.setBoardId(999L);
-        request.setBody("Test comment");
+        CommentRegisterRequest request = CommentRegisterRequest.builder()
+                .boardId(999L)
+                .body("Test comment")
+                .build();
 
         // when
         Mono<CommentResponse> result = commentService.create(1L, request);
@@ -127,9 +137,9 @@ public class CommentServiceTest {
     @Test
     void 댓글을_수정하려는데_없는_경우() {
         // given
-        CommentModifyRequest request = new CommentModifyRequest();
-        request.setCommentId(999L);
-        request.setBody("Test content");
+        CommentModifyRequest request = CommentModifyRequest.builder()
+                .commentId(999L)
+                .body("Test content").build();
 
         when(findCommentPort.findCommentByCommentId(any())).thenReturn(Mono.empty());
 
