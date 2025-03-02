@@ -1,4 +1,4 @@
-package com.ns.result;
+package com.ns.result.usecase;
 
 import com.ns.result.adapter.axon.command.CreatePlayerCommand;
 import com.ns.result.adapter.axon.command.UpdateEloCommand;
@@ -21,7 +21,6 @@ import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 import static org.mockito.Mockito.*;
-import static org.junit.jupiter.api.Assertions.*;
 
 @ExtendWith(MockitoExtension.class)
 class PlayerServiceTest {

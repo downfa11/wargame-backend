@@ -1,4 +1,4 @@
-package com.ns.result;
+package com.ns.result.usecase;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;

@@ -1,4 +1,4 @@
-package com.ns.result;
+package com.ns.result.usecase;
 
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -7,15 +7,11 @@ import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyInt;
 import static org.mockito.Mockito.anyLong;
 import static org.mockito.Mockito.anyString;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.ns.common.ClientRequest;
 import com.ns.common.GameFinishedEvent;
-import com.ns.common.task.SubTask;
-import com.ns.common.task.Task;
-import com.ns.common.task.TaskUseCase;
 import com.ns.result.adapter.out.persistence.elasticsearch.Result;
 import com.ns.result.application.port.out.cache.FindRedisPort;
 import com.ns.result.application.port.out.cache.PushRedisPort;

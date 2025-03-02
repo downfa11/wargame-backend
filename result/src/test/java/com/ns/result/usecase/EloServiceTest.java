@@ -1,4 +1,4 @@
-package com.ns.result;
+package com.ns.result.usecase;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -16,7 +16,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class EloServiceTest {
 
     @InjectMocks private EloService eloService;
-
 
     MembershipEloRequest eloRequest1 = new MembershipEloRequest(1001L, "blue", 1000L);
     MembershipEloRequest eloRequest2 = new MembershipEloRequest(1002L, "blue", 1200L);
