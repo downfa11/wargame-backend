@@ -1,6 +1,6 @@
 package com.ns.membership.adapter.in.web;
 
-import com.ns.common.utils.MessageEntity;
+import com.ns.common.MessageEntity;
 import com.ns.membership.application.service.AuthService;
 import com.ns.membership.dto.UserRequest;
 import lombok.RequiredArgsConstructor;

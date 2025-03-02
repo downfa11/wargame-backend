@@ -1,17 +1,13 @@
 package com.ns.membership.adapter.in.web;
 
+import com.ns.common.MessageEntity;
 import com.ns.common.utils.JwtTokenProvider;
-import com.ns.common.utils.MessageEntity;
 import com.ns.membership.application.port.in.FindUserUseCase;
 import com.ns.membership.application.port.in.ModifyUserUseCase;
 import com.ns.membership.application.port.in.RegisterUserUseCase;
-import com.ns.membership.application.port.out.UserEventSourcingPort;
-import com.ns.membership.application.service.UserService;
 import com.ns.membership.dto.UserCreateRequest;
-import com.ns.membership.dto.UserResponse;
 import com.ns.membership.dto.UserUpdateRequest;
 import java.util.Random;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
