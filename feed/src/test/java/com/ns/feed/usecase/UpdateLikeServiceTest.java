@@ -1,4 +1,4 @@
-package com.ns.feed;
+package com.ns.feed.usecase;
 
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;

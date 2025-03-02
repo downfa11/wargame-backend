@@ -1,4 +1,4 @@
-package com.ns.match;
+package com.ns.match.adapter;
 
 import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.times;

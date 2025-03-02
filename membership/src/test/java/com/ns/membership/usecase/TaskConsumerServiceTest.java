@@ -1,4 +1,4 @@
-package com.ns.membership;
+package com.ns.membership.usecase;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;

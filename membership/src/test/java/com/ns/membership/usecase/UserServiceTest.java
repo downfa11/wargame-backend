@@ -1,4 +1,4 @@
-package com.ns.membership;
+package com.ns.membership.usecase;
 
 import com.ns.membership.adapter.out.persistence.User;
 import com.ns.membership.application.port.out.FindUserPort;
@@ -28,14 +28,10 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class UserServiceTest {
 
-    @Mock
-    private UserEventSourcingPort userEventSourcingPort;
-    @Mock
-    private FindUserPort findUserPort;
-    @Mock
-    private TaskProducerPort taskProducerPort;
-    @InjectMocks
-    private UserService userService;
+    @Mock private UserEventSourcingPort userEventSourcingPort;
+    @Mock private FindUserPort findUserPort;
+    @Mock private TaskProducerPort taskProducerPort;
+    @InjectMocks private UserService userService;
 
     private UserResponse userResponse;
     private User user;
@@ -44,7 +40,7 @@ class UserServiceTest {
     private Long membershipId;
 
     @BeforeEach
-    void setUp() {
+    void init() {
         membershipId = 1L;
 
         userCreateRequest = UserCreateRequest.builder()
@@ -77,7 +73,7 @@ class UserServiceTest {
     }
 
     @Test
-    void createUser() {
+    void 사용자를_생성하는_메서드() {
         // given
         when(userEventSourcingPort.createMemberByEvent(any(UserCreateRequest.class)))
                 .thenReturn(Mono.just(user));
@@ -94,7 +90,7 @@ class UserServiceTest {
     }
 
     @Test
-    void modifyUser() {
+    void 사용자를_수정하는_메서드() {
         // given
         when(userEventSourcingPort.modifyMemberByEvent(eq(membershipId), any(UserUpdateRequest.class)))
                 .thenReturn(Mono.just(user));
@@ -111,7 +107,7 @@ class UserServiceTest {
     }
 
     @Test
-    void getUserPosts() {
+    void 사용자가_작성한_게시글_목록을_조회하는_메서드() {
         // given
         List<PostSummary> postSummaries = Collections.singletonList(PostSummary.builder()
                 .id(1L)
@@ -138,7 +134,7 @@ class UserServiceTest {
     }
 
     @Test
-    void findUserByMembershipId() {
+    void membershipId로_사용자를_조회하는_메서드() {
         // given
         when(findUserPort.findUserByMembershipId(membershipId)).thenReturn(Mono.just(user));
 
@@ -154,7 +150,7 @@ class UserServiceTest {
     }
 
     @Test
-    void findAllUsers() {
+    void 모든_사용자의_목록을_조회하는_메서드() {
         // given
         List<UserResponse> userResponses = List.of(userResponse);
         when(findUserPort.findAll()).thenReturn(Flux.just(user));

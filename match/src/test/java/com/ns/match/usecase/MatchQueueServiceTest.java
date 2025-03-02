@@ -1,4 +1,4 @@
-package com.ns.match;
+package com.ns.match.usecase;
 
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
@@ -19,21 +19,13 @@ import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 @ExtendWith(SpringExtension.class)
-@SpringBootTest
 public class MatchQueueServiceTest {
 
-    @Autowired
     private RegisterMatchQueueUseCase registerMatchQueueUseCase;
-    @Autowired
     private CancleMatchQueueUseCase cancleMatchQueueUseCase;
 
-    @Mock
-    TaskConsumerPort taskConsumerPort;
+    @Mock TaskConsumerPort taskConsumerPort;
 
-    @BeforeEach
-    void init(){
-        MockitoAnnotations.openMocks(this);
-    }
 
     @Test
     void 동시에_매칭_큐에_등록하는_경우() {

@@ -1,4 +1,4 @@
-package com.ns.resultquery;
+package com.ns.resultquery.usecase;
 
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -21,7 +21,6 @@ import reactor.test.StepVerifier;
 class FindStatisticsServiceTest {
 
     @Mock private FindStatisticsPort findStatisticsPort;
-
     @InjectMocks private FindStatisticsService findStatisticsService;
 
 

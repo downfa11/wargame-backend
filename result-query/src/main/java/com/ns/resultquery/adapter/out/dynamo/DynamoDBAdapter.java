@@ -16,6 +16,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.axonframework.queryhandling.QueryHandler;
 import org.springframework.beans.factory.annotation.Value;
@@ -42,25 +43,15 @@ import software.amazon.awssdk.services.dynamodb.model.UpdateItemResponse;
 
 @Slf4j
 @PersistanceAdapter
+@RequiredArgsConstructor
 public class DynamoDBAdapter implements InsertUserStatisticsPort, InsertChampStatisticsPort {
     private static final String CHAMP_TABLE_NAME = "wargame-champ-query";
     private static final String MEMBERSHIP_TABLE_NAME = "wargame-membership-query";
     private static final String CURRENT_SEASON = "1";
+
     private final DynamoDbClient dynamoDbClient;
     private final DynamoDBMapper dynamodbMapper;
 
-    public DynamoDBAdapter(@Value("${dynamodb.accesskey}") String accessKey,
-                           @Value("${dynamodb.secretkey}") String secretKey) {
-        log.info("Auth DynamoDB : " + accessKey + ", " + secretKey);
-
-        AwsBasicCredentials credentials = AwsBasicCredentials.create(accessKey, secretKey);
-        this.dynamoDbClient = DynamoDbClient.builder()
-                .region(Region.AP_NORTHEAST_2)
-                .credentialsProvider(StaticCredentialsProvider.create(credentials))
-                .build();
-
-        this.dynamodbMapper = new DynamoDBMapper();
-    }
 
     public Mono<Void> insertResultCountIncreaseEventByChampName(Long champIndex, String champName, Long resultCount, Long winCount, Long loseCount) {
         return Mono.fromRunnable(() -> {

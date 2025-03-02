@@ -1,4 +1,4 @@
-package com.ns.feed;
+package com.ns.feed.usecase;
 
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.any;

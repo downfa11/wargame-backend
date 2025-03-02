@@ -1,4 +1,4 @@
-package com.ns.feed;
+package com.ns.feed.usecase;
 
 import com.ns.common.task.SubTask;
 import com.ns.common.task.Task;
@@ -90,7 +90,7 @@ public class TaskConsumerServiceTest {
 
         // then
         StepVerifier.create(result)
-                .expectNext((String) subtaskData)
+                .expectNext("name")
                 .verifyComplete();
 
         verify(taskConsumerPort, times(1)).getTaskResults(taskName);
