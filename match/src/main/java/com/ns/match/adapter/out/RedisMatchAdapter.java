@@ -291,7 +291,7 @@ public class RedisMatchAdapter implements RegisterMatchQueuePort, CancelMatchQue
                 .doOnError(error -> log.error("Error getRank: ", error));
     }
 
-    private Mono<String> getUserNickname(Long userId) {
+    public Mono<String> getUserNickname(Long userId) {
         String memberKey = "user:" + userId;
         String memberNameField = "nickname";
 

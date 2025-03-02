@@ -1,14 +1,13 @@
 package com.ns.match.adapter.in.web;
 
 
+import com.ns.common.MessageEntity;
 import com.ns.common.utils.JwtTokenProvider;
-import com.ns.common.utils.MessageEntity;
 import com.ns.match.adapter.out.RedisMatchAdapter.MatchStatus;
 import com.ns.match.application.port.in.CancleMatchQueueUseCase;
 import com.ns.match.application.port.in.GetMatchQueueUseCase;
 import com.ns.match.application.port.in.IntegrationTestMatchUseCase;
 import com.ns.match.application.port.in.RegisterMatchQueueUseCase;
-import java.util.concurrent.atomic.AtomicLong;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -20,7 +19,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ServerWebExchange;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 @RestController
