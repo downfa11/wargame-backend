@@ -1,7 +1,7 @@
 package com.ns.feed.adapter.in.web;
 
 
-import com.ns.common.utils.MessageEntity;
+import com.ns.common.MessageEntity;
 import com.ns.feed.adapter.out.persistence.post.Post.SortStatus;
 import com.ns.feed.application.port.in.post.FindPostUseCase;
 import com.ns.feed.application.port.in.post.RegisterPostUseCase;

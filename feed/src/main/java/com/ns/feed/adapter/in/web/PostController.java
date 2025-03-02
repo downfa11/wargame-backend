@@ -1,7 +1,7 @@
 package com.ns.feed.adapter.in.web;
 
 
-import com.ns.common.utils.MessageEntity;
+import com.ns.common.MessageEntity;
 import com.ns.common.utils.JwtTokenProvider;
 import com.ns.feed.application.port.in.UpdateLikeUseCase;
 import com.ns.feed.application.port.in.comment.FindCommentUseCase;
@@ -12,8 +12,6 @@ import com.ns.feed.application.port.in.post.RegisterPostUseCase;
 import com.ns.feed.dto.PostModifyRequest;
 import com.ns.feed.dto.PostRegisterRequest;
 import com.ns.feed.dto.PostResponse;
-import com.ns.feed.application.service.CommentService;
-import com.ns.feed.application.service.PostService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;

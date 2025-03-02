@@ -9,6 +9,5 @@ import lombok.NoArgsConstructor;
 public class CommentRegisterRequest {
     private Long boardId;
     private String body;
-
 }
 

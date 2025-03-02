@@ -1,6 +1,6 @@
 package com.ns.common.dump;
 
-import com.ns.common.utils.MessageEntity;
+import com.ns.common.MessageEntity;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.PostMapping;
