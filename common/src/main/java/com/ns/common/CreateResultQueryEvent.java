@@ -11,6 +11,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class CreateResultQueryEvent {
+    private String spaceId;
     private String winTeam;
     private String loseTeam;
 

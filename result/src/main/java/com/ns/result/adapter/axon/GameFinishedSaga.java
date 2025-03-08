@@ -1,9 +1,6 @@
 package com.ns.result.adapter.axon;
 
-import com.ns.common.ClientRequest;
-import com.ns.common.CreateResultQueryEvent;
-import com.ns.common.GameFinishedEvent;
-import com.ns.common.ResultQueryUpdatedEvent;
+import com.ns.common.*;
 import com.ns.result.adapter.axon.command.MembershipElo;
 import com.ns.result.adapter.axon.command.UpdateEloCommand;
 import com.ns.result.adapter.axon.event.GameResultSavedEvent;
@@ -68,6 +65,7 @@ public class GameFinishedSaga {
         log.info("GameResultSavedEvent received. Updating Result-Query...");
 
         CreateResultQueryEvent createResultQueryEvent = CreateResultQueryEvent.builder()
+                .spaceId(event.getSpaceId())
                 .blueTeams(event.getBlueTeams())
                 .redTeams(event.getRedTeams())
                 .loseTeam(event.getLoseTeam())
@@ -106,7 +104,7 @@ public class GameFinishedSaga {
                 .then()
                 .onErrorResume(throwable -> {
                     log.error("Elo 업데이트 중 오류 발생, 롤백을 진행합니다.", throwable);
-                    return handleRollback(event.getSpaceId(), successfullyUpdatedPlayers, newEloRequests);
+                    return handleRollback(event, successfullyUpdatedPlayers, newEloRequests);
                 })
                 .subscribe();
     }
@@ -145,14 +143,16 @@ public class GameFinishedSaga {
                 }).then();
     }
 
-    private Mono<Void> handleRollback(String spaceId, List<MembershipElo> successfullyUpdatedPlayers, List<MembershipEloRequest> newEloRequests) {
+    private Mono<Void> handleRollback(ResultQueryUpdatedEvent event, List<MembershipElo> successfullyUpdatedPlayers, List<MembershipEloRequest> newEloRequests) {
         log.info("rollback start: " + successfullyUpdatedPlayers.size() + "/" + newEloRequests.size());
 
+        String spaceId = event.getSpaceId();
         if (successfullyUpdatedPlayers.size() < newEloRequests.size()) {
             return Flux.fromIterable(successfullyUpdatedPlayers)
                     .concatMap(membershipElo -> rollbackElo(spaceId, membershipElo))
                     .then()
                     .doOnTerminate(() -> {
+                        eventGateway.publish(new RollbackUpdateQueryEvent(event.getSpaceId(), event.getWinTeam(), event.getLoseTeam(), event.getBlueTeams(), event.getRedTeams()));
                         eventGateway.publish(new RollbackGameResultEvent(spaceId));
                         log.info("모든 롤백이 완료되어서 분산 트랜잭션을 종료합니다.");
                     });
