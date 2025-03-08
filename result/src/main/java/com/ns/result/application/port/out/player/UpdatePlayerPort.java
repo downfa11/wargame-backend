@@ -4,5 +4,5 @@ import com.ns.result.adapter.out.persistence.psql.Player;
 import reactor.core.publisher.Mono;
 
 public interface UpdatePlayerPort {
-    Mono<Player> updatePlayer(String membershipId, Long increase);
+    Mono<Player> updatePlayer(String membershipId, Long newElo);
 }

@@ -6,5 +6,5 @@ import reactor.core.publisher.Mono;
 
 public interface UpdatePlayerUseCase {
     Mono<QueryPlayer> updateEloByEvent(String membershipId, Long balancedElo);
-    Mono<Player> updateElo(String membershipId, Long increase);
+    Mono<Player> updateElo(String membershipId, Long newElo);
 }

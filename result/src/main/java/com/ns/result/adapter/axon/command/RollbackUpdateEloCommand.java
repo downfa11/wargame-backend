@@ -1,6 +1,7 @@
 package com.ns.result.adapter.axon.command;
 
 import com.ns.common.utils.SelfValidating;
+import jakarta.validation.constraints.NotNull;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -11,19 +12,19 @@ import org.axonframework.modelling.command.TargetAggregateIdentifier;
 @NoArgsConstructor
 public class RollbackUpdateEloCommand extends SelfValidating<RollbackUpdateEloCommand> {
 
-    private String rollbackId;
+    private String spaceId;
 
     @TargetAggregateIdentifier
     private String aggregateIdentifier;
 
     private String membershipId;
-    private Long Elo;
+    private Long elo;
 
-    public RollbackUpdateEloCommand(String rollbackId, String aggregateIdentifier, String membershipId, Long Elo) {
-        this.rollbackId = rollbackId;
+    public RollbackUpdateEloCommand(@NotNull String spaceId, @NotNull String aggregateIdentifier, @NotNull String membershipId, @NotNull Long elo) {
+        this.spaceId = spaceId;
         this.aggregateIdentifier = aggregateIdentifier;
         this.membershipId = membershipId;
-        this.Elo = Elo;
+        this.elo = elo;
         this.validateSelf();
     }
 }

@@ -3,7 +3,7 @@ package com.ns.result.adapter.out;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ns.common.anotation.PersistanceAdapter;
 import com.ns.common.task.SubTask;
-import com.ns.result.adapter.axon.command.CreatePlayerCommand;
+import com.ns.common.CreatePlayerCommand;
 import com.ns.result.adapter.axon.command.GameFinishedCommand;
 import com.ns.result.adapter.axon.command.UpdateEloCommand;
 import com.ns.result.adapter.axon.query.FindPlayerAggregateQuery;
@@ -42,8 +42,8 @@ public class PlayerEventSourcingAdapter implements SendCommandPort, SendQueryPor
     }
 
     @Override
-    public Mono<String> sendUpdatePlayer(UpdateEloCommand command) {
-        log.info("UpdateEloCommand를 전달.");
+    public Mono<String> sendUpdatePlayerElo(UpdateEloCommand command) {
+        log.info("sendUpdatePlayerElo 전달. "+command.getMembershipId() + " : " + command.getElo());
         return Mono.fromFuture(() -> commandGateway.send(command));
     }
 

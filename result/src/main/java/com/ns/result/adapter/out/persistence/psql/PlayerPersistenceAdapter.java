@@ -25,10 +25,9 @@ public class PlayerPersistenceAdapter implements RegisterPlayerPort, UpdatePlaye
     }
 
     @Override
-    public Mono<Player> updatePlayer(String membershipId, Long increase) {
+    public Mono<Player> updatePlayer(String membershipId, Long newElo) {
         return playerRepository.findByMembershipId(membershipId)
                 .flatMap(u -> {
-                    Long newElo = u.getElo() + increase;
                     u.setElo(newElo);
                     return playerRepository.save(u);
                 });

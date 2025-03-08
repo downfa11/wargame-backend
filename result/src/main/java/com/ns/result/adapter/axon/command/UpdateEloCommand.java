@@ -11,14 +11,11 @@ import org.axonframework.modelling.command.TargetAggregateIdentifier;
 @EqualsAndHashCode(callSuper = false)
 @NoArgsConstructor
 public class UpdateEloCommand extends SelfValidating<UpdateEloCommand> {
-
     @NotNull
     @TargetAggregateIdentifier
     private String aggregateIdentifier;
-    @NotNull
-    private String membershipId;
-    @NotNull
-    private Long elo;
+    @NotNull private String membershipId;
+    @NotNull private Long elo;
 
 
     public UpdateEloCommand(@NotNull String aggregateIdentifier,

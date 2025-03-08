@@ -1,5 +1,6 @@
 package com.ns.membership.adapter.out;
 
+import com.ns.common.CreatePlayerCommand;
 import com.ns.common.anotation.PersistanceAdapter;
 import com.ns.membership.adapter.axon.command.CreateMemberCommand;
 import com.ns.membership.adapter.axon.command.ModifyMemberCommand;
@@ -30,6 +31,7 @@ public class UserEventSourcingAdapter implements UserEventSourcingPort {
 
         return Mono.fromFuture(() -> commandGateway.send(axonCommand))
                 .flatMap(result -> registerUserPort.create(request, (String) result))
+                .doOnSuccess(user -> commandGateway.send(new CreatePlayerCommand(String.valueOf(user.getId()))))
                 .doOnError(throwable -> log.error("createMemberByEvent throwable : ", throwable));
     }
 

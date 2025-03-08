@@ -1,7 +1,7 @@
 package com.ns.resultquery.adapter.axon;
 
 import com.ns.common.ClientRequest;
-import com.ns.common.GameFinishedEvent;
+import com.ns.common.CreateResultQueryEvent;
 import com.ns.resultquery.application.port.in.InsertChampStatisticsUseCase;
 import com.ns.resultquery.application.port.in.InsertUserStatisticsUseCase;
 import com.ns.resultquery.domain.dto.MembershipResultEventDto;
@@ -21,7 +21,7 @@ public class GameResultEventHandler {
     private final InsertChampStatisticsUseCase insertChampStatisticsUseCase;
 
     @EventHandler
-    public void handle(GameFinishedEvent event) {
+    public void handle(CreateResultQueryEvent event) {
         log.info("Result Event Received: " + event);
 
         List<ClientRequest> allClients = ResultQueryMapper.getAllTeamClientRequests(event);

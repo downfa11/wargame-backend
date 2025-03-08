@@ -13,16 +13,21 @@ import lombok.NoArgsConstructor;
 @EqualsAndHashCode(callSuper = false)
 @NoArgsConstructor
 public class RollbackUpdateEloEvent extends SelfValidating<RollbackUpdateEloEvent> {
+    private String spaceId;
     private String aggregateIdentifier;
     private String membershipId;
-    private Long elo;
+    private Long oldElo;
+    private Long curElo;
 
-    public RollbackUpdateEloEvent(@NotNull String aggregateIdentifier,
+    public RollbackUpdateEloEvent(@NotNull String spaceId,
+                                  @NotNull String aggregateIdentifier,
                              @NotNull String membershipId,
-                             @NotNull Long elo) {
+                             @NotNull Long oldElo, @NotNull Long curElo) {
+        this.spaceId = spaceId;
         this.aggregateIdentifier=aggregateIdentifier;
         this.membershipId = membershipId;
-        this.elo=elo;
+        this.oldElo=oldElo;
+        this.curElo=curElo;
         this.validateSelf();
     }
 }

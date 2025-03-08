@@ -915,3 +915,5 @@ prometheus/volume/data/01JNBS5W4PDWXTJ74MWM1TWJ7R/tombstones
 prometheus/volume/data/01JNBS5W4PDWXTJ74MWM1TWJ7R/meta.json
 prometheus/volume/data/01JNBS5W4PDWXTJ74MWM1TWJ7R/index
 prometheus/volume/data/01JNBS5W4PDWXTJ74MWM1TWJ7R/chunks/000001
+axon-server-se/data/_diagnostics/logfile-2025-03-02-0.log.gz
+axon-server-se/data/_diagnostics/logfile-2025-03-04-0.log.gz

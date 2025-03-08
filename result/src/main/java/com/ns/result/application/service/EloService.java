@@ -36,7 +36,7 @@ public class EloService {
         updatedTeams.addAll(updatedBlueTeam);
         updatedTeams.addAll(updatedRedTeam);
 
-        log.info("업데이트 이후 Elo : {}", updatedTeams);
+        log.info("업데이트 이후 Elo 변동량 : {}", updatedTeams);
         return updatedTeams;
     }
 
@@ -49,8 +49,8 @@ public class EloService {
 
     private MembershipEloRequest calcMembershipEloRequest(MembershipEloRequest membershipEloRequest, Long opposingTeamEloSum, boolean isWinner){
         Long currentElo = membershipEloRequest.getElo();
-        Long newElo = calculateElo(currentElo, opposingTeamEloSum, isWinner);
-        membershipEloRequest.setElo(newElo);
+        Long increase = calculateElo(currentElo, opposingTeamEloSum, isWinner);
+        membershipEloRequest.setElo(increase);
         return membershipEloRequest;
     }
 

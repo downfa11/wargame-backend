@@ -1,6 +1,7 @@
 package com.ns.resultquery.adapter.axon;
 
 import com.ns.common.ClientRequest;
+import com.ns.common.CreateResultQueryEvent;
 import com.ns.common.GameFinishedEvent;
 import com.ns.resultquery.adapter.out.persistence.ChampRepository;
 import com.ns.resultquery.domain.dto.MembershipResultEventDto;
@@ -60,7 +61,7 @@ public class ResultQueryMapper {
                 .build();
     }
 
-    public static List<ClientRequest> getAllTeamClientRequests(GameFinishedEvent event){
+    public static List<ClientRequest> getAllTeamClientRequests(CreateResultQueryEvent event){
         List<ClientRequest> allClients = new ArrayList<>();
         allClients.addAll(event.getBlueTeams());
         allClients.addAll(event.getRedTeams());
