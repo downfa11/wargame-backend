@@ -1,31 +1,35 @@
 package com.ns.membership.adapter.axon.aggregate;
 
 
-import static org.axonframework.modelling.command.AggregateLifecycle.apply;
-
+import com.ns.common.CreatePlayerCommand;
 import com.ns.membership.adapter.axon.command.CreateMemberCommand;
 import com.ns.membership.adapter.axon.command.ModifyMemberCommand;
 import com.ns.membership.adapter.axon.event.CreateMemberEvent;
 import com.ns.membership.adapter.axon.event.ModifyMemberEvent;
-import java.time.LocalDateTime;
-import java.util.UUID;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.axonframework.commandhandling.CommandHandler;
+import org.axonframework.commandhandling.gateway.CommandGateway;
 import org.axonframework.eventsourcing.EventSourcingHandler;
 import org.axonframework.modelling.command.AggregateIdentifier;
 import org.axonframework.spring.stereotype.Aggregate;
+import reactor.core.publisher.Mono;
+
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+import static org.axonframework.modelling.command.AggregateLifecycle.apply;
 
 @Aggregate(snapshotTriggerDefinition = "snapshotTrigger", cache = "snapshotCache")
 @Getter
 @Slf4j
 @NoArgsConstructor
 public class MemberAggregate {
+    private Long membershipId;
+
     @AggregateIdentifier
     private String id;
-
-    private Long membershipId;
 
     private String account;
     private String name;
@@ -61,13 +65,10 @@ public class MemberAggregate {
     }
 
 
-
-
     @EventSourcingHandler
     public void onModifyMemberEvent(ModifyMemberEvent event){
         log.info("ModifyMemberEvent Sourcing Handler");
         id = event.getAggregateIdentifier();
-        membershipId = event.getMembershipId();
         account=event.getAccount();
         name = event.getName();
         email = event.getEmail();

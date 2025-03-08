@@ -1,6 +1,6 @@
 package com.ns.result.usecase;
 
-import com.ns.result.adapter.axon.command.CreatePlayerCommand;
+import com.ns.common.CreatePlayerCommand;
 import com.ns.result.adapter.axon.command.UpdateEloCommand;
 import com.ns.result.adapter.axon.query.QueryPlayer;
 import com.ns.result.application.port.out.player.FindPlayerPort;
@@ -93,7 +93,7 @@ class PlayerServiceTest {
                 .build();
 
         when(findPlayerPort.findByMembershipId(anyString())).thenReturn(Mono.just(player));
-        when(sendCommandPort.sendUpdatePlayer(any(UpdateEloCommand.class))).thenReturn(Mono.empty());
+        when(sendCommandPort.sendUpdatePlayerElo(any(UpdateEloCommand.class))).thenReturn(Mono.empty());
         when(sendQueryPort.sendPlayerQuery(anyString()))
                 .thenReturn(Mono.just(QueryPlayer.builder()
                         .membershipId(membershipId)
@@ -109,7 +109,7 @@ class PlayerServiceTest {
                 .expectNextMatches(queryPlayer -> queryPlayer.getMembershipId().equals(membershipId))
                 .verifyComplete();
 
-        verify(sendCommandPort).sendUpdatePlayer(any(UpdateEloCommand.class));
+        verify(sendCommandPort).sendUpdatePlayerElo(any(UpdateEloCommand.class));
         verify(sendQueryPort).sendPlayerQuery(membershipId);
     }
 
