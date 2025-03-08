@@ -84,8 +84,8 @@ public class GameFinishedSaga {
                 event.getRedTeams()
         );
         Mono.fromRunnable(() -> eventGateway.publish(resultQueryUpdatedEvent))
-                .doOnSuccess(aVoid -> log.info("ResultQueryUpdatedEvent successfully published"))
-                .doOnError(throwable -> log.error("Failed to publish ResultQueryUpdatedEvent", throwable))
+                .doOnSuccess(aVoid -> log.info("ResultQueryUpdatedEvent published"))
+                .doOnError(throwable -> log.error("error to publish ResultQueryUpdatedEvent", throwable))
                 .subscribe();
     }
 
@@ -176,7 +176,7 @@ public class GameFinishedSaga {
     @EndSaga
     @SagaEventHandler(associationProperty = "spaceId")
     public void handle(RollbackGameResultEvent event) {
-        log.warn("RollbackGameResultEvent received. Rolling back changes...");
+        log.warn("RollbackGameResultEvent received.");
         resultService.deleteResult(event.getSpaceId())
                 .doOnSuccess(bool -> log.info(event.getSpaceId() + "에 해당하는 전적을 삭제합니다. " + bool))
                 .subscribe();
@@ -184,7 +184,7 @@ public class GameFinishedSaga {
 
     @SagaEventHandler(associationProperty = "spaceId")
     public void handle(RollbackUpdateEloEvent event) {
-        log.warn("RollbackUpdateEloEvent received. Rolling back Elo changes...");
+        log.warn("RollbackUpdateEloEvent received");
         commandGateway.send(new UpdateEloCommand(event.getAggregateIdentifier(), event.getMembershipId(), event.getOldElo()));
     }
 

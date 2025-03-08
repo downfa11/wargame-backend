@@ -28,7 +28,7 @@ public class GameResultEventHandler {
 
     @EventHandler
     public void handle(CreateResultQueryEvent event) {
-        log.info("Result Event Received: " + event);
+        log.info("CreateResultQueryEvent Received: " + event);
 
         List<ClientRequest> allClients = ResultQueryMapper.getAllTeamClientRequests(event);
         handleResultQuery(allClients, event.getWinTeam(), 1L, event);
@@ -36,7 +36,7 @@ public class GameResultEventHandler {
 
     @EventHandler
     public void handle(RollbackUpdateQueryEvent event) {
-        log.info("Rollback Event Received: " + event);
+        log.info("RollbackUpdateQueryEvent Received: " + event);
 
         List<ClientRequest> allClients = ResultQueryMapper.getAllTeamClientRequests(event);
         handleResultQuery(allClients, event.getWinTeam(), -1L, event);
@@ -59,8 +59,8 @@ public class GameResultEventHandler {
                     ResultQueryUpdatedEvent resultQueryUpdatedEvent = createResultQueryUpdatedEvent(event);
 
                     Mono.fromRunnable(() -> eventGateway.publish(resultQueryUpdatedEvent))
-                            .doOnSuccess(aVoid -> log.info("ResultQueryUpdatedEvent successfully published"))
-                            .doOnError(throwable -> log.error("Failed to publish ResultQueryUpdatedEvent", throwable))
+                            .doOnSuccess(aVoid -> log.info("ResultQueryUpdatedEvent published"))
+                            .doOnError(throwable -> log.error("error to publish ResultQueryUpdatedEvent", throwable))
                             .subscribe();
                 })
                 .subscribe();
