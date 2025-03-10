@@ -3,7 +3,7 @@ package com.ns.result.adapter;
 import com.ns.common.ClientRequest;
 import com.ns.common.GameFinishedEvent;
 import com.ns.result.adapter.out.persistence.elasticsearch.Result;
-import com.ns.result.adapter.out.persistence.elasticsearch.ResultPersistenceAdapter;
+import com.ns.result.adapter.out.persistence.elasticsearch.ElasticPersistenceAdapter;
 import com.ns.result.adapter.out.persistence.elasticsearch.ResultRepository;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -20,10 +20,10 @@ import static org.mockito.Mockito.*;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-public class ResultPersistenceAdapterTest {
+public class ElasticPersistenceAdapterTest {
 
     @Mock private ResultRepository resultRepository;
-    @InjectMocks private ResultPersistenceAdapter resultPersistenceAdapter;
+    @InjectMocks private ElasticPersistenceAdapter elasticPersistenceAdapter;
 
     private GameFinishedEvent gameFinishedEvent;
     private Result result;
@@ -68,7 +68,7 @@ public class ResultPersistenceAdapterTest {
         when(resultRepository.save(any())).thenReturn(Mono.just(result));
 
         // when
-        Mono<Result> savedResult = resultPersistenceAdapter.saveResult(gameFinishedEvent);
+        Mono<Result> savedResult = elasticPersistenceAdapter.saveResult(gameFinishedEvent);
 
         // then
         StepVerifier.create(savedResult)
@@ -84,7 +84,7 @@ public class ResultPersistenceAdapterTest {
         when(resultRepository.findAll()).thenReturn(Flux.just(result));
 
         // when
-        Flux<Result> results = resultPersistenceAdapter.findAll();
+        Flux<Result> results = elasticPersistenceAdapter.findAll();
 
         // then
         StepVerifier.create(results)
@@ -102,7 +102,7 @@ public class ResultPersistenceAdapterTest {
         when(resultRepository.searchByUserName(name, 30, offset)).thenReturn(Flux.just(result));
 
         // when
-        Flux<Result> results = resultPersistenceAdapter.searchByUserName(name, offset);
+        Flux<Result> results = elasticPersistenceAdapter.searchByUserName(name, offset);
 
         // then
         StepVerifier.create(results)
@@ -120,7 +120,7 @@ public class ResultPersistenceAdapterTest {
         when(resultRepository.searchByMembershipId(membershipId, 30, offset)).thenReturn(Flux.just(result));
 
         // when
-        Flux<Result> results = resultPersistenceAdapter.searchByMembershipId(membershipId, offset);
+        Flux<Result> results = elasticPersistenceAdapter.searchByMembershipId(membershipId, offset);
 
         // then
         StepVerifier.create(results)

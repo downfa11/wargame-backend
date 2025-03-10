@@ -65,6 +65,9 @@ dependencies {
 
     //Snappy
     implementation 'org.xerial.snappy:snappy-java:1.1.8.4'
+
+    //thymeleaf
+    implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
 }
 
 tasks.named('bootBuildImage') {

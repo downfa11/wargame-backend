@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>자동완성 검색</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f4f4f4;
+        }
+        .search-container {
+            position: relative;
+            width: 300px;
+        }
+        .search-input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        .suggestions {
+            position: absolute;
+            width: 100%;
+            background: white;
+            border: 1px solid #ccc;
+            border-top: none;
+            max-height: 200px;
+            overflow-y: auto;
+            display: none;
+        }
+        .suggestion-item {
+            padding: 10px;
+            cursor: pointer;
+        }
+        .suggestion-item:hover {
+            background: #f0f0f0;
+        }
+    </style>
+</head>
+<body>
+
+<div class="search-container">
+    <input type="text" id="search" class="search-input" placeholder="책 제목을 검색하세요...">
+    <div id="suggestions" class="suggestions"></div>
+</div>
+
+<script>
+    document.getElementById("search").addEventListener("input", async function() {
+        const query = this.value.trim();
+        const suggestionsBox = document.getElementById("suggestions");
+
+        if (query.length === 0) {
+            suggestionsBox.style.display = "none";
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/suggest?q=${query}`);
+            const data = await response.json();
+            const suggestions = data.suggestions || [];
+
+            suggestionsBox.innerHTML = "";
+            if (suggestions.length > 0) {
+                suggestions.forEach(suggestion => {
+                    const div = document.createElement("div");
+                    div.classList.add("suggestion-item");
+                    div.textContent = suggestion;
+                    div.addEventListener("click", function() {
+                        document.getElementById("search").value = suggestion;
+                        suggestionsBox.style.display = "none";
+                    });
+                    suggestionsBox.appendChild(div);
+                });
+                suggestionsBox.style.display = "block";
+            } else {
+                suggestionsBox.style.display = "none";
+            }
+        } catch (error) {
+            console.error("자동완성 요청 오류:", error);
+        }
+    });
+
+    document.addEventListener("click", function(event) {
+        if (!event.target.closest(".search-container")) {
+            document.getElementById("suggestions").style.display = "none";
+        }
+    });
+</script>
+
+</body>
+</html>

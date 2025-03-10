@@ -1,6 +1,6 @@
 package com.ns.result.adapter.out;
 
-import static com.ns.result.adapter.out.persistence.elasticsearch.ResultPersistenceAdapter.RESULT_SEARCH_SIZE;
+import static com.ns.result.adapter.out.persistence.elasticsearch.ElasticPersistenceAdapter.RESULT_SEARCH_SIZE;
 
 import com.ns.common.anotation.PersistanceAdapter;
 import com.ns.result.adapter.out.persistence.elasticsearch.Result;
