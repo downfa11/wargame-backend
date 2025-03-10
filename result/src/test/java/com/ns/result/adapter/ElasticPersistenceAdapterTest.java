@@ -2,10 +2,12 @@ package com.ns.result.adapter;
 
 import com.ns.common.ClientRequest;
 import com.ns.common.GameFinishedEvent;
-import com.ns.result.adapter.out.persistence.elasticsearch.Result;
-import com.ns.result.adapter.out.persistence.elasticsearch.ElasticPersistenceAdapter;
-import com.ns.result.adapter.out.persistence.elasticsearch.ResultRepository;
+import com.ns.result.adapter.out.persistence.elasticsearch.*;
+
 import java.util.List;
+
+import com.ns.result.application.port.out.search.AutoCompletePlayerPort;
+import com.ns.result.application.service.AutoCompleteService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -23,6 +25,7 @@ import static org.mockito.Mockito.when;
 public class ElasticPersistenceAdapterTest {
 
     @Mock private ResultRepository resultRepository;
+    @Mock private PlayerRepository playerRepository;
     @InjectMocks private ElasticPersistenceAdapter elasticPersistenceAdapter;
 
     private GameFinishedEvent gameFinishedEvent;
@@ -59,13 +62,25 @@ public class ElasticPersistenceAdapterTest {
                 .gameDuration(300)
                 .build();
 
-        gameFinishedEvent = new GameFinishedEvent();
+        gameFinishedEvent = GameFinishedEvent.builder()
+                .spaceId("dummy-space-id")
+                .state("success")
+                .channel(1)
+                .room(1)
+                .winTeam("Blue")
+                .loseTeam("Red")
+                .blueTeams(List.of(bluePlayer1))
+                .redTeams(List.of(redPlayer1))
+                .dateTime("2025-02-25T12:00:00")
+                .gameDuration(300)
+                .build();
     }
 
     @Test
     void 전적을_기록하는_메서드() {
         // given
         when(resultRepository.save(any())).thenReturn(Mono.just(result));
+        when(playerRepository.save(any(Player.class))).thenReturn(Mono.empty());
 
         // when
         Mono<Result> savedResult = elasticPersistenceAdapter.saveResult(gameFinishedEvent);
@@ -76,6 +91,7 @@ public class ElasticPersistenceAdapterTest {
                 .verifyComplete();
 
         verify(resultRepository, times(1)).save(any());
+        verify(playerRepository, times(2)).save(any(Player.class));
     }
 
     @Test
@@ -128,6 +144,37 @@ public class ElasticPersistenceAdapterTest {
                 .verifyComplete();
 
         verify(resultRepository, times(1)).searchByMembershipId(membershipId, 30, offset);
+    }
+
+    @Test
+    public void 사용자의_전적_조회시_검색창의_자동완성_구현() {
+        // given
+        Player player1 = Player.builder().nickname("player1").build();
+        Player player2 = Player.builder().nickname("player2").build();
+
+        when(playerRepository.findByNicknameStartingWith("player")).thenReturn(Flux.just(player1, player2));
+
+        // when
+        Flux<String> suggestions = elasticPersistenceAdapter.getAutoCompleteSuggestions("player");
+
+        // then
+        StepVerifier.create(suggestions)
+                .expectNext("player1")
+                .expectNext("player2")
+                .verifyComplete();
+    }
+
+    @Test
+    public void 사용자의_전적_조회시_검색창의_자동완성_구현_해당_검색값이_없는_경우() {
+        // given
+        when(playerRepository.findByNicknameStartingWith("none")).thenReturn(Flux.empty());
+
+        // when
+        Flux<String> suggestions = elasticPersistenceAdapter.getAutoCompleteSuggestions("none");
+
+        // then
+        StepVerifier.create(suggestions)
+                .verifyComplete();
     }
 }
 
