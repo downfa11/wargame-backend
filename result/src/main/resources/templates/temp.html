@@ -3,19 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>자동완성 검색</title>
+    <title>wargame 전적 검색</title>
     <style>
-        body {
+        /* 기본 스타일 설정 */
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
             font-family: Arial, sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            background-color: #f4f4f4;
         }
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f4f4f4;
+            overflow: hidden; /* body의 기본 스크롤 제거 */
+        }
+
         .search-container {
             position: relative;
             width: 300px;
+            margin-top: 50px;
         }
         .search-input {
             width: 100%;
@@ -23,6 +31,20 @@
             border: 1px solid #ccc;
             border-radius: 5px;
             font-size: 16px;
+        }
+        .search-button {
+            width: 100%;
+            padding: 10px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        .search-button:hover {
+            background-color: #2980b9;
         }
         .suggestions {
             position: absolute;
@@ -41,56 +63,192 @@
         .suggestion-item:hover {
             background: #f0f0f0;
         }
+
+        .results-container {
+            margin-top: 30px;
+            width: 80%;
+            max-width: 900px;
+            flex-grow: 1; /* flex 컨테이너에 자식 요소가 꽉 차게 함 */
+            overflow-y: auto; /* 세로 스크롤이 필요할 때 활성화 */
+        }
+        .result-card {
+            background-color: white;
+            padding: 20px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .result-header {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .result-item {
+            margin-bottom: 10px;
+        }
+
+        .result-item span {
+            font-weight: bold;
+            color: #555;
+        }
+
+        .team-name {
+            font-weight: bold;
+            color: #3498db;
+        }
+
+        .team-member {
+            background-color: #e0e0e0;
+            padding: 5px;
+            border-radius: 5px;
+            margin: 5px 0;
+        }
+
+        .win-lose {
+            font-weight: bold;
+            color: #2ecc71;
+        }
+
     </style>
 </head>
 <body>
 
 <div class="search-container">
-    <input type="text" id="search" class="search-input" placeholder="책 제목을 검색하세요...">
+    <input type="text" id="search" class="search-input" placeholder="사용자의 닉네임을 검색하세요...">
     <div id="suggestions" class="suggestions"></div>
+    <button class="search-button" id="searchButton">검색</button>
 </div>
 
+<div id="resultsContainer" class="results-container"></div>
+
 <script>
+    let currentOffset = 0; // 현재 offset
+    let isLoading = false; // 로딩 중인지 여부
+    let isLastPage = false; // 마지막 페이지인지 여부
+
+    // 검색어 자동완성 기능
     document.getElementById("search").addEventListener("input", async function() {
         const query = this.value.trim();
-        const suggestionsBox = document.getElementById("suggestions");
-
-        if (query.length === 0) {
-            suggestionsBox.style.display = "none";
+        if (!query) {
+            document.getElementById("suggestions").style.display = "none";
             return;
         }
 
-        try {
-            const response = await fetch(`/api/suggest?q=${query}`);
-            const data = await response.json();
-            const suggestions = data.suggestions || [];
+        // 자동완성 리스트를 보여주기 전에 서버에서 데이터를 가져옴
+        await fetchSuggestions(query);
+    });
 
-            suggestionsBox.innerHTML = "";
-            if (suggestions.length > 0) {
-                suggestions.forEach(suggestion => {
-                    const div = document.createElement("div");
-                    div.classList.add("suggestion-item");
-                    div.textContent = suggestion;
-                    div.addEventListener("click", function() {
-                        document.getElementById("search").value = suggestion;
-                        suggestionsBox.style.display = "none";
-                    });
-                    suggestionsBox.appendChild(div);
-                });
-                suggestionsBox.style.display = "block";
+    async function fetchSuggestions(query) {
+        try {
+            const response = await fetch(`/autocomplete?query=${query}`);
+            if (!response.ok) {
+                throw new Error("자동완성 요청 오류: " + response.status);
+            }
+
+            const suggestions = await response.json();
+            displaySuggestions(suggestions);
+        } catch (error) {
+            console.error("자동완성 오류:", error);
+        }
+    }
+
+    // 자동완성 추천 항목 표시
+    function displaySuggestions(suggestions) {
+        const suggestionsContainer = document.getElementById("suggestions");
+        suggestionsContainer.innerHTML = ''; // 기존 추천어 초기화
+
+        if (suggestions.length === 0) {
+            suggestionsContainer.style.display = "none";
+            return;
+        }
+
+        suggestions.forEach(suggestion => {
+            const item = document.createElement("div");
+            item.classList.add("suggestion-item");
+            item.textContent = suggestion;
+            item.addEventListener("click", () => {
+                document.getElementById("search").value = suggestion;
+                document.getElementById("suggestions").style.display = "none";
+                currentOffset = 0;
+                isLastPage = false;
+                document.getElementById("resultsContainer").innerHTML = "";
+                fetchData(suggestion);
+            });
+            suggestionsContainer.appendChild(item);
+        });
+
+        suggestionsContainer.style.display = "block";
+    }
+
+    document.getElementById("searchButton").addEventListener("click", async function() {
+        const query = document.getElementById("search").value.trim();
+        if (!query) {
+            alert("검색어를 입력해 주세요.");
+            return;
+        }
+
+        currentOffset = 0;
+        isLastPage = false;
+        document.getElementById("resultsContainer").innerHTML = "";
+        await fetchData(query);
+    });
+
+    window.addEventListener("scroll", () => {
+        if (window.innerHeight + document.documentElement.scrollTop >= document.documentElement.offsetHeight - 10) {
+            const query = document.getElementById("search").value.trim();
+            if (!isLoading && !isLastPage && query) {
+                fetchData(query);
+            }
+        }
+    });
+
+    async function fetchData(query) {
+        isLoading = true;
+        try {
+            const response = await fetch(`/v1/result/search/name/${query}?offset=${currentOffset}`);
+            if (!response.ok) {
+                throw new Error("서버 응답 오류: " + response.status);
+            }
+
+            const data = await response.json();
+            if (data && data.length > 0) {
+                displayResults(data);
+                currentOffset += data.length;
             } else {
-                suggestionsBox.style.display = "none";
+                isLastPage = true;
             }
         } catch (error) {
-            console.error("자동완성 요청 오류:", error);
+            console.error("검색 요청 오류:", error);
+        } finally {
+            isLoading = false;
         }
-    });
+    }
 
-    document.addEventListener("click", function(event) {
-        if (!event.target.closest(".search-container")) {
-            document.getElementById("suggestions").style.display = "none";
-        }
-    });
+    function displayResults(results) {
+        const resultsContainer = document.getElementById("resultsContainer");
+        results.forEach(result => {
+            const resultCard = document.createElement("div");
+            resultCard.classList.add("result-card");
+
+            resultCard.innerHTML = `
+                <div class="result-header">${result.winTeam} vs ${result.loseTeam}</div>
+                <div class="result-item"><span>상태:</span> ${result.state}</div>
+                <div class="result-item"><span>채널:</span> ${result.channel}</div>
+                <div class="result-item"><span>게임 시간:</span> ${result.gameDuration}분</div>
+                <div class="result-item"><span>날짜:</span> ${result.dateTime}</div>
+                <div class="team-name">블루 팀</div>
+                ${result.blueTeams.map(player => `<div class="team-member">${player.name}</div>`).join('')}
+                <div class="team-name">레드 팀</div>
+                ${result.redTeams.map(player => `<div class="team-member">${player.name}</div>`).join('')}
+                <div class="win-lose">승리 팀: ${result.winTeam}</div>
+                <div class="win-lose">패배 팀: ${result.loseTeam}</div>
+            `;
+            resultsContainer.appendChild(resultCard);
+        });
+    }
 </script>
 
 </body>

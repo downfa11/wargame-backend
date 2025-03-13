@@ -2,11 +2,17 @@ package com.ns.result.adapter.in.web;
 
 import com.ns.result.application.service.AutoCompleteService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.reactive.result.view.Rendering;
-import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
+import java.util.List;
+
+@Slf4j
 @Controller
 @RequiredArgsConstructor
 public class AutoCompleteController {
@@ -20,7 +26,8 @@ public class AutoCompleteController {
 
     @ResponseBody
     @GetMapping("/autocomplete")
-    public Flux<String> getSuggestions(@RequestParam String query) {
-        return autoCompleteService.getAutoCompleteSuggestions(query);
+    public Mono<List<String>> getSuggestions(@RequestParam String query) {
+        return autoCompleteService.getAutoCompleteSuggestions(query)
+                .collectList();
     }
 }
