@@ -3,18 +3,18 @@ package com.ns.result.adapter.axon;
 import static org.axonframework.modelling.command.AggregateLifecycle.apply;
 
 import com.ns.common.CreatePlayerCommand;
+import com.ns.common.ModifyCodeCommand;
 import com.ns.result.adapter.axon.command.UpdateEloCommand;
 import com.ns.result.adapter.axon.event.CreatePlayerEvent;
+import com.ns.result.adapter.axon.event.ModifyCodeEvent;
 import com.ns.result.adapter.axon.event.UpdateEloEvent;
-import com.ns.result.application.port.out.player.FindPlayerPort;
-import com.ns.result.application.service.PlayerService;
+import com.ns.result.application.port.out.player.RegisterPlayerPort;
 import jakarta.validation.constraints.NotNull;
 import java.util.UUID;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.axonframework.commandhandling.CommandHandler;
-import org.axonframework.eventhandling.EventHandler;
 import org.axonframework.eventsourcing.EventSourcingHandler;
 import org.axonframework.modelling.command.AggregateIdentifier;
 import org.axonframework.spring.stereotype.Aggregate;
@@ -32,16 +32,25 @@ public class PlayerAggregate {
     private String code;
 
     @CommandHandler
-    public PlayerAggregate(CreatePlayerCommand command){
-        apply(new CreatePlayerEvent(command.getMembershipId()));
+    public PlayerAggregate(CreatePlayerCommand command, RegisterPlayerPort registerPlayerPort){
+        log.info("CreatePlayerCommand command handler: "+ command.getMembershipId());
+
+        id= UUID.randomUUID().toString();
+        registerPlayerPort.registerPlayer(command.getMembershipId(), id)
+                .subscribe();
+
+        apply(new CreatePlayerEvent(command.getMembershipId(), id));
     }
 
     @EventSourcingHandler
     public void onCreateMemberEvent(CreatePlayerEvent event){
-        id= UUID.randomUUID().toString();
+        id = event.getId();
         membershipId = event.getMembershipId();
         elo = 2000L;
         code = "";
+
+
+        log.info("CreatePlayerEvent handler: "+ membershipId + "="+elo + "   : " + id);
     }
 
     @CommandHandler
@@ -57,5 +66,18 @@ public class PlayerAggregate {
         membershipId = event.getMembershipId();
         elo = event.getElo();
         code = "";
+    }
+
+    @CommandHandler
+    public void handleModifyCode(@NotNull ModifyCodeCommand command){
+        id = command.getAggregateIdentifier();
+        apply(new ModifyCodeEvent(id, command.getMembershipId(), command.getCode()));
+    }
+
+    @EventSourcingHandler
+    public void onModifyCodeEvent(ModifyCodeEvent event){
+        log.info("onModifyCodeEvent "+ event.getMembershipId()+"'s code: " + code + " -> " + event.getCode());
+        id = event.getAggregateIdentifier();
+        code = event.getCode();
     }
 }
