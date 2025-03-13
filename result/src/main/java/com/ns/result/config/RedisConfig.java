@@ -38,7 +38,7 @@ public class RedisConfig {
     }
 
     @Bean
-    public ReactiveRedisTemplate<String, String> stringRedisTemplate() {
+    public ReactiveRedisTemplate<String, String> reactiveRedisTemplate() {
         RedisSerializationContext<String, String> context =
                 RedisSerializationContext.<String, String>newSerializationContext(new StringRedisSerializer())
                         .key(new StringRedisSerializer())

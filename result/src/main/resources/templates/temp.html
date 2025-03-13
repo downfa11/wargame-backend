@@ -12,6 +12,7 @@
             padding: 0;
             font-family: Arial, sans-serif;
         }
+
         body {
             display: flex;
             flex-direction: column;
@@ -25,6 +26,7 @@
             width: 300px;
             margin-top: 50px;
         }
+
         .search-input {
             width: 100%;
             padding: 10px;
@@ -32,6 +34,7 @@
             border-radius: 5px;
             font-size: 16px;
         }
+
         .search-button {
             width: 100%;
             padding: 10px;
@@ -43,9 +46,11 @@
             cursor: pointer;
             margin-top: 10px;
         }
+
         .search-button:hover {
             background-color: #2980b9;
         }
+
         .suggestions {
             position: absolute;
             width: 100%;
@@ -56,10 +61,12 @@
             overflow-y: auto;
             display: none;
         }
+
         .suggestion-item {
             padding: 10px;
             cursor: pointer;
         }
+
         .suggestion-item:hover {
             background: #f0f0f0;
         }
@@ -71,6 +78,7 @@
             flex-grow: 1; /* flex 컨테이너에 자식 요소가 꽉 차게 함 */
             overflow-y: auto; /* 세로 스크롤이 필요할 때 활성화 */
         }
+
         .result-card {
             background-color: white;
             padding: 20px;
@@ -130,7 +138,7 @@
     let isLastPage = false; // 마지막 페이지인지 여부
 
     // 검색어 자동완성 기능
-    document.getElementById("search").addEventListener("input", async function() {
+    document.getElementById("search").addEventListener("input", async function () {
         const query = this.value.trim();
         if (!query) {
             document.getElementById("suggestions").style.display = "none";
@@ -183,7 +191,7 @@
         suggestionsContainer.style.display = "block";
     }
 
-    document.getElementById("searchButton").addEventListener("click", async function() {
+    document.getElementById("searchButton").addEventListener("click", async function () {
         const query = document.getElementById("search").value.trim();
         if (!query) {
             alert("검색어를 입력해 주세요.");
@@ -215,7 +223,8 @@
 
             const data = await response.json();
             if (data && data.length > 0) {
-                displayResults(data);
+                console.log(data);
+                displayResults(data, query);
                 currentOffset += data.length;
             } else {
                 isLastPage = true;
@@ -227,27 +236,51 @@
         }
     }
 
-    function displayResults(results) {
+    function displayResults(results, query) {
         const resultsContainer = document.getElementById("resultsContainer");
         results.forEach(result => {
             const resultCard = document.createElement("div");
             resultCard.classList.add("result-card");
 
+            const isWin = isUserInTeam(result, query, result.winTeam);
+            const isLose = isUserInTeam(result, query, result.loseTeam);
+
             resultCard.innerHTML = `
-                <div class="result-header">${result.winTeam} vs ${result.loseTeam}</div>
+                <div class="result-header">${isWin ? '승리' : isLose ? '패배' : '기록되지 않은 오류'}</div>
                 <div class="result-item"><span>상태:</span> ${result.state}</div>
-                <div class="result-item"><span>채널:</span> ${result.channel}</div>
                 <div class="result-item"><span>게임 시간:</span> ${result.gameDuration}분</div>
                 <div class="result-item"><span>날짜:</span> ${result.dateTime}</div>
-                <div class="team-name">블루 팀</div>
-                ${result.blueTeams.map(player => `<div class="team-member">${player.name}</div>`).join('')}
-                <div class="team-name">레드 팀</div>
-                ${result.redTeams.map(player => `<div class="team-member">${player.name}</div>`).join('')}
-                <div class="win-lose">승리 팀: ${result.winTeam}</div>
-                <div class="win-lose">패배 팀: ${result.loseTeam}</div>
+
+                ${renderTeam(result, result.winTeam, '승리팀')}
+                ${renderTeam(result, result.loseTeam, '패배팀')}
             `;
+
             resultsContainer.appendChild(resultCard);
         });
+    }
+
+    function isUserInTeam(result, userName, teamType) {
+        const team = result[teamType + 'Teams'];
+        return team && team.some(player => player.user_name === userName);
+    }
+
+    function renderTeam(result, teamType, teamStatus) {
+        const teamName = teamType === 'blue' ? '블루(Blue)' : '레드(Red)';
+        const team = result[teamType + 'Teams'];
+
+        return `
+        <div class="team-name">${teamStatus} - ${teamName}</div>
+        ${
+            team && team.length > 0
+                ? team.map(player => `
+                    <div class="team-member">
+                        <div>${player.user_name}</div>
+                        <pre>${JSON.stringify(player, null, 2)}</pre>
+                    </div>
+                `).join('')
+                : '<div class="team-member">팀 정보가 없습니다.</div>'
+        }
+        `;
     }
 </script>
 

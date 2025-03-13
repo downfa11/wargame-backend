@@ -22,7 +22,7 @@ import reactor.core.publisher.Mono;
 @PersistanceAdapter
 @RequiredArgsConstructor
 public class RedisAdapter implements PushRedisPort, FindRedisPort {
-    private final ReactiveRedisTemplate<String, String> stringRedisTemplate;
+    private final ReactiveRedisTemplate<String, String> reactiveRedisTemplate;
     private final ReactiveRedisTemplate<String, Result> resultRedisTemplate;
 
 
@@ -41,12 +41,12 @@ public class RedisAdapter implements PushRedisPort, FindRedisPort {
     @Override
     public Flux<Long> pushString(String key, List<String> values) {
         return Flux.fromIterable(values)
-                .flatMap(value -> stringRedisTemplate.opsForSet().add(key, value));
+                .flatMap(value -> reactiveRedisTemplate.opsForSet().add(key, value));
     }
 
 
     @Override
     public Flux<String> findString(String key) {
-        return stringRedisTemplate.opsForSet().members(key);
+        return reactiveRedisTemplate.opsForSet().members(key);
     }
 }
