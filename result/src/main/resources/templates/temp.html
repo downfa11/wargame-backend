@@ -137,7 +137,6 @@
     let isLoading = false; // 로딩 중인지 여부
     let isLastPage = false; // 마지막 페이지인지 여부
 
-    // 검색어 자동완성 기능
     document.getElementById("search").addEventListener("input", async function () {
         const query = this.value.trim();
         if (!query) {
@@ -145,7 +144,6 @@
             return;
         }
 
-        // 자동완성 리스트를 보여주기 전에 서버에서 데이터를 가져옴
         await fetchSuggestions(query);
     });
 
@@ -163,10 +161,9 @@
         }
     }
 
-    // 자동완성 추천 항목 표시
     function displaySuggestions(suggestions) {
         const suggestionsContainer = document.getElementById("suggestions");
-        suggestionsContainer.innerHTML = ''; // 기존 추천어 초기화
+        suggestionsContainer.innerHTML = '';
 
         if (suggestions.length === 0) {
             suggestionsContainer.style.display = "none";
@@ -214,6 +211,8 @@
     });
 
     async function fetchData(query) {
+        if (isLoading || isLastPage) return;
+
         isLoading = true;
         try {
             const response = await fetch(`/v1/result/search/name/${query}?offset=${currentOffset}`);
@@ -223,11 +222,12 @@
 
             const data = await response.json();
             if (data && data.length > 0) {
-                console.log(data);
+                console.log("현재 페이지:"+currentOffset);
                 displayResults(data, query);
                 currentOffset += data.length;
             } else {
                 isLastPage = true;
+                console.log("마지막 페이지입니다.");
             }
         } catch (error) {
             console.error("검색 요청 오류:", error);
