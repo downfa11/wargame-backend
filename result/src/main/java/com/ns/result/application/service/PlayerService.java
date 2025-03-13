@@ -35,23 +35,22 @@ public class PlayerService implements RegisterPlayerUseCase, UpdatePlayerUseCase
         CreatePlayerCommand playerCommand = new CreatePlayerCommand(membershipId);
 
         return sendCommandPort.sendCreatePlayer(playerCommand)
-                .doOnSuccess(aggregateIdentifier -> create(membershipId, aggregateIdentifier).subscribe())
                 .doOnError(throwable -> log.error("createMemberByEvent error: ", throwable))
                 .then(Mono.defer(() -> queryToPlayerByMembershipId(membershipId)));
-    }
-
-    public Mono<Player> create(String membershipId, String aggregateIdentifier) {
-        return registerPlayerPort.registerPlayer(membershipId, aggregateIdentifier);
     }
 
     @Override
     public Mono<QueryPlayer> updateEloByEvent(String membershipId, Long balancedElo) {
         return findPlayerPort.findByMembershipId(membershipId)
-                .flatMap(player -> sendCommandPort.sendUpdatePlayerElo(new UpdateEloCommand(player.getAggregateIdentifier(), membershipId, balancedElo))
-                        .flatMap(avoid -> updatePlayerPort.updatePlayer(membershipId, balancedElo))
-                            .then(Mono.defer(() -> queryToPlayerByMembershipId(membershipId)))
-                            .doOnError(throwable -> log.error("PlayerService updateEloByEvent error", throwable)));
+                .flatMap(player -> sendCommandPort.sendUpdatePlayerElo(
+                                new UpdateEloCommand(player.getAggregateIdentifier(), membershipId, balancedElo))
+                        .then(updatePlayerPort.updatePlayer(membershipId, balancedElo))
+                        .then(queryToPlayerByMembershipId(membershipId))
+                )
+                .switchIfEmpty(Mono.fromRunnable(() -> log.error("Not Found player {}", membershipId)))
+                .doOnError(throwable -> log.error("PlayerService updateEloByEvent error", throwable));
     }
+
 
     @Override
     public Mono<Player> updateElo(String membershipId, Long newElo) { return updatePlayerPort.updatePlayer(membershipId, newElo); }

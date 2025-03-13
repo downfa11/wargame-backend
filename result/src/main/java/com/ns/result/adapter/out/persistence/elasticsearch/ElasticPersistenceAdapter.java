@@ -5,6 +5,8 @@ import static com.ns.result.adapter.out.persistence.elasticsearch.ResultMapper.m
 import com.ns.common.ClientRequest;
 import com.ns.common.GameFinishedEvent;
 import com.ns.common.anotation.PersistanceAdapter;
+import com.ns.result.application.port.out.cache.FindRedisPort;
+import com.ns.result.application.port.out.cache.PushRedisPort;
 import com.ns.result.application.port.out.search.AutoCompletePlayerPort;
 import com.ns.result.application.port.out.search.DeleteResultPort;
 import com.ns.result.application.port.out.search.FindResultPort;
@@ -22,6 +24,9 @@ public class ElasticPersistenceAdapter implements RegisterResultPort, DeleteResu
 
     private final ResultRepository resultRepository;
     private final PlayerRepository playerRepository;
+
+    private final PushRedisPort pushRedisPort;
+    private final FindRedisPort findRedisPort;
 
     @Override
     public Mono<Result> saveResult(GameFinishedEvent gameFinishedEvent) {
@@ -63,7 +68,20 @@ public class ElasticPersistenceAdapter implements RegisterResultPort, DeleteResu
 
     @Override
     public Flux<String> getAutoCompleteSuggestions(String query) {
-        return playerRepository.findByNicknameStartingWith(query)
-                .map(player -> player.getNickname());
+        String redisKey = "autocomplete:names:" + query;
+
+        return findRedisPort.findString(redisKey)
+                .switchIfEmpty(
+                        playerRepository.findByNicknameStartingWith(query)
+                                .map(Player::getNickname)
+                                .collectList()
+                                .flatMapMany(nicknames -> {
+                                    if (!nicknames.isEmpty()) {
+                                        return pushRedisPort.pushString(redisKey, nicknames)
+                                                .thenMany(Flux.fromIterable(nicknames));
+                                    }
+                                    return Flux.empty();
+                                })
+                );
     }
 }

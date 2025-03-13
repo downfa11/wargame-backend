@@ -22,16 +22,27 @@ public class RedisConfig {
     private final ObjectMapper objectMapper;
 
     @Bean
-    public ReactiveRedisOperations<String, Result> resultRedisTemplate() {
+    public ReactiveRedisTemplate<String, Result> resultRedisTemplate() {
         return createCustomTemplate(objectMapper, new TypeReference<>() {});
     }
 
-    private <V> ReactiveRedisOperations<String, V> createCustomTemplate(ObjectMapper objectMapper, TypeReference<V> typeRef) {
+    private <V> ReactiveRedisTemplate<String, V> createCustomTemplate(ObjectMapper objectMapper, TypeReference<V> typeRef) {
         RedisSerializationContext.RedisSerializationContextBuilder<String, V> builder = RedisSerializationContext.newSerializationContext(new StringRedisSerializer());
 
         RedisSerializationContext<String, V> context =
                 builder.key(new StringRedisSerializer())
                         .value(new CustomRedisSerializer<>(objectMapper, typeRef))
+                        .build();
+
+        return new ReactiveRedisTemplate<>(redisConnectionFactory, context);
+    }
+
+    @Bean
+    public ReactiveRedisTemplate<String, String> stringRedisTemplate() {
+        RedisSerializationContext<String, String> context =
+                RedisSerializationContext.<String, String>newSerializationContext(new StringRedisSerializer())
+                        .key(new StringRedisSerializer())
+                        .value(new StringRedisSerializer())
                         .build();
 
         return new ReactiveRedisTemplate<>(redisConnectionFactory, context);
