@@ -44,7 +44,7 @@ public class PlayerService implements RegisterPlayerUseCase, UpdatePlayerUseCase
         return findPlayerPort.findByMembershipId(membershipId)
                 .flatMap(player -> sendCommandPort.sendUpdatePlayerElo(
                                 new UpdateEloCommand(player.getAggregateIdentifier(), membershipId, balancedElo))
-                        .then(updatePlayerPort.updatePlayer(membershipId, balancedElo))
+                        .then(updatePlayerPort.updatePlayerElo(membershipId, balancedElo))
                         .then(queryToPlayerByMembershipId(membershipId))
                 )
                 .switchIfEmpty(Mono.fromRunnable(() -> log.error("Not Found player {}", membershipId)))
@@ -53,7 +53,7 @@ public class PlayerService implements RegisterPlayerUseCase, UpdatePlayerUseCase
 
 
     @Override
-    public Mono<Player> updateElo(String membershipId, Long newElo) { return updatePlayerPort.updatePlayer(membershipId, newElo); }
+    public Mono<Player> updateElo(String membershipId, Long newElo) { return updatePlayerPort.updatePlayerElo(membershipId, newElo); }
 
     @Override
     public Flux<Player> findAll() { return findPlayerPort.findAll(); }

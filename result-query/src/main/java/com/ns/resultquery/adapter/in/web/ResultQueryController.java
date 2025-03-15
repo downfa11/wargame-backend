@@ -23,7 +23,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @RequestMapping("/statistics")
 public class ResultQueryController {
-
     private final FindStatisticsUseCase findStatisticsUseCase;
 
     @GetMapping(path = "/query/champ/{champName}")
@@ -84,6 +83,6 @@ public class ResultQueryController {
 
     private String calcCountPercent(Long entireCount, Long winCount){
         double percent = entireCount > 0 ? (double) winCount / entireCount * 100 : 0.0;
-        return String.format("%.1f", percent) + "%";
+        return String.format("%.1f", percent);
     }
 }

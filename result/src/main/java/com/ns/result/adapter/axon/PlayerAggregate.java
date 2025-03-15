@@ -9,6 +9,7 @@ import com.ns.result.adapter.axon.event.CreatePlayerEvent;
 import com.ns.result.adapter.axon.event.ModifyCodeEvent;
 import com.ns.result.adapter.axon.event.UpdateEloEvent;
 import com.ns.result.application.port.out.player.RegisterPlayerPort;
+import com.ns.result.application.port.out.player.UpdatePlayerPort;
 import jakarta.validation.constraints.NotNull;
 import java.util.UUID;
 import lombok.Getter;
@@ -69,8 +70,10 @@ public class PlayerAggregate {
     }
 
     @CommandHandler
-    public void handleModifyCode(@NotNull ModifyCodeCommand command){
+    public void handleModifyCode(@NotNull ModifyCodeCommand command, UpdatePlayerPort updatePlayerPort){
         id = command.getAggregateIdentifier();
+
+        updatePlayerPort.updatePlayerCode(command.getMembershipId(), command.getCode());
         apply(new ModifyCodeEvent(id, command.getMembershipId(), command.getCode()));
     }
 

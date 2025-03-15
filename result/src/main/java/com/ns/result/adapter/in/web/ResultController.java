@@ -104,8 +104,6 @@ public class ResultController {
         }).thenReturn(ResponseEntity.ok("테스트가 성공했는가?"));
     }
 
-
-
     @GetMapping("/list")
     public Flux<Result> getResultList(){ return findResultUseCase.getResultList(); }
 

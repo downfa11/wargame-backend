@@ -5,97 +5,162 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>wargame 전적 검색</title>
     <style>
-        /* 기본 스타일 설정 */
         html, body {
             height: 100%;
             margin: 0;
             padding: 0;
             font-family: Arial, sans-serif;
+            display: flex;
+            background-color: #ecf0f1;
+            color: #2c3e50;
+            flex-direction: column;
+            overflow: auto;
         }
 
-        body {
+        .container {
             display: flex;
             flex-direction: column;
-            align-items: center;
-            background-color: #f4f4f4;
-            overflow: hidden; /* body의 기본 스크롤 제거 */
+            padding: 1vh 4vw;
+            box-sizing: border-box;
+            flex: 1;
         }
 
         .search-container {
+            width: 70vw;
+            padding: 5vh 0vw;
             position: relative;
-            width: 300px;
-            margin-top: 50px;
+            display: flex;
+            flex-direction: row;
+            gap: 2vw;
         }
 
         .search-input {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            font-size: 16px;
+            width: 40vw;
+            flex: 1;
+            padding: 1vh 2vw;
+            border: 2px solid #3498db;
+            border-radius: 2.5vw;
+            font-size: 1.5vw;
+            outline: none;
+            text-align: left;
+            box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.1);
+            transition: border 0.3s ease-in-out;
+        }
+
+        .search-input:focus {
+            border: 2px solid #2980b9;
+            box-shadow: 0 0 8px rgba(41, 128, 185, 0.5);
         }
 
         .search-button {
-            width: 100%;
-            padding: 10px;
+            width: 15vw;
+            padding: 2vh 4vw;
             background-color: #3498db;
             color: white;
             border: none;
-            border-radius: 5px;
-            font-size: 16px;
+            border-radius: 2.5vw;
+            font-size: 1.5vw;
             cursor: pointer;
-            margin-top: 10px;
+            transition: background 0.3s, box-shadow 0.3s;
+            box-shadow: 0 3px 5px rgba(0, 0, 0, 0.15);
         }
 
         .search-button:hover {
             background-color: #2980b9;
+            box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
         }
 
-        .suggestions {
-            position: absolute;
-            width: 100%;
+        .user-stats-container, .results-container, .fixed-box {
             background: white;
-            border: 1px solid #ccc;
-            border-top: none;
-            max-height: 200px;
-            overflow-y: auto;
-            display: none;
+            border-radius: 1vw;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2vh;
         }
 
-        .suggestion-item {
-            padding: 10px;
-            cursor: pointer;
+        .user-stats-header {
+            font-size: 2vw;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 2vh;
+            text-align: center;
         }
 
-        .suggestion-item:hover {
-            background: #f0f0f0;
+        .user-stats-container {
+            max-width: 70vw;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            gap: 2vw;
+            margin-top: 10vh;
+        }
+
+        .user-stat-item {
+            flex: 1;
+            min-width: 10vw;
+            text-align: center;
+            background: #ecf0f1;
+            padding: 2vh;
+            border-radius: 1vw;
+            font-weight: bold;
+            color: #34495e;
+            transition: transform 0.2s;
+        }
+
+        .user-stat-item:hover {
+            transform: scale(1.05);
+        }
+
+        .user-stat-item span {
+            display: block;
+            margin-bottom: 0.5vh;
+            font-size: 1.5vw;
+            color: #3498db;
+        }
+
+        .user-stat-item:hover {
+            transform: scale(1.05);
+        }
+
+        .user-name span {
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .win-rate span {
+            color: #2ecc71;
         }
 
         .results-container {
-            margin-top: 30px;
-            width: 80%;
-            max-width: 900px;
-            flex-grow: 1; /* flex 컨테이너에 자식 요소가 꽉 차게 함 */
-            overflow-y: auto; /* 세로 스크롤이 필요할 때 활성화 */
+            max-width: 70vw;
+            margin-top: 2vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            max-height: 100%;
+            overflow-y: auto;
         }
 
         .result-card {
-            background-color: white;
-            padding: 20px;
-            margin-bottom: 15px;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            width: 80%;
+            background: white;
+            padding: 4vh 5vw;
+            margin-top: 3vh;
+            margin-bottom: 3vh;
+            border-radius: 1vw;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s, box-shadow 0.3s;
+        }
+
+        .result-card:hover {
+            transform: scale(1.02);
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15);
         }
 
         .result-header {
-            font-size: 20px;
+            font-size: 2vw;
             font-weight: bold;
-            margin-bottom: 10px;
+            margin-bottom: 2vh;
             color: #333;
-        }
-
-        .result-item {
-            margin-bottom: 10px;
         }
 
         .result-item span {
@@ -110,9 +175,9 @@
 
         .team-member {
             background-color: #e0e0e0;
-            padding: 5px;
-            border-radius: 5px;
-            margin: 5px 0;
+            padding: 1vh;
+            border-radius: 1vw;
+            margin: 1vh 0;
         }
 
         .win-lose {
@@ -120,17 +185,93 @@
             color: #2ecc71;
         }
 
+        .champion-table {
+            width: 100%;
+            margin-top: 2vh;
+            border-collapse: collapse;
+        }
+
+        .champion-table th, .champion-table td {
+            padding: 2vh;
+            border: 1px solid #bdc3c7;
+            text-align: center;
+        }
+
+        .champion-table th {
+            background: #3498db;
+            color: white;
+        }
+
+        .champion-table tbody tr:nth-child(odd) {
+            background: #f9f9f9;
+        }
+
+        .right-fixed-container {
+            max-width: 30vw;
+            position: fixed;
+            right: 0;
+            top: 0;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255, 255, 255, 0.9);
+            box-shadow: -4px 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .fixed-box {
+            width: 80%;
+            padding: 2vh;
+            border-radius: 1vw;
+            text-align: center;
+        }
+
+        #suggestions {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            width: 100%;
+            background-color: white;
+            border-radius: 1vw;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            max-height: 25vh;
+            overflow-y: auto;
+            z-index: 9999;
+            display: none;
+            margin-top: 1vh;
+        }
+
+        .suggestion-item {
+            padding: 2vh 3vw;
+            cursor: pointer;
+            transition: background-color 0.2s ease-in-out;
+        }
+
+        .suggestion-item:hover {
+            background-color: #f1f1f1;
+        }
     </style>
 </head>
 <body>
 
-<div class="search-container">
-    <input type="text" id="search" class="search-input" placeholder="사용자의 닉네임을 검색하세요...">
-    <div id="suggestions" class="suggestions"></div>
-    <button class="search-button" id="searchButton">검색</button>
+<div class="container">
+    <form autocomplete="off" onsubmit="return false;">
+        <div class="search-container">
+            <input type="text" class="search-input" id="search" placeholder="사용자의 닉네임을 검색하세요...">
+            <button type="button" class="search-button" id="searchButton">검색</button>
+            <div class="" id="suggestions"></div>
+        </div>
+    </form>
+    <div id="userStatsContainer" class="user-stats-container"></div>
+    <div id="resultsContainer" class="results-container"></div>
 </div>
 
-<div id="resultsContainer" class="results-container"></div>
+<div class="right-fixed-container">
+    <div class="fixed-box">
+        <h3>고정 컨텐츠</h3>
+        <p>이 영역은 스크롤을 내려도 항상 유지됩니다.</p>
+    </div>
+</div>
 
 <script>
     let currentOffset = 0; // 현재 offset
@@ -149,7 +290,7 @@
 
     async function fetchSuggestions(query) {
         try {
-            const response = await fetch(`/autocomplete?query=${query}`);
+            const response = await fetch(`http://localhost:8083/autocomplete?query=${query}`);
             if (!response.ok) {
                 throw new Error("자동완성 요청 오류: " + response.status);
             }
@@ -163,6 +304,8 @@
 
     function displaySuggestions(suggestions) {
         const suggestionsContainer = document.getElementById("suggestions");
+        if (!suggestionsContainer) return;
+
         suggestionsContainer.innerHTML = '';
 
         if (suggestions.length === 0) {
@@ -180,6 +323,7 @@
                 currentOffset = 0;
                 isLastPage = false;
                 document.getElementById("resultsContainer").innerHTML = "";
+                fetchUserStatistics(suggestion)
                 fetchData(suggestion);
             });
             suggestionsContainer.appendChild(item);
@@ -198,6 +342,7 @@
         currentOffset = 0;
         isLastPage = false;
         document.getElementById("resultsContainer").innerHTML = "";
+        await fetchUserStatistics(query);
         await fetchData(query);
     });
 
@@ -210,17 +355,90 @@
         }
     });
 
+    document.addEventListener("click", function(event) {
+        const suggestionsContainer = document.getElementById("suggestions");
+        const searchInput = document.getElementById("search");
+
+        if (!searchInput.contains(event.target) && !suggestionsContainer.contains(event.target)) {
+            suggestionsContainer.style.display = "none";
+        }
+    });
+
+    async function fetchUserStatistics(query) {
+        try {
+            const response = await fetch(`http://localhost:8084/statistics/query/user/${query}`);
+            if (!response.ok) {
+                throw new Error("통계 요청 오류: " + response.status);
+            }
+
+            const data = await response.json();
+            console.log(data);
+            if (data) {
+                displayUserStats(data);
+            }
+        } catch (error) {
+            console.error("전적 요청 오류:", error);
+        }
+    }
+
+    function displayUserStats(data) {
+        const container = document.getElementById("userStatsContainer");
+
+        const winRateStr = data.percent || '';
+        const winRate = winRateStr ? parseFloat(winRateStr) : 0;
+
+        container.innerHTML = `
+            <div class="user-stats-header">사용자 전적</div>
+
+            <div class="user-stat-item user-name">
+                <span>사용자:</span> <span id="userName">${data.userName}</span>
+            </div>
+            <div class="user-stat-item total-games">
+                <span id="totalGames">총 게임 수: ${data.entireCount}</span>
+            </div>
+            <div class="user-stat-item wins">
+                <span id="wins">승리: ${data.winCount}</span>
+            </div>
+            <div class="user-stat-item losses">
+                <span id="losses">패배: ${data.loseCount}</span>
+            </div>
+            <div class="user-stat-item win-rate">
+            <span id="winRate">
+                <span>승률: </span>
+                <span style="color: ${getWinRateColor(winRate)};"> ${winRate} %</span>
+            </span>
+            </div>
+
+            <div class="user-stat-item">${data.champStatList}</div>
+        `;
+    }
+
+    function getWinRateColor(winRate) {
+        if (winRate <= 30) {
+            return '#7f8c8d';  // 회색
+        } else if (winRate < 50) {
+            return '#6f4f37';  // 갈색
+        } else if (winRate === 50) {
+            return '#2c3e50';  // 검은색
+        } else if (winRate <= 70) {
+            return '#2ecc71';  // 초록색
+        } else {
+            return '#e74c3c';  // 빨간색
+        }
+    }
+
     async function fetchData(query) {
         if (isLoading || isLastPage) return;
 
         isLoading = true;
         try {
-            const response = await fetch(`/v1/result/search/name/${query}?offset=${currentOffset}`);
+            const response = await fetch(`http://localhost:8083/v1/result/search/name/${query}?offset=${currentOffset}`);
             if (!response.ok) {
-                throw new Error("서버 응답 오류: " + response.status);
+                throw new Error("결과 요청 오류: " + response.status);
             }
 
             const data = await response.json();
+
             if (data && data.length > 0) {
                 console.log("현재 페이지:"+currentOffset);
                 displayResults(data, query);
@@ -230,14 +448,14 @@
                 console.log("마지막 페이지입니다.");
             }
         } catch (error) {
-            console.error("검색 요청 오류:", error);
+            console.error("결과 요청 오류:", error);
         } finally {
             isLoading = false;
         }
     }
 
     function displayResults(results, query) {
-        const resultsContainer = document.getElementById("resultsContainer");
+        const container = document.getElementById("resultsContainer");
         results.forEach(result => {
             const resultCard = document.createElement("div");
             resultCard.classList.add("result-card");
@@ -254,8 +472,7 @@
                 ${renderTeam(result, result.winTeam, '승리팀')}
                 ${renderTeam(result, result.loseTeam, '패배팀')}
             `;
-
-            resultsContainer.appendChild(resultCard);
+            container.appendChild(resultCard);
         });
     }
 
@@ -282,6 +499,40 @@
         }
         `;
     }
+
+
+    const dummyStatistics = {
+        userName: "testPlayer",
+        entireCount: 120,
+        winCount: 80,
+        loseCount: 40,
+        percent: "66.7",
+        champStatList: "champ1, champ2"
+    };
+
+    const dummyResults = [
+        {
+            winTeam: "blue",
+            loseTeam: "red",
+            state: "승리",
+            gameDuration: 30,
+            dateTime: "2025-03-15 10:00:00",
+            winTeams: [{ user_name: "user1" }, { user_name: "user2" }],
+            loseTeams: [{ user_name: "user3" }, { user_name: "user4" }]
+        },
+        {
+            winTeam: "red",
+            loseTeam: "blue",
+            state: "패배",
+            gameDuration: 25,
+            dateTime: "2025-03-14 14:30:00",
+            winTeams: [{ user_name: "user3" }, { user_name: "user4" }],
+            loseTeams: [{ user_name: "user1" }, { user_name: "user2" }]
+        }
+    ];
+
+    displayUserStats(dummyStatistics);
+    displayResults(dummyResults);
 </script>
 
 </body>

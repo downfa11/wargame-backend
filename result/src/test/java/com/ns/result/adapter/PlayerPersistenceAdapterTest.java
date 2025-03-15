@@ -66,7 +66,7 @@ public class PlayerPersistenceAdapterTest {
         when(playerRepository.save(any())).thenReturn(Mono.just(updatedPlayer));
 
         // when
-        Mono<Player> result = playerPersistenceAdapter.updatePlayer(membershipId, increase);
+        Mono<Player> result = playerPersistenceAdapter.updatePlayerElo(membershipId, increase);
 
         // then
         StepVerifier.create(result)

@@ -117,7 +117,7 @@ class PlayerServiceTest {
     void 사용자의_실력점수를_업데이트하는_메서드() {
         // given
         Long increase = 50L;
-        when(updatePlayerPort.updatePlayer(anyString(), anyLong())).thenReturn(Mono.just(player));
+        when(updatePlayerPort.updatePlayerElo(anyString(), anyLong())).thenReturn(Mono.just(player));
 
         // when
         Mono<Player> result = playerService.updateElo(membershipId, increase);
@@ -127,7 +127,7 @@ class PlayerServiceTest {
                 .expectNext(player)
                 .verifyComplete();
 
-        verify(updatePlayerPort).updatePlayer(membershipId, increase);
+        verify(updatePlayerPort).updatePlayerElo(membershipId, increase);
     }
 
     @Test

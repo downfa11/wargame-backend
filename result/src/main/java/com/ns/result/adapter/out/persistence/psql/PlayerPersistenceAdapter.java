@@ -5,9 +5,11 @@ import com.ns.result.application.port.out.player.FindPlayerPort;
 import com.ns.result.application.port.out.player.RegisterPlayerPort;
 import com.ns.result.application.port.out.player.UpdatePlayerPort;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+@Slf4j
 @PersistanceAdapter
 @RequiredArgsConstructor
 public class PlayerPersistenceAdapter implements RegisterPlayerPort, UpdatePlayerPort, FindPlayerPort {
@@ -25,10 +27,20 @@ public class PlayerPersistenceAdapter implements RegisterPlayerPort, UpdatePlaye
     }
 
     @Override
-    public Mono<Player> updatePlayer(String membershipId, Long newElo) {
+    public Mono<Player> updatePlayerElo(String membershipId, Long newElo) {
         return playerRepository.findByMembershipId(membershipId)
                 .flatMap(u -> {
                     u.setElo(newElo);
+                    return playerRepository.save(u);
+                });
+    }
+
+    @Override
+    public Mono<Player> updatePlayerCode(String membershipId, String newCode) {
+        return playerRepository.findByMembershipId(membershipId)
+                .flatMap(u -> {
+                    log.info("membership:"+membershipId+"'s new code is "+ newCode + "    prev:"+u.getCode());
+                    u.setCode(newCode);
                     return playerRepository.save(u);
                 });
     }
