@@ -1,10 +1,10 @@
 CREATE TABLE BoardKinds (
-                            id INT AUTO_INCREMENT PRIMARY KEY,
+                            id SERIAL PRIMARY KEY,
                             kind CHAR(20)
 );
 
 CREATE TABLE Boards (
-                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        id SERIAL PRIMARY KEY,
                         kind_id INT,
                         boardId INT,
                         FOREIGN KEY (kind_id) REFERENCES BoardKinds(id),
@@ -12,18 +12,18 @@ CREATE TABLE Boards (
 );
 
 CREATE TABLE results (
-                         id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                         id BIGSERIAL PRIMARY KEY,
                          code VARCHAR(255),
                          channel INT,
                          room INT,
                          win_team VARCHAR(255),
                          lose_team VARCHAR(255),
-                         date_time DATETIME,
+                         date_time TIMESTAMP,
                          game_duration INT
 );
 
 CREATE TABLE clients (
-                         id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                         id BIGSERIAL PRIMARY KEY,
                          user_id BIGINT NOT NULL,
                          game_result_id BIGINT,
                          socket INT,
