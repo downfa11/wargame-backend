@@ -1,6 +1,7 @@
 package com.ns.result.application.service;
 
 import com.ns.result.adapter.axon.MembershipEloRequest;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
@@ -31,10 +32,12 @@ public class EloService {
                 team.stream().filter(client -> !client.getTeam().equals("blue")).collect(Collectors.toList()),
                 blueEloSum, !isWinner);
 
-        updatedBlueTeam.addAll(updatedRedTeam);
+        List<MembershipEloRequest> updatedTeams = new ArrayList<>();
+        updatedTeams.addAll(updatedBlueTeam);
+        updatedTeams.addAll(updatedRedTeam);
 
-        log.info("업데이트 이후 Elo : {}", updatedBlueTeam);
-        return updatedBlueTeam;
+        log.info("업데이트 이후 Elo 변동량 : {}", updatedTeams);
+        return updatedTeams;
     }
 
     // TeamElo를 통해 승패에 따른 Elo 점수 변동값을 연산한다.
@@ -46,12 +49,12 @@ public class EloService {
 
     private MembershipEloRequest calcMembershipEloRequest(MembershipEloRequest membershipEloRequest, Long opposingTeamEloSum, boolean isWinner){
         Long currentElo = membershipEloRequest.getElo();
-        Long newElo = calculateElo(currentElo, opposingTeamEloSum, isWinner);
-        membershipEloRequest.setElo(newElo);
+        Long increase = calculateElo(currentElo, opposingTeamEloSum, isWinner);
+        membershipEloRequest.setElo(increase);
         return membershipEloRequest;
     }
 
-    private long calculateElo(long currentElo, long opposingTeamElo, boolean isWinner) {
+    public long calculateElo(long currentElo, long opposingTeamElo, boolean isWinner) {
         final double EA = 1.0 / (1.0 + Math.pow(10, (opposingTeamElo - currentElo) / 400.0));
         int SA = isWinner ? 1 : 0;
         return (long) (currentElo + K * (SA - EA));

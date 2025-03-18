@@ -11,6 +11,7 @@ import com.ns.result.adapter.out.persistence.elasticsearch.Result;
 import com.ns.result.application.port.in.FindResultUseCase;
 import com.ns.result.application.port.in.RegisterResultUseCase;
 import com.ns.result.application.port.out.cache.FindRedisPort;
+import com.ns.result.application.port.out.search.DeleteResultPort;
 import com.ns.result.application.port.out.search.FindResultPort;
 import com.ns.result.application.port.out.cache.PushRedisPort;
 import com.ns.result.application.port.out.search.RegisterResultPort;
@@ -31,6 +32,7 @@ public class ResultService implements RegisterResultUseCase, FindResultUseCase {
     private final FindRedisPort findRedisPort;
 
     private final RegisterResultPort registerResultPort;
+    private final DeleteResultPort deleteResultPort;
     private final FindResultPort findResultPort;
 
     private final TaskUseCase taskUseCase;
@@ -61,6 +63,10 @@ public class ResultService implements RegisterResultUseCase, FindResultUseCase {
     @Override
     public Mono<Result> saveResult(GameFinishedEvent gameFinishedEvent) {
         return registerResultPort.saveResult(gameFinishedEvent);
+    }
+
+    public Mono<Boolean> deleteResult(String spaceId){
+        return deleteResultPort.deleteResult(spaceId);
     }
 
     //=============== test ================//
@@ -138,7 +144,7 @@ public class ResultService implements RegisterResultUseCase, FindResultUseCase {
 //                .flatMap(subTasks -> resultService.sendTask("task.membership.response", createDodgeTask(subTasks)));
 //    }
 
-    private List<ClientRequest> getAllTeams(GameFinishedEvent result){
+    public List<ClientRequest> getAllTeams(GameFinishedEvent result){
         List<ClientRequest> allTeams = new ArrayList<>();
         allTeams.addAll(result.getBlueTeams());
         allTeams.addAll(result.getRedTeams());

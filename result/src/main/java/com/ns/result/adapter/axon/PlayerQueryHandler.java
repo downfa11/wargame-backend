@@ -20,7 +20,10 @@ public class PlayerQueryHandler {
         log.info("FindPlayerAggregateQuery for membershipId: {}", query.getMembershipId());
 
         return playerR2dbcRepository.findByMembershipId(query.getMembershipId())
-                .map(player -> new QueryPlayer(player.getMembershipId(), player.getCode(), player.getElo()))
+                .map(player -> QueryPlayer.builder()
+                        .membershipId(player.getMembershipId())
+                        .code(player.getCode())
+                        .elo(player.getElo()).build())
                 .doOnError(error -> log.error("Error loading player for " + query.getMembershipId() + ": " + error))
                 .block();
     }

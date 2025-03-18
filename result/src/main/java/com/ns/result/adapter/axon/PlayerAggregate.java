@@ -2,20 +2,20 @@ package com.ns.result.adapter.axon;
 
 import static org.axonframework.modelling.command.AggregateLifecycle.apply;
 
-import com.ns.result.adapter.axon.command.CreatePlayerCommand;
-import com.ns.result.adapter.axon.command.RollbackUpdateEloCommand;
+import com.ns.common.CreatePlayerCommand;
+import com.ns.common.ModifyCodeCommand;
 import com.ns.result.adapter.axon.command.UpdateEloCommand;
 import com.ns.result.adapter.axon.event.CreatePlayerEvent;
-import com.ns.result.adapter.axon.event.RollbackUpdateEloEvent;
+import com.ns.result.adapter.axon.event.ModifyCodeEvent;
 import com.ns.result.adapter.axon.event.UpdateEloEvent;
-import com.ns.result.application.service.PlayerService;
+import com.ns.result.application.port.out.player.RegisterPlayerPort;
+import com.ns.result.application.port.out.player.UpdatePlayerPort;
 import jakarta.validation.constraints.NotNull;
 import java.util.UUID;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.axonframework.commandhandling.CommandHandler;
-import org.axonframework.eventhandling.EventHandler;
 import org.axonframework.eventsourcing.EventSourcingHandler;
 import org.axonframework.modelling.command.AggregateIdentifier;
 import org.axonframework.spring.stereotype.Aggregate;
@@ -33,51 +33,54 @@ public class PlayerAggregate {
     private String code;
 
     @CommandHandler
-    public PlayerAggregate(CreatePlayerCommand command){
-        log.info("CreatePlayerCommand Handler: "+id);
-        apply(new CreatePlayerEvent(command.getMembershipId()));
+    public PlayerAggregate(CreatePlayerCommand command, RegisterPlayerPort registerPlayerPort){
+        log.info("CreatePlayerCommand command handler: "+ command.getMembershipId());
+
+        id= UUID.randomUUID().toString();
+        registerPlayerPort.registerPlayer(command.getMembershipId(), id)
+                .subscribe();
+
+        apply(new CreatePlayerEvent(command.getMembershipId(), id));
     }
 
     @EventSourcingHandler
     public void onCreateMemberEvent(CreatePlayerEvent event){
-        id= UUID.randomUUID().toString();
+        id = event.getId();
         membershipId = event.getMembershipId();
         elo = 2000L;
         code = "";
+
+
+        log.info("CreatePlayerEvent handler: "+ membershipId + "="+elo + "   : " + id);
     }
 
     @CommandHandler
-    public String handleUpdateElo(@NotNull UpdateEloCommand command){
-        log.info("UpdateEloCommand Handler: "+id);
+    public void handleUpdateElo(@NotNull UpdateEloCommand command){
         id = command.getAggregateIdentifier();
-
-        apply(new UpdateEloEvent(id, command.getMembershipId(),command.getElo()));
-        return id;
+        apply(new UpdateEloEvent(id, command.getMembershipId(), command.getElo()));
     }
 
     @EventSourcingHandler
-    public void onUpdateEloEvent(UpdateEloEvent event, PlayerService playerService){
-        log.info("UpdateEloEvent Sourcing Handler: " + elo +" to " + event.getElo());
+    public void onUpdateEloEvent(UpdateEloEvent event){
+        log.info("UpdateEloEvent "+ event.getMembershipId()+"'s elo: " + elo + " -> " + event.getElo());
         id = event.getAggregateIdentifier();
         membershipId = event.getMembershipId();
-        elo=elo+event.getElo();
+        elo = event.getElo();
         code = "";
-
-        playerService.updateElo(membershipId, event.getElo())
-                .doOnSuccess(updatedPlayer -> log.info("실력점수 변동(readOnly) : " + updatedPlayer.getElo()))
-                .subscribe();
     }
 
-    // 게임 종료 이벤트에 대한 실력점수 업데이트(롤백)
     @CommandHandler
-    public void handleRollbackElo(RollbackUpdateEloCommand command) {
-        log.info("Rollback Elo Command Handler: " + command.getAggregateIdentifier());
-        apply(new RollbackUpdateEloEvent(command.getAggregateIdentifier(), command.getMembershipId(), elo));
+    public void handleModifyCode(@NotNull ModifyCodeCommand command, UpdatePlayerPort updatePlayerPort){
+        id = command.getAggregateIdentifier();
+
+        updatePlayerPort.updatePlayerCode(command.getMembershipId(), command.getCode());
+        apply(new ModifyCodeEvent(id, command.getMembershipId(), command.getCode()));
     }
 
-    @EventHandler
-    public void onRollbackEloEvent(RollbackUpdateEloEvent event){
-        log.info("Rollback Elo Event Sourcing Handler: " + event.getElo());
-        elo = elo - event.getElo();
+    @EventSourcingHandler
+    public void onModifyCodeEvent(ModifyCodeEvent event){
+        log.info("onModifyCodeEvent "+ event.getMembershipId()+"'s code: " + code + " -> " + event.getCode());
+        id = event.getAggregateIdentifier();
+        code = event.getCode();
     }
 }

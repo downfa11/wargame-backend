@@ -43,9 +43,9 @@ public class PlayerController {
     }
 
     @PostMapping(path="/increase-elo/event")
-    Mono<QueryPlayer> UpdateEloByEvent(@RequestParam String membershipId){
-        Random random = new Random();
-        Long elo = random.nextLong(1000);
+    Mono<QueryPlayer> UpdateEloByEvent(@RequestParam String membershipId, @RequestParam Long elo){
+//        Random random = new Random();
+//        Long elo = random.nextLong(1000);
         return updatePlayerUseCase.updateEloByEvent(membershipId, elo);
     }
 

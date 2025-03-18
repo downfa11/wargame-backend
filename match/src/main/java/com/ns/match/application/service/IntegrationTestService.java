@@ -1,13 +1,11 @@
 package com.ns.match.application.service;
 
 import com.ns.common.anotation.UseCase;
-import com.ns.common.utils.MessageEntity;
 import com.ns.match.application.port.in.IntegrationTestMatchUseCase;
 import com.ns.match.application.port.out.IntegrationTestMatchPort;
 import java.util.concurrent.atomic.AtomicLong;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.ResponseEntity;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 

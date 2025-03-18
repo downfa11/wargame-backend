@@ -143,7 +143,7 @@ public class RedisMatchProcessAdapter implements ProcessMatchQueuePort {
                 matchResponse);
     }
 
-    private void saveMatchInfo(String memberId, MatchResponse matchResponse) {
+    public void saveMatchInfo(String memberId, MatchResponse matchResponse) {
         try {
             String membershipId = memberId.split(":")[0];
             String json = mapper.writeValueAsString(matchResponse);

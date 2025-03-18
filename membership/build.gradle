@@ -46,10 +46,6 @@ dependencies {
     //Vault
     implementation group: 'org.springframework.vault',name: 'spring-vault-core',version:'3.0.2'
 
-    //Prometheus
-    implementation 'org.springframework.boot:spring-boot-starter-actuator'
-    implementation 'io.micrometer:micrometer-registry-prometheus'
-
     //kafka
     implementation 'io.projectreactor.kafka:reactor-kafka:1.3.19'
     implementation 'org.springframework.kafka:spring-kafka:3.0.9'
@@ -88,3 +84,7 @@ docker {
 }
 
 tasks.register("prepareKotlinBuildScriptModel"){}
+
+test {
+    useJUnitPlatform()
+}

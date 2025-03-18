@@ -17,6 +17,7 @@ public class UserResponse {
     private String refreshToken;
     private LocalDateTime createAt;
     private LocalDateTime updateAt;
+
     public static UserResponse of(User user){
         return UserResponse.builder()
                 .id(user.getId())

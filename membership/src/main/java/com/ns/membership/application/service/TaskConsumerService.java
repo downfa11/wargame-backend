@@ -6,6 +6,7 @@ import com.ns.common.task.Task;
 import com.ns.membership.application.port.out.TaskConsumerPort;
 import com.ns.membership.dto.PostSummary;
 import java.time.Duration;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
@@ -42,6 +43,10 @@ public class TaskConsumerService implements TaskConsumerPort {
     }
 
     private List<PostSummary> convertToPostSummaries(Task task) {
+        if (task == null) {
+            return Collections.emptyList();
+        }
+
         return task.getSubTaskList().stream()
                 .filter(subTaskItem -> subTaskItem.getStatus().equals(SubTask.TaskStatus.success))
                 .map(subTaskItem -> objectMapper.convertValue(subTaskItem.getData(), PostSummary.class))

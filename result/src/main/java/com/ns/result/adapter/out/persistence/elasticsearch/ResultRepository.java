@@ -69,6 +69,16 @@ public interface ResultRepository extends ReactiveElasticsearchRepository<Result
     Flux<Result> searchByMembershipId(Long membershipId, int offset, int size);
 
 
+    @Query("""
+          {
+            "bool": {
+              "must": [
+                { "term": { "spaceId.keyword": "?0" } }
+              ]
+            }
+          }
+        """)
+    Flux<Result> searchBySpaceId(String spaceId);
 
 }
 

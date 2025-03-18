@@ -57,6 +57,12 @@ dependencies {
 
     // axon-kafka
     implementation 'org.axonframework.extensions.kafka:axon-kafka:4.6.0'
+
+    //redis
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis-reactive'
+
+    //Snappy
+    implementation 'org.xerial.snappy:snappy-java:1.1.8.4'
 }
 
 tasks.named('bootBuildImage') {
@@ -74,4 +80,8 @@ docker {
     dockerfile file('../Dockerfile')
     files tasks.bootJar.outputs.files
     buildArgs(['JAR_FILE':tasks.bootJar.outputs.files.singleFile.name])
+}
+
+test {
+    useJUnitPlatform()
 }

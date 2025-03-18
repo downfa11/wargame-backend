@@ -23,19 +23,18 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @RequestMapping("/statistics")
 public class ResultQueryController {
-
     private final FindStatisticsUseCase findStatisticsUseCase;
 
     @GetMapping(path = "/query/champ/{champName}")
     Mono<Map<String, String>> getQueryToResultSumByChampName(@PathVariable String champName) {
-        return findStatisticsUseCase.findStatiscticsByChampion(champName)
+        return findStatisticsUseCase.findStatisticsByChampion(champName)
                 .map(this::getResultSumByChampName)
                 .onErrorResume(e -> Mono.just(Collections.singletonMap("error", RETRIEVE_DATA_ERROR_MESSAGE + e.getMessage())));
     }
 
     @GetMapping(path = "/query/user/{userName}")
     Mono<Map<String, Object>> getQueryToResultSumByUserName(@PathVariable String userName) {
-        return findStatisticsUseCase.findStatiscticsByUserName(userName)
+        return findStatisticsUseCase.findStatisticsByUserName(userName)
                 .map(this::getResultSumByUserName)
                 .onErrorResume(e -> Mono.just(Collections.singletonMap("error", RETRIEVE_DATA_ERROR_MESSAGE + e.getMessage())));
     }
@@ -84,6 +83,6 @@ public class ResultQueryController {
 
     private String calcCountPercent(Long entireCount, Long winCount){
         double percent = entireCount > 0 ? (double) winCount / entireCount * 100 : 0.0;
-        return String.format("%.1f", percent) + "%";
+        return String.format("%.1f", percent);
     }
 }

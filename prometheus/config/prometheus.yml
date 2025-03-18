@@ -16,10 +16,10 @@ scrape_configs:
     static_configs:
       - targets:
           - "feed:8080"
-          - "match:8081"
-          - "membership:8082"
-          - "result:8083"
-          - "result-query:8084"
+          - "match:8080"
+          - "membership:8080"
+          - "result:8080"
+          - "result-query:8080"
   - job_name: 'node_exporter'
     static_configs:
       - targets: ['node_exporter:9100']

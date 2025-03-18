@@ -1,7 +1,9 @@
 package com.ns.resultquery.adapter.axon;
 
 import com.ns.common.ClientRequest;
+import com.ns.common.CreateResultQueryEvent;
 import com.ns.common.GameFinishedEvent;
+import com.ns.common.RollbackUpdateQueryEvent;
 import com.ns.resultquery.adapter.out.persistence.ChampRepository;
 import com.ns.resultquery.domain.dto.MembershipResultEventDto;
 import com.ns.resultquery.domain.dto.ResultEventDto;
@@ -28,7 +30,7 @@ public class ResultQueryMapper {
     private void initializeChampList() {
         champRepository.findAllChampNames()
                 .doOnNext(champ -> {
-                    // log.info(champ.getChampionId() + "번째 챔프의 이름 : " + champ.getName());
+                    log.info(champ.getChampionId() + "번째 챔프의 이름 : " + champ.getName());
                     champList.put(Long.valueOf(champ.getChampionId()), champ.getName());
                 })
                 .then()
@@ -60,7 +62,15 @@ public class ResultQueryMapper {
                 .build();
     }
 
-    public static List<ClientRequest> getAllTeamClientRequests(GameFinishedEvent event){
+    public static List<ClientRequest> getAllTeamClientRequests(CreateResultQueryEvent event){
+        List<ClientRequest> allClients = new ArrayList<>();
+        allClients.addAll(event.getBlueTeams());
+        allClients.addAll(event.getRedTeams());
+
+        return allClients;
+    }
+
+    public static List<ClientRequest> getAllTeamClientRequests(RollbackUpdateQueryEvent event){
         List<ClientRequest> allClients = new ArrayList<>();
         allClients.addAll(event.getBlueTeams());
         allClients.addAll(event.getRedTeams());

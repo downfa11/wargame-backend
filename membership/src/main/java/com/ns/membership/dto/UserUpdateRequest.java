@@ -2,10 +2,11 @@ package com.ns.membership.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 
 @Getter
-@AllArgsConstructor
+@Builder
 public class UserUpdateRequest {
 
     @NotBlank

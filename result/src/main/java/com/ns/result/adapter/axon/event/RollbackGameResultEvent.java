@@ -9,18 +9,14 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-@Builder
-
 @Getter
 @EqualsAndHashCode(callSuper = false)
 @NoArgsConstructor
 public class RollbackGameResultEvent extends SelfValidating<RollbackGameResultEvent> {
-    private String rollbackId;
-    private String aggregateIdentifier;
+    private String spaceId;
 
-    public RollbackGameResultEvent(@NotNull String rollbackId, @NotNull String aggregateIdentifier) {
-        this.rollbackId = rollbackId;
-        this.aggregateIdentifier = aggregateIdentifier;
+    public RollbackGameResultEvent(@NotNull String spaceId) {
+        this.spaceId = spaceId;
         this.validateSelf();
     }
 }

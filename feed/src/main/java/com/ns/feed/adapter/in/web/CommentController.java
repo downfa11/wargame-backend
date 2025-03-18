@@ -1,15 +1,13 @@
 package com.ns.feed.adapter.in.web;
 
-import com.ns.common.utils.MessageEntity;
+import com.ns.common.MessageEntity;
 import com.ns.common.utils.JwtTokenProvider;
 import com.ns.feed.application.port.in.comment.DeleteCommentUseCase;
 import com.ns.feed.application.port.in.comment.FindCommentUseCase;
 import com.ns.feed.application.port.in.comment.ModifyCommentUseCase;
 import com.ns.feed.application.port.in.comment.RegisterCommentUseCase;
-import com.ns.feed.application.port.out.comment.DeleteCommentPort;
 import com.ns.feed.dto.CommentModifyRequest;
 import com.ns.feed.dto.CommentRegisterRequest;
-import com.ns.feed.application.service.CommentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
