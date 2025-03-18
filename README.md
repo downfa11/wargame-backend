@@ -1,6 +1,5 @@
 # wargame
 
----
 간략한 소개 : IOCP 윈도우 서버를 포함한 실시간 MOBA 게임 
 
 담당: 1인 개발 진행중 - (웹 백엔드, 게임 서버, 게임 클라이언트, 인프라)
@@ -15,34 +14,20 @@
 
 
 <br>
+<br>
 
-### 목차
-- [아키텍처](#아키텍처)
-- [기술스택](#기술스택)
-- [주요기능](#주요 기능)
-    - 한번에 10,000명의 사용자를 매치메이킹하는 트래픽 처리
-    - Windows 플랫폼에 종속된 게임서버의 배포 자동화
-        - 베이스 이미지와 멀티 스테이징을 통해 이미지 경량화
-    - 전적 통계 서비스 제공
-    - Saga를 이용한 분산 트랜잭션 설계
-    - 게임 내의 데이터 수집 파이프라인 구축 및 분석
-- [게임 시연 및 미리보기](#게임 시연 및 미리보기)
-
-<br><br>
 
 ## Architecture
 
----
-
 ![wargame architecture](readme/wargame.jpg)
 
-총 6개의 Bounded Context로 구성된 마이크로 서비스 구조 ([Bounded Context 분해](https://downfa11.tistory.com/58))
-- 회원(membership), 인게임(Windows IOCP), 매칭(match), 피드(feed), 전적(result), 통계(result-query) 
+총 6개의 Bounded Context로 구성된 마이크로 서비스 구조 - [Bounded Context 분해](https://downfa11.tistory.com/58)
+- 회원(membership), 인게임(IOCP), 매칭(match), 피드(feed), 전적(result), 통계(result-query)
 
-GitOps를 통한 CI/CD 파이프라인 구축 (Github Actions, AWS ECR, ArgoCD)
+<br>
 
-Hexagonal Architecture 도입으로 지속 가능한 시스템 개발과 재사용성, 유지보수 개선한 경험
-
+1. GitOps를 통한 CI/CD 파이프라인 구축 (Github Actions, AWS ECR, ArgoCD)
+2. 비즈니스 로직이 외부의 영향을 받지 않도록 Hexagonal Architecture 도입
 
 <br>
 
@@ -84,7 +69,6 @@ Hexagonal Architecture 도입으로 지속 가능한 시스템 개발과 재사�
 
 ## 주요 기능 
 
----
 ### 한번에 10,000명의 사용자를 매치메이킹하는 트래픽 처리
 ![match](readme/매칭-시스템-흐름도-001.jpg)
 
@@ -112,9 +96,11 @@ Redis의 Sorted Set을 이용해서 비슷한 실력대(Elo)의 사용자끼리 
 #### 베이스 이미지와 멀티 스테이징을 통해 이미지 경량화
 잦은 배포 자동화시 ECR에서 버전별로 관리하기 부담됐다. (기존 이미지 크기는 약 6.89GB)
 
+MSBuild를 통해 빌드된 C++ 파일만 다시 경량 이미지로 가져와서 약 25배 개선
+
 ![windows-platform](readme/wargame%20-%20게임서버%20배포자동화%20및%20이미지%20경량화.png)
 
-MSBuild를 통해 빌드된 C++ 파일만 다시 경량 이미지로 빌드해서 약 25배 개선함
+
 
 <br><br>
 
@@ -174,8 +160,6 @@ MSBuild를 통해 빌드된 C++ 파일만 다시 경량 이미지로 빌드해�
 
   
 ## 게임 시연 및 미리보기
-
----
 이해를 돕기 위한 게임 클라이언트의 테스트 시연 영상입니다.
 
 <br>
