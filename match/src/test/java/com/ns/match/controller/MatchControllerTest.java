@@ -33,9 +33,7 @@ public class MatchControllerTest {
     @Test
     public void 매칭_큐에_사용자를_등록하는_메서드() {
         // given
-        MatchRequest matchRequest = MatchRequest.builder()
-                .membershipId(1L)
-                .build();
+        MatchRequest matchRequest = new MatchRequest(1L);
 
         when(registerMatchQueueUseCase.registerMatchQueue(any(), any())).thenReturn(Mono.just("success"));
 
@@ -56,9 +54,7 @@ public class MatchControllerTest {
     @Test
     public void 매칭_큐에_등록된_사용자를_취소하는_메서드() {
         // given
-        MatchRequest matchRequest = MatchRequest.builder()
-                .membershipId(1L)
-                .build();
+        MatchRequest matchRequest = new MatchRequest(1L);
         when(cancleMatchQueueUseCase.cancelMatchQueue(any())).thenReturn(Mono.empty());
 
         // when

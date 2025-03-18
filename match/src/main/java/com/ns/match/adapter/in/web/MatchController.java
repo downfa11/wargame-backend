@@ -61,7 +61,7 @@ public class MatchController {
                 .map(result -> {
                     if ("fail".equals(result)) {
                         return ResponseEntity.ok()
-                                .body(new MessageEntity("Fail", "already user " + request.getMembershipId() + " has curGameSpaceCode."));
+                                .body(new MessageEntity("Fail", "user " + request.getMembershipId() + " already has Code or Not found membershipId."));
                     }
                     return ResponseEntity.ok()
                             .body(new MessageEntity("Success", result));

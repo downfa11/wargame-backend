@@ -84,6 +84,7 @@ public class KafkaTaskConsumerAdapter implements ApplicationRunner {
                     List<SubTask> subTasks = createSubTaskListMatchPlayerEloByMembershipId(membershipId, player.getElo());
                     return taskProducerPort.sendTask("task.match.request",createTaskMatcPlayerEloByMembershipId(taskId,membershipId,subTasks));
                 })
+                .switchIfEmpty(Mono.fromRunnable(() -> log.warn("handleMatchPlayerElo: Not found membershipId=" + membershipId)))
                 .doOnError(e -> log.error("Error handleMatchPlayerElo {}: {}", membershipId, e.getMessage()))
                 .subscribe();
     }
@@ -118,7 +119,9 @@ public class KafkaTaskConsumerAdapter implements ApplicationRunner {
                     Boolean hasCode = !user.getCode().isBlank();
                     List<SubTask> subTasks = createSubTaskListMatchUserHasCodeByMembershipId(membershipId, hasCode);
                     return taskProducerPort.sendTask("task.match.request", createTaskMatchUserHasCodeByMembershipId(taskId, membershipId, subTasks));
-                }).subscribe();
+                })
+                .switchIfEmpty(Mono.fromRunnable(() -> log.warn("handleMatchUserHasCode: Not found membershipId=" + membershipId)))
+                .subscribe();
     }
 
     private List<SubTask> createSubTaskListMatchUserHasCodeByMembershipId(String membershipId, Boolean hasCode) {
