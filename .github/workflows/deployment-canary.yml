@@ -7,6 +7,11 @@ env:
 on:
   push:
     branches: ["main"]
+    paths-ignore:
+      - ".github/workflows/**"
+      - "docker-compose.yaml"
+      - "Dockerfile"
+      - "README.md"
 
 jobs:
   build:
