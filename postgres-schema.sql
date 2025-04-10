@@ -1,53 +1,50 @@
-CREATE TABLE BoardKinds (
-                            id SERIAL PRIMARY KEY,
-                            kind CHAR(20)
+CREATE TABLE users (
+                       id BIGSERIAL PRIMARY KEY,
+                       aggregate_identifier VARCHAR(255),
+                       account VARCHAR(255),
+                       email VARCHAR(255),
+                       password VARCHAR(255),
+                       name VARCHAR(255),
+                       refresh_token VARCHAR(255),
+                       created_at TIMESTAMP DEFAULT now(),
+                       updated_at TIMESTAMP DEFAULT now()
 );
 
-CREATE TABLE Boards (
-                        id SERIAL PRIMARY KEY,
-                        kind_id INT,
-                        boardId INT,
-                        FOREIGN KEY (kind_id) REFERENCES BoardKinds(id),
-                        UNIQUE (kind_id, boardId)
+CREATE TABLE posts (
+                       id BIGSERIAL PRIMARY KEY,
+                       user_id BIGINT REFERENCES users(id),
+                       nickname VARCHAR(255),
+                       category_id BIGINT,
+                       title VARCHAR(255),
+                       content TEXT,
+                       comments BIGINT,
+                       sort_status VARCHAR(32),
+                       event_start_date TIMESTAMP,
+                       event_end_date TIMESTAMP,
+                       created_at TIMESTAMP DEFAULT now(),
+                       updated_at TIMESTAMP DEFAULT now()
 );
 
-CREATE TABLE results (
+CREATE TABLE comments (
+                          id BIGSERIAL PRIMARY KEY,
+                          user_id BIGINT REFERENCES users(id),
+                          nickname VARCHAR(255),
+                          board_id BIGINT REFERENCES posts(id),
+                          content TEXT,
+                          created_at TIMESTAMP DEFAULT now(),
+                          updated_at TIMESTAMP DEFAULT now()
+);
+
+CREATE TABLE images (
+                        id BIGSERIAL PRIMARY KEY,
+                        post_id BIGINT REFERENCES posts(id),
+                        url VARCHAR(2048)
+);
+
+CREATE TABLE players (
                          id BIGSERIAL PRIMARY KEY,
-                         code VARCHAR(255),
-                         channel INT,
-                         room INT,
-                         win_team VARCHAR(255),
-                         lose_team VARCHAR(255),
-                         date_time TIMESTAMP,
-                         game_duration INT
-);
-
-CREATE TABLE clients (
-                         id BIGSERIAL PRIMARY KEY,
-                         user_id BIGINT NOT NULL,
-                         game_result_id BIGINT,
-                         socket INT,
-                         champ INT,
-                         name VARCHAR(255),
-                         team VARCHAR(255),
-                         channel INT,
-                         room INT,
-                         kills INT,
-                         deaths INT,
-                         assists INT,
-                         gold INT,
-                         level INT,
-                         maxhp INT,
-                         maxmana INT,
-                         attack INT,
-                         absorptionRate FLOAT,
-                         defense INT,
-                         critical INT,
-                         cri_probability INT,
-                         attrange INT,
-                         attspeed FLOAT,
-                         movespeed FLOAT,
-                         item_list VARCHAR(255),
-                         FOREIGN KEY (game_result_id) REFERENCES results(id),
-                         FOREIGN KEY (champ) REFERENCES champion_stats(champion_id)
+                         membership_id VARCHAR(255),
+                         aggregate_identifier VARCHAR(255),
+                         elo BIGINT,
+                         code VARCHAR(255)
 );
