@@ -1,6 +1,5 @@
 package com.ns.common.logging;
 
-import lombok.RequiredArgsConstructor;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.springframework.beans.factory.annotation.Value;
@@ -14,7 +13,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 @Configuration
-public class loggingConfig {
+public class LoggingConfig {
     @Value("${kafka.clusters.bootstrapservers}")
     private String bootstrapServers;
 
