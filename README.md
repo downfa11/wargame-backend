@@ -26,7 +26,8 @@
 
 <br>
 
-1. GitOps를 통한 CI/CD 파이프라인 구축 (Github Actions, AWS ECR, ArgoCD)
+1. GitOps를 통한 CI/CD 파이프라인 구축 (Github Actions, AWS ECR)
+2. Statelful 게임서버를 제외한 전체 시스템 무중단 배포 (ArgoCD, Canary 방식)
 2. 비즈니스 로직이 외부의 영향을 받지 않도록 Hexagonal Architecture 도입
 
 <br>
