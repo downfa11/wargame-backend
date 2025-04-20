@@ -18,6 +18,7 @@ public class PlayerPersistenceAdapter implements RegisterPlayerPort, UpdatePlaye
     @Override
     public Mono<Player> registerPlayer(String membershipId, String aggregateIdentifier) {
         Player player = Player.builder()
+                .id(Long.valueOf(membershipId))
                 .membershipId(membershipId)
                 .aggregateIdentifier(aggregateIdentifier)
                 .elo(2000L)

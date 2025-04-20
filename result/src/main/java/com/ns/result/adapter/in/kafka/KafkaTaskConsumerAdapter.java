@@ -10,6 +10,7 @@ import com.ns.common.task.SubTask;
 import com.ns.common.task.Task;
 import com.ns.result.adapter.axon.command.GameFinishedCommand;
 import com.ns.result.application.port.out.SendCommandPort;
+import com.ns.result.application.port.out.SendQueryPort;
 import com.ns.result.application.port.out.player.FindPlayerPort;
 import com.ns.result.application.port.out.task.TaskProducerPort;
 import com.ns.result.application.service.TaskConsumerService;
@@ -33,7 +34,7 @@ public class KafkaTaskConsumerAdapter implements ApplicationRunner {
     private final TaskProducerPort taskProducerPort;
     private final TaskConsumerService taskConsumerService;
 
-    private final FindPlayerPort findPlayerPort;
+    private final SendQueryPort sendQueryPort;
     private final SendCommandPort sendCommandPort;
 
     @Override
@@ -79,7 +80,7 @@ public class KafkaTaskConsumerAdapter implements ApplicationRunner {
 
     private void handleMatchPlayerElo(String taskId, SubTask subtask) {
         String membershipId = subtask.getMembershipId();
-        findPlayerPort.findByMembershipId(membershipId)
+        sendQueryPort.sendPlayerQuery(membershipId)
                 .flatMap(player -> {
                     List<SubTask> subTasks = createSubTaskListMatchPlayerEloByMembershipId(membershipId, player.getElo());
                     return taskProducerPort.sendTask("task.match.request",createTaskMatcPlayerEloByMembershipId(taskId,membershipId,subTasks));
@@ -113,7 +114,7 @@ public class KafkaTaskConsumerAdapter implements ApplicationRunner {
     private void handleMatchUserHasCode(String taskId, SubTask subTask){
         String membershipId = subTask.getMembershipId();
 
-        findPlayerPort.findByMembershipId(membershipId)
+        sendQueryPort.sendPlayerQuery(membershipId)
                 .flatMap(user -> {
                     log.info(user.getCode() + user.getCode().isBlank());
                     Boolean hasCode = !user.getCode().isBlank();
