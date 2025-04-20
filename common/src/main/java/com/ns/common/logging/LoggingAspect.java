@@ -17,7 +17,12 @@ public class LoggingAspect {
     @Before("execution(* com.ns.*.adapter.in.web.*.*(..))")
     public void beforeMethodExecution(@NotNull JoinPoint joinPoint){
         String methodName = joinPoint.getSignature().getName();
-        loggingProducer.sendMessage("logging","Before executing method: "+methodName)
-                .subscribe();
+
+        LogMessage logMessage = LogMessage.builder()
+                .type("BEFORE_EXECUTION")
+                .message("Before executing method: " + methodName)
+                .build();
+
+        loggingProducer.sendMessage("logging", logMessage).subscribe();
     }
 }
