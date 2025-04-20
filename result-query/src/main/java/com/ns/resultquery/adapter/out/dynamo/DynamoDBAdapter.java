@@ -125,7 +125,7 @@ public class DynamoDBAdapter implements InsertUserStatisticsPort, InsertChampSta
 
             dynamoDbClient.putItem(request);
         } catch (DynamoDbException e) {
-            System.err.println("Error adding an item to the table: " + e.getMessage());
+            log.warn("Error adding an item to the table: " + e.getMessage());
         }
     }
 
@@ -148,7 +148,7 @@ public class DynamoDBAdapter implements InsertUserStatisticsPort, InsertChampSta
             }
 
         } catch (DynamoDbException e) {
-            System.err.println("Error getting an item from the table: " + e.getMessage());
+            log.warn("Error getting an item from the table: " + e.getMessage());
         }
 
         return null;
@@ -196,10 +196,10 @@ public class DynamoDBAdapter implements InsertUserStatisticsPort, InsertChampSta
                     log.info(attributeName + ": " + attributeValue);
                 }
             } else {
-                log.info("Item was updated, but no attributes were returned.");
+                log.info("Item no attributes (updated)");
             }
         } catch (DynamoDbException e) {
-            log.error("Error getting an item from the table: " + e.getMessage());
+            log.error("updateResult Error : " + e.getMessage());
         }
     }
 
@@ -219,7 +219,7 @@ public class DynamoDBAdapter implements InsertUserStatisticsPort, InsertChampSta
             QueryResponse response = dynamoDbClient.query(request);
             response.items().forEach((value) -> log.info(String.valueOf(value)));
         } catch (DynamoDbException e) {
-            System.err.println("Error getting an item from the table: " + e.getMessage());
+            log.warn("queryItem Error : " + e.getMessage());
         }
     }
 
@@ -229,7 +229,7 @@ public class DynamoDBAdapter implements InsertUserStatisticsPort, InsertChampSta
         ResultSumByChampName resultSumByChampName = getResultSumByChampName(champName);
 
         if (resultSumByChampName == null) {
-            System.err.println("No data found for champion: " + champName);
+            log.info("Not found champion: " + champName);
         }
 
         return CountSumByChamp.builder()

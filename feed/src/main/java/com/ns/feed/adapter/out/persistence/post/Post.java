@@ -20,8 +20,7 @@ public class Post {
 
     private String nickname;
 
-    @Column("category_id")
-    private Long categoryId; // FK
+    private Long categoryId;
 
     private String title;
     private String content;

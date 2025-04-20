@@ -50,6 +50,7 @@ public class GameFinishedSaga {
     @StartSaga
     @SagaEventHandler(associationProperty = "spaceId")
     public void handle(GameFinishedEvent event) {
+
         // TODO. 닷지인지 여부 확인하기
         if (event.getState().equals("dodge"))
             return;
@@ -62,7 +63,7 @@ public class GameFinishedSaga {
 
     @SagaEventHandler(associationProperty = "spaceId")
     public void handle(GameResultSavedEvent event) {
-        log.info("GameResultSavedEvent received. Updating Result-Query...");
+        log.info("GameResultSavedEvent received. update result-query~");
 
         CreateResultQueryEvent createResultQueryEvent = CreateResultQueryEvent.builder()
                 .spaceId(event.getSpaceId())
@@ -91,7 +92,7 @@ public class GameFinishedSaga {
 
     @SagaEventHandler(associationProperty = "spaceId")
     public void handle(ResultQueryUpdatedEvent event, EloService eloService) {
-        log.info("ResultQueryUpdatedEvent received. Updating Elo... ");
+        log.info("ResultQueryUpdatedEvent received. update Elo~ ");
 
         boolean isWin = event.getWinTeam().equalsIgnoreCase("blue");
         List<MembershipEloRequest> newEloRequests = eloService.updateElo(getEloRequests(event), isWin);
@@ -120,7 +121,12 @@ public class GameFinishedSaga {
                 .flatMap(player -> {
                     MembershipElo membershipElo = new MembershipElo(membershipId, player.getAggregateIdentifier(), player.getElo(), request.getElo());
                     log.info("흠. "+membershipId+"의 elo는 "+player.getElo()+"에서 새롭게 "+ request.getElo()+"로 변할 예정이다.");
-                    return updatePlayerElo(membershipElo, player.getAggregateIdentifier(), successfullyUpdatedPlayers);
+
+                    ModifyCodeCommand modifyCodeCommand = new ModifyCodeCommand(player.getAggregateIdentifier(), membershipId, "");
+                    return Mono.fromFuture(() -> commandGateway.send(modifyCodeCommand))
+                            .doOnSuccess(avoid -> log.info("gameCode reset event sourced: membershipId={}", membershipId))
+                            .then(updatePlayerElo(membershipElo, player.getAggregateIdentifier(), successfullyUpdatedPlayers));
+                    // PlayerAggregate의 Code를 공백으로 채우고, membershipElo를 갱신한다. (then)
                 });
     }
 
@@ -214,6 +220,7 @@ public class GameFinishedSaga {
                 .map(Player::getElo)
                 .block();
     }
+
 
     @Autowired
     public void setResultService(ResultService resultService) {

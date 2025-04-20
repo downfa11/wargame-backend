@@ -1,11 +1,13 @@
 package com.ns.result.adapter.out.persistence.psql;
 
 import lombok.Builder;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.relational.core.mapping.Table;
 
-@Data
+@Getter
+@Setter
 @Builder
 @Table("players")
 public class Player {

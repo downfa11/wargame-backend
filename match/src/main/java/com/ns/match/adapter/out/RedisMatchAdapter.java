@@ -49,7 +49,7 @@ public class RedisMatchAdapter implements RegisterMatchQueuePort, CancelMatchQue
     private final ReactiveRedisTemplate<String, String> reactiveRedisTemplate;
     private final TaskProducerPort taskProducerPort;
     private final TaskConsumerPort taskConsumerPort;
-    public final ObjectMapper mapper = new ObjectMapper();
+    public final ObjectMapper mapper;
 
 
     public enum MatchStatus {
