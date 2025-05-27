@@ -10,7 +10,7 @@ import com.ns.common.task.SubTask;
 import com.ns.common.task.Task;
 import com.ns.match.application.port.out.ProcessMatchQueuePort;
 import com.ns.match.application.port.out.task.TaskProducerPort;
-import com.ns.match.application.service.MatchResponse;
+import com.ns.match.dto.MatchResponse;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -33,53 +33,29 @@ public class RedisMatchProcessAdapter implements ProcessMatchQueuePort {
 
 
     private final ReactiveRedisTemplate<String, String> reactiveRedisTemplate;
-    private final String MATCH_WAIT_KEY ="users:queue:%s:wait";
+    private final String MATCH_WAIT_KEY ="users:queue:wait";
 
     private final TaskProducerPort taskProducerPort;
     private final ObjectMapper mapper;
 
 
     @Override
-    public Mono<Void> process(String queueKey) {
-        return reactiveRedisTemplate.
-                scan(ScanOptions.scanOptions()
-                        .match(queueKey)
-                        .count(3) // 매칭 큐의 종류
-                        .build())
-                .map(this::extractQueueName)
-                .collectList()
-                .flatMap(this::processAllQueue);
-    }
-
-    private String extractQueueName(String key) {
-        return key.split(":")[2];
-    }
-
-    @Override
-    public Mono<Void> processAllQueue(List<String> queues) {
-        return Flux.fromIterable(queues)
-                .flatMap(this::processQueue)
-                .then();
-    }
-
-    @Override
-    public Mono<Void> processQueue(String queue) {
+    public Mono<Void> process() {
         return reactiveRedisTemplate.executeInSession(session ->
-                processQueueInRange(queue, 100)).then();
+                processQueueInRange(100)).then();
     }
 
     @Override
-    public Mono<Void> processQueueInRange(String queue, int maxProcessCount) {
+    public Mono<Void> processQueueInRange(int maxProcessCount) {
         AtomicBoolean stopProcessing = new AtomicBoolean(false);
 
         return Flux.range(0, maxProcessCount)
                 .takeWhile(i -> !stopProcessing.get())
                 .flatMap(i -> reactiveRedisTemplate.opsForZSet()
-                        .popMin(MATCH_WAIT_KEY.formatted(queue), MAX_ALLOW_USER_COUNT)
+                        .popMin(MATCH_WAIT_KEY, MAX_ALLOW_USER_COUNT)
                         .collectList()
                         .flatMap(members -> {
                             if (members.isEmpty()) {
-                                log.info("빈집입니다. {}", queue);
                                 stopProcessing.set(true);
                                 return Mono.empty();
                             }
@@ -89,58 +65,46 @@ public class RedisMatchProcessAdapter implements ProcessMatchQueuePort {
                                     .collect(Collectors.toList());
 
                             if (memberValues.size() < MAX_ALLOW_USER_COUNT) {
-                                log.info("{} 매칭 큐는 MAX_ALLOW_USER_COUNT를 충족시키지 못하는 찌꺼기 남았음: {}", queue, memberValues.size());
-                                return handleMatchError(queue, memberValues)
+                                log.info("매칭 큐는 MAX_ALLOW_USER_COUNT를 충족시키지 못하는 찌꺼기 남았음: {}", memberValues.size());
+                                return handleMatchError(memberValues)
                                         .doOnTerminate(() -> stopProcessing.set(true));
                             }
 
-                            return handleMatchFound(queue, memberValues)
+                            return handleMatchFound(memberValues)
                                     .onErrorResume(e -> {
-                                        log.error("Error handleMatchFound {}: {}", queue, e.getMessage());
-                                        return handleMatchError(queue, memberValues);
+                                        log.error("Error handleMatchFound : {}", e.getMessage());
+                                        return handleMatchError(memberValues);
                                     });
                         }), 1)
                 .then();
     }
 
 
-    public Mono<Void> handleMatchError(String queue, List<String> members) {
+    public Mono<Void> handleMatchError(List<String> members) {
         return Flux.fromIterable(members)
                 .flatMap(member -> reactiveRedisTemplate.opsForZSet()
-                        .add(MATCH_WAIT_KEY.formatted(queue), member, 0).then())
+                        .add(MATCH_WAIT_KEY, member, 0).then())
                 .then();
     }
 
 
-    public Mono<Void> handleMatchFound(String queue, List<String> members) {
+    public Mono<Void> handleMatchFound(List<String> members) {
         String spaceId = UUID.randomUUID().toString();
         MatchResponse matchResponse = MatchResponse.fromMembers(spaceId, members);
         members.forEach(memberId -> saveMatchInfo(memberId, matchResponse));
 
-        List<SubTask> subTasks = createSubTaskListMatchResponse(matchResponse);
-        Task task = createTaskMatchResponse(subTasks);
+        List<SubTask> subTasks = new ArrayList<>();
+        subTasks.add(createSubTaskMatchResponse(matchResponse));
+        Task task = createTask("Match response", null, subTasks);
 
         return taskProducerPort.sendTask("task.match.response", task)
-                .then(removeMembersFromQueue(queue, members))
+                .then(removeMembersFromQueue(members))
                 .doOnError(error -> log.error("Error sendTask: " + error.getMessage()))
                 .subscribeOn(Schedulers.boundedElastic());
     }
 
-    private Task createTaskMatchResponse(List<SubTask> subTasks){
-        return createTask("Match response", null, subTasks);
-    }
-    private List<SubTask> createSubTaskListMatchResponse(MatchResponse matchResponse){
-        List<SubTask> subTasks = new ArrayList<>();
-        subTasks.add(createSubTaskMatchResponse(matchResponse));
-        return subTasks;
-    }
-
     private SubTask createSubTaskMatchResponse(MatchResponse matchResponse){
-        return createSubTask("MatchResponse",
-                null,
-                SubTask.TaskType.match,
-                SubTask.TaskStatus.ready,
-                matchResponse);
+        return createSubTask("MatchResponse", null, SubTask.TaskType.match, SubTask.TaskStatus.ready, matchResponse);
     }
 
     public void saveMatchInfo(String memberId, MatchResponse matchResponse) {
@@ -153,9 +117,9 @@ public class RedisMatchProcessAdapter implements ProcessMatchQueuePort {
         }
     }
 
-    private Mono<Void> removeMembersFromQueue(String queue, List<String> members) {
+    private Mono<Void> removeMembersFromQueue(List<String> members) {
         return reactiveRedisTemplate.opsForZSet()
-                .remove(MATCH_WAIT_KEY.formatted(queue), members.toArray())
+                .remove(MATCH_WAIT_KEY, members.toArray())
                 .then();
     }
 }

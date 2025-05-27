@@ -13,9 +13,12 @@ public class CreatePlayerCommand extends SelfValidating<CreatePlayerCommand> {
 
     @NotNull
     private String membershipId;
+    @NotNull
+    private String nickname;
 
-    public CreatePlayerCommand(@NotNull String membershipId) {
+    public CreatePlayerCommand(@NotNull String membershipId, @NotNull String nickname) {
         this.membershipId = membershipId;
+        this.nickname = nickname;
         this.validateSelf();
     }
 

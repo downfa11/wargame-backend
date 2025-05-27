@@ -5,6 +5,7 @@ import com.ns.common.CreateResultQueryEvent;
 import com.ns.common.GameFinishedEvent;
 import com.ns.common.RollbackUpdateQueryEvent;
 import com.ns.resultquery.adapter.out.persistence.ChampRepository;
+import com.ns.resultquery.domain.Champ;
 import com.ns.resultquery.domain.dto.MembershipResultEventDto;
 import com.ns.resultquery.domain.dto.ResultEventDto;
 import java.util.ArrayList;
@@ -28,13 +29,11 @@ public class ResultQueryMapper {
     }
 
     private void initializeChampList() {
-        champRepository.findAllChampNames()
-                .doOnNext(champ -> {
-                    log.info(champ.getChampionId() + "번째 챔프의 이름 : " + champ.getName());
-                    champList.put(Long.valueOf(champ.getChampionId()), champ.getName());
-                })
-                .then()
-                .subscribe();
+        List<Champ> champs = champRepository.findAll();
+        for(Champ champ : champs){
+            log.info(champ.getChampionId() + "번째 챔프 : " + champ.getName());
+            champList.put(Long.valueOf(champ.getChampionId()), champ.getName());
+        }
     }
 
     public static MembershipResultEventDto getMembershipResultEventDto(ClientRequest clientRequest, Long winCount){

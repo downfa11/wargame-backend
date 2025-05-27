@@ -36,4 +36,5 @@ public class DynamoConfig {
     public DynamoDBMapper dynamoDbMapper() {
         return new DynamoDBMapper();
     }
+
 }

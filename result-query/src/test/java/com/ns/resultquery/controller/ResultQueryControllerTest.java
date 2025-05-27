@@ -2,7 +2,9 @@ package com.ns.resultquery.controller;
 
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ns.resultquery.adapter.axon.query.ChampStat;
 import com.ns.resultquery.adapter.axon.query.CountSumByChamp;
 import com.ns.resultquery.adapter.axon.query.CountSumByMembership;
@@ -12,16 +14,15 @@ import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.test.web.reactive.server.WebTestClient;
-import reactor.core.publisher.Mono;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 
-@WebFluxTest(ResultQueryController.class)
+@WebMvcTest(ResultQueryController.class)
 class ResultQueryControllerTest {
 
-    @Autowired private WebTestClient webTestClient;
-
+    @Autowired private MockMvc mockMvc;
     @MockBean private FindStatisticsUseCase findStatisticsUseCase;
 
     private CountSumByChamp champData;
@@ -46,36 +47,32 @@ class ResultQueryControllerTest {
     }
 
     @Test
-    void 챔프_이름으로_통계를_조회하는_메서드() {
-        when(findStatisticsUseCase.findStatisticsByChampion(anyString())).thenReturn(Mono.just(champData));
+    void 챔프_이름으로_통계를_조회하는_메서드() throws Exception {
+        when(findStatisticsUseCase.findStatisticsByChampion(anyString()))
+                .thenReturn(champData);
 
-        webTestClient.get()
-                .uri("/statistics/query/champ/" + champData.getChampName())
-                .exchange()
-                .expectStatus().isOk()
-                .expectBody()
-                .jsonPath("$.champName").isEqualTo(champData.getChampName())
-                .jsonPath("$.champCount").isEqualTo(champData.getChampCount())
-                .jsonPath("$.winCount").isEqualTo(champData.getWinCount())
-                .jsonPath("$.loseCount").isEqualTo(champData.getLoseCount())
-                .jsonPath("$.percent").isEqualTo(String.format("%.1f", (double) champData.getWinCount() / champData.getChampCount() * 100) + "%");
+        mockMvc.perform(MockMvcRequestBuilders.get("/statistics/query/champ/" + champData.getChampName()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.champName").value(champData.getChampName()))
+                .andExpect(jsonPath("$.champCount").value(champData.getChampCount()))
+                .andExpect(jsonPath("$.winCount").value(champData.getWinCount()))
+                .andExpect(jsonPath("$.loseCount").value(champData.getLoseCount()))
+                .andExpect(jsonPath("$.percent").value(String.format("%.1f", (double) champData.getWinCount() / champData.getChampCount() * 100) + "%"));
     }
 
     @Test
-    void 사용자_이름으로_통계를_조회하는_메서드() {
-        when(findStatisticsUseCase.findStatisticsByUserName(anyString())).thenReturn(Mono.just(membershipData));
+    void 사용자_이름으로_통계를_조회하는_메서드() throws Exception {
+        when(findStatisticsUseCase.findStatisticsByUserName(anyString()))
+                .thenReturn(membershipData);
 
-        webTestClient.get()
-                .uri("/statistics/query/user/" + membershipData.getUsername())
-                .exchange()
-                .expectStatus().isOk()
-                .expectBody()
-                .jsonPath("$.userName").isEqualTo(membershipData.getUsername())
-                .jsonPath("$.entireCount").isEqualTo(membershipData.getEntireCount())
-                .jsonPath("$.winCount").isEqualTo(membershipData.getWinCount())
-                .jsonPath("$.loseCount").isEqualTo(membershipData.getLoseCount())
-                .jsonPath("$.percent").isEqualTo(String.format("%.1f", (double) membershipData.getWinCount() / membershipData.getEntireCount() * 100) + "%")
-                .jsonPath("$.champStatList[0].champName").isEqualTo(membershipData.getChampStatList().get(0).getChampName())
-                .jsonPath("$.champStatList[0].winCount").isEqualTo(membershipData.getChampStatList().get(0).getWinCount());
+        mockMvc.perform(MockMvcRequestBuilders.get("/statistics/query/user/" + membershipData.getUsername()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.userName").value(membershipData.getUsername()))
+                .andExpect(jsonPath("$.entireCount").value(membershipData.getEntireCount()))
+                .andExpect(jsonPath("$.winCount").value(membershipData.getWinCount()))
+                .andExpect(jsonPath("$.loseCount").value(membershipData.getLoseCount()))
+                .andExpect(jsonPath("$.percent").value(String.format("%.1f", (double) membershipData.getWinCount() / membershipData.getEntireCount() * 100) + "%"))
+                .andExpect(jsonPath("$.champStatList[0].champName").value("champ"))
+                .andExpect(jsonPath("$.champStatList[0].winCount").value(7));
     }
 }

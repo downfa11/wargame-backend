@@ -4,5 +4,5 @@ import com.ns.resultquery.domain.dto.MembershipResultEventDto;
 import reactor.core.publisher.Mono;
 
 public interface InsertUserStatisticsUseCase {
-    Mono<Void> insertResultCountIncreaseEventByUserName(MembershipResultEventDto eventDto);
+    void insertResultCountIncreaseEventByUserName(MembershipResultEventDto eventDto);
 }

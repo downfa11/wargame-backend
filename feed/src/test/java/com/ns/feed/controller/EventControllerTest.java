@@ -1,6 +1,5 @@
 package com.ns.feed.controller;
 
-import com.ns.common.MessageEntity;
 import com.ns.feed.adapter.in.web.PostController;
 import com.ns.feed.adapter.out.persistence.post.Post;
 import com.ns.feed.dto.BannerListWrapper;

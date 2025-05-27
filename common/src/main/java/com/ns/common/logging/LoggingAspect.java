@@ -23,6 +23,6 @@ public class LoggingAspect {
                 .message("Before executing method: " + methodName)
                 .build();
 
-        loggingProducer.sendMessage("logging", logMessage).subscribe();
+        // loggingProducer.sendMessage("logging", logMessage).subscribe();
     }
 }

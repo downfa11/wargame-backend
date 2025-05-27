@@ -3,22 +3,20 @@ package com.ns.match.controller;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
-import com.ns.common.MessageEntity;
+import com.ns.common.utils.MessageEntity;
 import com.ns.match.adapter.in.web.MatchController;
-import com.ns.match.adapter.in.web.MatchRequest;
-import com.ns.match.adapter.out.RedisMatchAdapter.MatchStatus;
+import com.ns.match.dto.MatchRequest;
 import com.ns.match.application.port.in.CancleMatchQueueUseCase;
 import com.ns.match.application.port.in.GetMatchQueueUseCase;
 import com.ns.match.application.port.in.IntegrationTestMatchUseCase;
 import com.ns.match.application.port.in.RegisterMatchQueueUseCase;
-import com.ns.match.application.service.MatchResponse;
+import com.ns.match.dto.MatchResponse;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Mono;
-import reactor.util.function.Tuples;
 
 @WebFluxTest(MatchController.class)
 public class MatchControllerTest {
@@ -76,7 +74,7 @@ public class MatchControllerTest {
     public void 매칭_현황을_확인하는_메서드() {
         // given
         Long memberId = 1L;
-        when(getMatchQueueUseCase.getMatchResponse(any())).thenReturn(Mono.just(Tuples.of(MatchStatus.MATCH_FOUND, MatchResponse.builder().build())));
+        when(getMatchQueueUseCase.getMatchResponse(any())).thenReturn(Mono.just(MatchResponse.builder().build()));
 
         // when
         webTestClient.get()

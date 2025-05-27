@@ -1,13 +1,12 @@
 package com.ns.resultquery.adapter.out.persistence;
 
 import com.ns.resultquery.domain.Champ;
-import org.springframework.data.r2dbc.repository.Query;
-import org.springframework.data.repository.reactive.ReactiveCrudRepository;
+import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
-import reactor.core.publisher.Flux;
+
+import java.util.List;
 
 @Repository
-public interface ChampRepository extends ReactiveCrudRepository<Champ, Long> {
-    @Query("SELECT champion_id, name FROM champion_stats")
-    Flux<Champ> findAllChampNames();
+public interface ChampRepository extends JpaRepository<Champ, Long> {
+    List<Champ> findAll();
 }

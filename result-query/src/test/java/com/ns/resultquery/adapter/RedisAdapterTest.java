@@ -10,23 +10,21 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.redis.core.ReactiveRedisOperations;
-import org.springframework.data.redis.core.ReactiveValueOperations;
-import reactor.core.publisher.Mono;
-import reactor.test.StepVerifier;
-
-import java.util.List;
+import org.springframework.data.redis.core.RedisOperations;
+import org.springframework.data.redis.core.ValueOperations;
 
 import static org.mockito.Mockito.*;
+
+import java.util.List;
 
 @ExtendWith(MockitoExtension.class)
 public class RedisAdapterTest {
 
-    @Mock private ReactiveRedisOperations<String, CountSumByChamp> champRedisTemplate;
-    @Mock private ReactiveRedisOperations<String, CountSumByMembership> membershipRedisTemplate;
+    @Mock private RedisOperations<String, CountSumByChamp> champRedisTemplate;
+    @Mock private RedisOperations<String, CountSumByMembership> membershipRedisTemplate;
 
-    @Mock private ReactiveValueOperations<String, CountSumByChamp> champValueOps;
-    @Mock private ReactiveValueOperations<String, CountSumByMembership> membershipValueOps;
+    @Mock private ValueOperations<String, CountSumByChamp> champValueOps;
+    @Mock private ValueOperations<String, CountSumByMembership> membershipValueOps;
 
     @InjectMocks private RedisAdapter redisAdapter;
 
@@ -69,15 +67,17 @@ public class RedisAdapterTest {
         // given
         String key = "testKey";
         when(champRedisTemplate.opsForValue()).thenReturn(champValueOps);
-        when(champValueOps.get(key)).thenReturn(Mono.just(countSumByChamp));
+        when(champValueOps.get(key)).thenReturn(countSumByChamp);
 
         // when
-        Mono<CountSumByChamp> resultMono = redisAdapter.findCountSumByChampInRange(key);
+        CountSumByChamp result = redisAdapter.findCountSumByChampInRange(key);
 
         // then
-        StepVerifier.create(resultMono)
-                .expectNext(countSumByChamp)
-                .verifyComplete();
+        assert result != null;
+        assert result.getChampName().equals(countSumByChamp.getChampName());
+        assert result.getChampCount().equals(countSumByChamp.getChampCount());
+        assert result.getWinCount().equals(countSumByChamp.getWinCount());
+        assert result.getLoseCount().equals(countSumByChamp.getLoseCount());
 
         verify(champRedisTemplate, times(1)).opsForValue();
         verify(champRedisTemplate.opsForValue(), times(1)).get(key);
@@ -88,15 +88,16 @@ public class RedisAdapterTest {
         // given
         String key = "testKey";
         when(champRedisTemplate.opsForValue()).thenReturn(champValueOps);
-        when(champValueOps.set(key, countSumByChamp)).thenReturn(Mono.just(true));
 
         // when
-        Mono<CountSumByChamp> pushedResultMono = redisAdapter.pushCountSumByChamp(key, countSumByChamp);
+        CountSumByChamp pushedResult = redisAdapter.pushCountSumByChamp(key, countSumByChamp);
 
         // then
-        StepVerifier.create(pushedResultMono)
-                .expectNext(countSumByChamp)
-                .verifyComplete();
+        assert pushedResult != null;
+        assert pushedResult.getChampName().equals(countSumByChamp.getChampName());
+        assert pushedResult.getChampCount().equals(countSumByChamp.getChampCount());
+        assert pushedResult.getWinCount().equals(countSumByChamp.getWinCount());
+        assert pushedResult.getLoseCount().equals(countSumByChamp.getLoseCount());
 
         verify(champRedisTemplate, times(1)).opsForValue();
         verify(champRedisTemplate.opsForValue(), times(1)).set(key, countSumByChamp);
@@ -107,15 +108,17 @@ public class RedisAdapterTest {
         // given
         String key = "testMembershipKey";
         when(membershipRedisTemplate.opsForValue()).thenReturn(membershipValueOps);
-        when(membershipValueOps.get(key)).thenReturn(Mono.just(countSumByMembership));
+        when(membershipValueOps.get(key)).thenReturn(countSumByMembership);
 
         // when
-        Mono<CountSumByMembership> resultMono = redisAdapter.findCountSumByMembershipInRange(key);
+        CountSumByMembership result = redisAdapter.findCountSumByMembershipInRange(key);
 
         // then
-        StepVerifier.create(resultMono)
-                .expectNext(countSumByMembership)
-                .verifyComplete();
+        assert result != null;
+        assert result.getUsername().equals(countSumByMembership.getUsername());
+        assert result.getEntireCount().equals(countSumByMembership.getEntireCount());
+        assert result.getWinCount().equals(countSumByMembership.getWinCount());
+        assert result.getLoseCount().equals(countSumByMembership.getLoseCount());
 
         verify(membershipRedisTemplate, times(1)).opsForValue();
         verify(membershipRedisTemplate.opsForValue(), times(1)).get(key);
@@ -126,15 +129,16 @@ public class RedisAdapterTest {
         // given
         String key = "testMembershipKey";
         when(membershipRedisTemplate.opsForValue()).thenReturn(membershipValueOps);
-        when(membershipValueOps.set(key, countSumByMembership)).thenReturn(Mono.just(true));
 
         // when
-        Mono<CountSumByMembership> pushedResultMono = redisAdapter.pushCountSumByMembership(key, countSumByMembership);
+        CountSumByMembership pushedResult = redisAdapter.pushCountSumByMembership(key, countSumByMembership);
 
         // then
-        StepVerifier.create(pushedResultMono)
-                .expectNext(countSumByMembership)
-                .verifyComplete();
+        assert pushedResult != null;
+        assert pushedResult.getUsername().equals(countSumByMembership.getUsername());
+        assert pushedResult.getEntireCount().equals(countSumByMembership.getEntireCount());
+        assert pushedResult.getWinCount().equals(countSumByMembership.getWinCount());
+        assert pushedResult.getLoseCount().equals(countSumByMembership.getLoseCount());
 
         verify(membershipRedisTemplate, times(1)).opsForValue();
         verify(membershipRedisTemplate.opsForValue(), times(1)).set(key, countSumByMembership);

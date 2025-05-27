@@ -41,19 +41,6 @@ public class RedisConfig implements ApplicationListener<ApplicationReadyEvent> {
 
     }
 
-    @Bean
-    public ReactiveRedisTemplate<String, Long> reactiveRedisTemplate_long(
-            ReactiveRedisConnectionFactory connectionFactory) {
-        RedisSerializationContext<String, Long> serializationContext = RedisSerializationContext
-                .<String, Long>newSerializationContext(new StringRedisSerializer())
-                .key(new StringRedisSerializer())
-                .value(new GenericToStringSerializer<>(Long.class))
-                .hashKey(new StringRedisSerializer())
-                .hashValue(new GenericToStringSerializer<>(Long.class))
-                .build();
-
-        return new ReactiveRedisTemplate<>(connectionFactory, serializationContext);
-    }
 
     @Bean
     public RedissonReactiveClient redissonReactiveClient() {

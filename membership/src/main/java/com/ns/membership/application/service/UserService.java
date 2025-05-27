@@ -2,6 +2,7 @@ package com.ns.membership.application.service;
 
 
 import com.ns.common.anotation.UseCase;
+import com.ns.membership.application.port.in.DeleteUserUseCase;
 import com.ns.membership.application.port.in.FindUserUseCase;
 import com.ns.membership.application.port.in.ModifyUserUseCase;
 import com.ns.membership.application.port.in.RegisterUserUseCase;
@@ -21,7 +22,7 @@ import reactor.core.publisher.Mono;
 @UseCase
 @Slf4j
 @RequiredArgsConstructor
-public class UserService implements RegisterUserUseCase, ModifyUserUseCase, FindUserUseCase {
+public class UserService implements RegisterUserUseCase, ModifyUserUseCase, FindUserUseCase, DeleteUserUseCase {
     private final UserEventSourcingPort userEventSourcingPort;
     private final FindUserPort findUserPort;
     private final TaskProducerPort taskProducerPort;
@@ -56,5 +57,10 @@ public class UserService implements RegisterUserUseCase, ModifyUserUseCase, Find
                 .map(users -> users.stream()
                         .map(UserResponse::of)
                         .collect(Collectors.toList()));
+    }
+
+    @Override
+    public Mono<Void> delete(Long membershipId) {
+        return userEventSourcingPort.deleteMemberByEvent(membershipId);
     }
 }

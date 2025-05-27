@@ -1,6 +1,7 @@
 package com.ns.result.adapter.out.persistence.elasticsearch;
 
 import org.springframework.data.elasticsearch.repository.ReactiveElasticsearchRepository;
+import org.springframework.data.elasticsearch.repository.config.EnableElasticsearchRepositories;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 

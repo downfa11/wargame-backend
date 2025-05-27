@@ -8,7 +8,6 @@ import com.ns.resultquery.adapter.axon.query.CountSumByMembership;
 import com.ns.resultquery.application.port.out.FindStatisticsPort;
 import lombok.RequiredArgsConstructor;
 import org.axonframework.queryhandling.QueryGateway;
-import reactor.core.publisher.Mono;
 
 @PersistanceAdapter
 @RequiredArgsConstructor
@@ -17,15 +16,12 @@ public class FindStatisticsAdapter implements FindStatisticsPort {
 
 
     @Override
-    public Mono<CountSumByChamp> queryToResultSumByChampName(String champName) {
-        // 챔프의 전체 판수와 승률을 쿼리
-        return Mono.fromFuture(() ->
-                queryGateway.query(new QueryResultSumByChampName(champName), CountSumByChamp.class));
+    public CountSumByChamp queryToResultSumByChampName(String champName) {
+        return queryGateway.query(new QueryResultSumByChampName(champName), CountSumByChamp.class).join();
     }
 
     @Override
-    public Mono<CountSumByMembership> queryToResultByUserName(String champName) {
-        return Mono.fromFuture(() ->
-                queryGateway.query(new QueryResultSumByUserName(champName), CountSumByMembership.class));
+    public CountSumByMembership queryToResultByUserName(String champName) {
+        return queryGateway.query(new QueryResultSumByUserName(champName), CountSumByMembership.class).join();
     }
 }

@@ -14,8 +14,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import reactor.core.publisher.Mono;
-import reactor.test.StepVerifier;
 
 @ExtendWith(MockitoExtension.class)
 class FindStatisticsServiceTest {
@@ -35,15 +33,17 @@ class FindStatisticsServiceTest {
                 .loseCount(50L)
                 .build();
 
-        when(findStatisticsPort.queryToResultSumByChampName(champName)).thenReturn(Mono.just(expectedResponse));
+        when(findStatisticsPort.queryToResultSumByChampName(champName)).thenReturn(expectedResponse);
 
         // when
-        Mono<CountSumByChamp> result = findStatisticsService.findStatisticsByChampion(champName);
+        CountSumByChamp result = findStatisticsService.findStatisticsByChampion(champName);
 
         // then
-        StepVerifier.create(result)
-                .expectNext(expectedResponse)
-                .verifyComplete();
+        assert result != null;
+        assert result.getChampName().equals(expectedResponse.getChampName());
+        assert result.getChampCount().equals(expectedResponse.getChampCount());
+        assert result.getWinCount().equals(expectedResponse.getWinCount());
+        assert result.getLoseCount().equals(expectedResponse.getLoseCount());
 
         verify(findStatisticsPort, times(1)).queryToResultSumByChampName(champName);
     }
@@ -60,15 +60,17 @@ class FindStatisticsServiceTest {
                 .champStatList(Collections.emptyList())
                 .build();
 
-        when(findStatisticsPort.queryToResultByUserName(userName)).thenReturn(Mono.just(expectedResponse));
+        when(findStatisticsPort.queryToResultByUserName(userName)).thenReturn(expectedResponse);
 
         // when
-        Mono<CountSumByMembership> result = findStatisticsService.findStatisticsByUserName(userName);
+        CountSumByMembership result = findStatisticsService.findStatisticsByUserName(userName);
 
         // then
-        StepVerifier.create(result)
-                .expectNext(expectedResponse)
-                .verifyComplete();
+        assert result != null;
+        assert result.getUsername().equals(expectedResponse.getUsername());
+        assert result.getEntireCount().equals(expectedResponse.getEntireCount());
+        assert result.getWinCount().equals(expectedResponse.getWinCount());
+        assert result.getLoseCount().equals(expectedResponse.getLoseCount());
 
         verify(findStatisticsPort, times(1)).queryToResultByUserName(userName);
     }

@@ -18,8 +18,8 @@ public class InsertUserStatisticsService implements InsertUserStatisticsUseCase,
     private final InsertUserStatisticsPort insertUserStatisticsPort;
     private final InsertChampStatisticsPort insertChampStatisticsPort;
 
-    public Mono<Void> insertResultCountIncreaseEventByChampName(ResultEventDto eventDto){
-        return insertChampStatisticsPort.insertResultCountIncreaseEventByChampName(
+    public void insertResultCountIncreaseEventByChampName(ResultEventDto eventDto) {
+        insertChampStatisticsPort.insertResultCountIncreaseEventByChampName(
                 eventDto.getChampIndex(),
                 eventDto.getChampName(),
                 eventDto.getResultCount(),
@@ -28,14 +28,14 @@ public class InsertUserStatisticsService implements InsertUserStatisticsUseCase,
     }
 
 
-    public Mono<Void> insertResultCountIncreaseEventByUserName(MembershipResultEventDto eventDto){
-        return insertUserStatisticsPort.insertResultCountIncreaseEventByUserName(
+    public void insertResultCountIncreaseEventByUserName(MembershipResultEventDto eventDto) {
+        insertUserStatisticsPort.insertResultCountIncreaseEventByUserName(
                 eventDto.getMembershipId(),
                 eventDto.getUserName(),
                 createInsertResultCountDto(eventDto));
     }
 
-    private InsertResultCountDto createInsertResultCountDto(MembershipResultEventDto eventDto){
+    private InsertResultCountDto createInsertResultCountDto(MembershipResultEventDto eventDto) {
         return InsertResultCountDto.builder()
                 .champIndex(eventDto.getChampIndex())
                 .champName(eventDto.getChampName())

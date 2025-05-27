@@ -1,12 +1,12 @@
 package com.ns.result.application.service;
 
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ns.common.task.Task;
 import com.ns.result.application.port.out.task.TaskConsumerPort;
-import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+
+import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 @RequiredArgsConstructor

@@ -7,10 +7,9 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.ns.common.MessageEntity;
+import com.ns.common.utils.MessageEntity;
 import com.ns.feed.adapter.in.web.PostController;
 import com.ns.feed.adapter.out.persistence.post.Post;
-import com.ns.feed.adapter.out.persistence.post.PostR2dbcRepository;
 import com.ns.feed.application.port.in.UpdateLikeUseCase;
 import com.ns.feed.application.port.in.comment.FindCommentUseCase;
 import com.ns.feed.application.port.in.post.DeletePostUseCase;

@@ -11,7 +11,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ns.match.adapter.out.RedisMatchProcessAdapter;
 import com.ns.match.application.port.out.task.TaskProducerPort;
-import com.ns.match.application.service.MatchResponse;
+import com.ns.match.dto.MatchResponse;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
@@ -19,7 +19,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
-import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import reactor.core.publisher.Flux;
@@ -43,7 +42,6 @@ class RedisMatchProcessAdapterTest {
 
     @Test
     void 매칭_큐_프로세스_성공시() {
-        String queue = "queue1";
         String member1 = "member1";
         String member2 = "member2";
         List<String> members = Arrays.asList(member1, member2);
@@ -52,7 +50,7 @@ class RedisMatchProcessAdapterTest {
                 .thenAnswer(invocation -> Flux.fromIterable(members));
         when(taskProducerPort.sendTask(any(), any())).thenReturn(Mono.empty());
 
-        Mono<Void> result = redisMatchProcessAdapter.processQueue(queue);
+        Mono<Void> result = redisMatchProcessAdapter.process();
 
         StepVerifier.create(result)
                 .expectComplete()
@@ -64,14 +62,13 @@ class RedisMatchProcessAdapterTest {
 
     @Test
     void 매칭_큐_프로세스_방별_인원을_충족하지_못하는_경우() {
-        String queue = "queue1";
         String member1 = "member1";
         List<String> members = Arrays.asList(member1);
 
         when(reactiveRedisTemplate.opsForZSet().popMin("users:queue1:wait", 2L))
                 .thenAnswer(invocation -> Flux.fromIterable(members));
 
-        Mono<Void> result = redisMatchProcessAdapter.processQueue(queue);
+        Mono<Void> result = redisMatchProcessAdapter.process();
 
         StepVerifier.create(result)
                 .expectComplete()
@@ -82,7 +79,6 @@ class RedisMatchProcessAdapterTest {
 
     @Test
     void 매칭에_성공한_경우() {
-        String queue = "queue1";
         String member1 = "member1";
         String member2 = "member2";
         List<String> members = Arrays.asList(member1, member2);
@@ -92,7 +88,7 @@ class RedisMatchProcessAdapterTest {
 
         when(taskProducerPort.sendTask(any(), any())).thenReturn(Mono.empty());
 
-        Mono<Void> result = redisMatchProcessAdapter.handleMatchFound(queue, members);
+        Mono<Void> result = redisMatchProcessAdapter.handleMatchFound(members);
 
         StepVerifier.create(result)
                 .expectComplete()
@@ -104,11 +100,10 @@ class RedisMatchProcessAdapterTest {
 
     @Test
     void 매칭에_실패한_경우() {
-        String queue = "queue1";
         String member1 = "member1";
         List<String> members = Arrays.asList(member1);
 
-        Mono<Void> result = redisMatchProcessAdapter.handleMatchError(queue, members);
+        Mono<Void> result = redisMatchProcessAdapter.handleMatchError(members);
 
         StepVerifier.create(result)
                 .expectComplete()
@@ -136,7 +131,7 @@ class RedisMatchProcessAdapterTest {
         when(reactiveRedisTemplate.scan(any())).thenReturn(Flux.fromIterable(queues));
         when(reactiveRedisTemplate.executeInSession(any())).thenReturn(Flux.empty());
 
-        Mono<Void> result = redisMatchProcessAdapter.processAllQueue(queues);
+        Mono<Void> result = redisMatchProcessAdapter.process();
 
         StepVerifier.create(result)
                 .expectComplete()

@@ -1,6 +1,7 @@
 package com.ns.membership.adapter.out.persistence;
 
 import com.ns.common.anotation.PersistanceAdapter;
+import com.ns.membership.application.port.out.DeleteUserPort;
 import com.ns.membership.application.port.out.FindUserPort;
 import com.ns.membership.application.port.out.ModifyUserPort;
 import com.ns.membership.application.port.out.RegisterUserPort;
@@ -14,10 +15,8 @@ import reactor.core.publisher.Mono;
 @Slf4j
 @PersistanceAdapter
 @RequiredArgsConstructor
-public class UserPersistenceAdapter implements RegisterUserPort, ModifyUserPort, FindUserPort {
-
+public class UserPersistenceAdapter implements RegisterUserPort, ModifyUserPort, FindUserPort, DeleteUserPort {
     private final UserR2dbcRepository userR2dbcRepository;
-
 
     @Override
     public Mono<User> create(UserCreateRequest request, String aggregateIdentifier){
@@ -83,4 +82,8 @@ public class UserPersistenceAdapter implements RegisterUserPort, ModifyUserPort,
         return userR2dbcRepository.findByAccount(account);
     }
 
+    @Override
+    public Mono<Void> delete(Long membershipId) {
+        return userR2dbcRepository.deleteById(membershipId);
+    }
 }

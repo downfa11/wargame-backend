@@ -25,16 +25,10 @@ public class AuthService {
 
     private Mono<UserResponse> handleUserLogin(User user){
         String id = user.getId().toString();
-        Mono<String> jwtMono = jwtTokenProvider.generateJwtToken(id);
-        Mono<String> refreshMono = jwtTokenProvider.generateRefreshToken(id);
+        String jwtToken = jwtTokenProvider.generateJwtToken(id);
+        String refreshToken = jwtTokenProvider.generateRefreshToken(id);
 
-        return Mono.zip(jwtMono, refreshMono)
-                .flatMap(tuple -> {
-                    String jwtToken = tuple.getT1();
-                    String refreshToken = tuple.getT2();
-
-                    return updateTokens(user, jwtToken, refreshToken);
-                });
+        return updateTokens(user, jwtToken, refreshToken);
     }
 
     private Mono<UserResponse> updateTokens(User user, String jwtToken, String refreshToken){
@@ -49,15 +43,13 @@ public class AuthService {
     }
 
     public Mono<User> validateJwtToken(String token) {
-        return jwtTokenProvider.validateJwtToken(token)
-                .flatMap(isValid -> {
-                    if (!isValid) {
-                        return Mono.error(new RuntimeException("Invalid token"));
-                    }
-                    return jwtTokenProvider.parseMembershipIdFromToken(token)
-                            .flatMap(userRepository::findById)
-                            .switchIfEmpty(Mono.error(new RuntimeException("User not found")));
-                });
+        if(jwtTokenProvider.validateJwtToken(token))
+            return Mono.error(new RuntimeException("Invalid token"));
+
+        Long membershipId = jwtTokenProvider.parseMembershipIdFromToken(token);
+
+        return userRepository.findById(membershipId)
+                .switchIfEmpty(Mono.error(new RuntimeException("User not found")));
     }
 
     public Mono<JwtToken> refreshJwtToken(String refreshToken) {
@@ -68,8 +60,7 @@ public class AuthService {
 
 
                     String membershipId = String.valueOf(membership.getId());
-                    return jwtTokenProvider.generateJwtToken(membershipId)
-                            .map(newJwtToken -> new JwtToken(membershipId, newJwtToken, refreshToken));
+                    return Mono.just(new JwtToken(membershipId, jwtTokenProvider.generateJwtToken(membershipId), refreshToken));
                 });
     }
 

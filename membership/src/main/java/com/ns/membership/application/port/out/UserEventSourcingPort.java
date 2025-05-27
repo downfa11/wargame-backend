@@ -8,4 +8,5 @@ import reactor.core.publisher.Mono;
 public interface UserEventSourcingPort {
     Mono<User> createMemberByEvent(UserCreateRequest request);
     Mono<User> modifyMemberByEvent(Long membershipId, UserUpdateRequest request);
+    Mono<Void> deleteMemberByEvent(Long membershipId);
 }

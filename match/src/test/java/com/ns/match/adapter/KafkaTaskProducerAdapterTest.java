@@ -9,7 +9,7 @@ import static org.mockito.Mockito.when;
 
 import com.ns.common.task.SubTask;
 import com.ns.common.task.Task;
-import com.ns.match.adapter.out.KafkaTaskProducerAdapter;
+
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -25,7 +25,7 @@ class KafkaTaskProducerAdapterTest {
 
 
     @Mock private ReactiveKafkaProducerTemplate<String, Task> taskProducerTemplate;
-    @InjectMocks private KafkaTaskProducerAdapter kafkaTaskProducerAdapter;
+    @InjectMocks private KafkaTaskAdapter kafkaTaskAdapter;
 
 
     @Test
@@ -39,7 +39,7 @@ class KafkaTaskProducerAdapterTest {
         // when
         when(taskProducerTemplate.send(any(String.class), any(String.class), any(Task.class))).thenReturn(Mono.empty());
 
-        Mono<Void> result = kafkaTaskProducerAdapter.sendTask(topic, task);
+        Mono<Void> result = kafkaTaskAdapter.sendTask(topic, task);
 
         // then
         StepVerifier.create(result)

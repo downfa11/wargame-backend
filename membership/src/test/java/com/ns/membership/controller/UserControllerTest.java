@@ -3,7 +3,7 @@ package com.ns.membership.controller;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
-import com.ns.common.MessageEntity;
+import com.ns.common.utils.MessageEntity;
 import com.ns.membership.adapter.in.web.UserController;
 import com.ns.membership.application.port.in.FindUserUseCase;
 import com.ns.membership.application.port.in.ModifyUserUseCase;

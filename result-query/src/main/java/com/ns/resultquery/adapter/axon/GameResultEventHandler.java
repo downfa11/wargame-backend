@@ -42,29 +42,30 @@ public class GameResultEventHandler {
         handleResultQuery(allClients, event.getWinTeam(), -1L, event);
     }
 
-
     private void handleResultQuery(List<ClientRequest> allClients, String winningTeam, Long winCount, Object event) {
-        Flux.fromIterable(allClients)
-                .flatMap(clientRequest -> {
-                    Long adjustedWinCount = clientRequest.getTeam().equals(winningTeam) ? winCount : 0L;
+        for (ClientRequest clientRequest : allClients) {
+            Long adjustedWinCount = clientRequest.getTeam().equals(winningTeam) ? winCount : 0L;
 
-                    MembershipResultEventDto membershipResultEventDto = ResultQueryMapper.getMembershipResultEventDto(clientRequest, adjustedWinCount);
-                    ResultEventDto resultEventDto = ResultQueryMapper.getResultEventDto(clientRequest, adjustedWinCount);
+            MembershipResultEventDto membershipResultEventDto = ResultQueryMapper.getMembershipResultEventDto(clientRequest, adjustedWinCount);
+            ResultEventDto resultEventDto = ResultQueryMapper.getResultEventDto(clientRequest, adjustedWinCount);
 
-                    return insertUserStatisticsUseCase.insertResultCountIncreaseEventByUserName(membershipResultEventDto)
-                            .then(insertChampStatisticsUseCase.insertResultCountIncreaseEventByChampName(resultEventDto));
-                })
-                .doOnError(throwable -> log.error("handleResultQuery error: " + throwable.getMessage()))
-                .doOnTerminate(() -> {
-                    ResultQueryUpdatedEvent resultQueryUpdatedEvent = createResultQueryUpdatedEvent(event);
+            try {
+                insertUserStatisticsUseCase.insertResultCountIncreaseEventByUserName(membershipResultEventDto);
+                insertChampStatisticsUseCase.insertResultCountIncreaseEventByChampName(resultEventDto);
+            } catch (Exception e) {
+                log.error("handleResultQuery error: " + e.getMessage());
+            }
+        }
 
-                    Mono.fromRunnable(() -> eventGateway.publish(resultQueryUpdatedEvent))
-                            .doOnSuccess(aVoid -> log.info("ResultQueryUpdatedEvent published"))
-                            .doOnError(throwable -> log.error("error to publish ResultQueryUpdatedEvent", throwable))
-                            .subscribe();
-                })
-                .subscribe();
+        try {
+            ResultQueryUpdatedEvent resultQueryUpdatedEvent = createResultQueryUpdatedEvent(event);
+            eventGateway.publish(resultQueryUpdatedEvent);
+            log.info("ResultQueryUpdatedEvent published");
+        } catch (Exception e) {
+            log.error("Error to publish ResultQueryUpdatedEvent", e);
+        }
     }
+
 
     private ResultQueryUpdatedEvent createResultQueryUpdatedEvent(Object event) {
         if (event instanceof CreateResultQueryEvent) {

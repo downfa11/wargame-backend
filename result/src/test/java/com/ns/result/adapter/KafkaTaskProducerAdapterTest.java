@@ -31,8 +31,8 @@ class KafkaTaskProducerAdapterTest {
     void Task를_발행하는_메서드() {
         // given
         Task task = createTask("Result Response", "123",
-                List.of(createSubTask("result", "123", SubTask.TaskType.post, SubTask.TaskStatus.ready, 123L)));
-        String topic = "task.result.response";
+                List.of(createSubTask("player", "123", SubTask.TaskType.post, SubTask.TaskStatus.ready, 123L)));
+        String topic = "task.player.response";
         String taskId = task.getTaskID();
 
         // when

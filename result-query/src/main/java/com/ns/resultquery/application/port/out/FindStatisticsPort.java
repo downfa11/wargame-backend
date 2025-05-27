@@ -6,6 +6,6 @@ import reactor.core.publisher.Mono;
 
 public interface FindStatisticsPort {
 
-    Mono<CountSumByChamp> queryToResultSumByChampName(String champName);
-    Mono<CountSumByMembership> queryToResultByUserName(String champName);
+    CountSumByChamp queryToResultSumByChampName(String champName);
+    CountSumByMembership queryToResultByUserName(String champName);
 }

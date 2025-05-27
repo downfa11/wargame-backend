@@ -83,8 +83,14 @@ public class KafkaTaskConsumerAdapter implements ApplicationRunner {
         this.taskRequestConsumerTemplate
                 .receive()
                 .doOnNext(record -> {
-                    taskConsumerService.handleTaskResponse(record.value());
-                    record.receiverOffset().acknowledge();
+                    try {
+                        log.info("received: " + record.value());
+                        taskConsumerService.handleTaskResponse(record.value());
+                        record.receiverOffset().acknowledge();
+                    } catch (Exception e) {
+                        log.error("Exception in handleTaskRequest", e);
+                        record.receiverOffset().acknowledge();
+                    }
                 })
                 .doOnError(e -> log.error("Error receiving: " + e))
                 .subscribe();

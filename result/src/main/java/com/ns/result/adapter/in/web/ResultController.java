@@ -6,21 +6,14 @@ import com.ns.common.GameFinishedEvent;
 import com.ns.result.adapter.out.persistence.elasticsearch.Result;
 import com.ns.result.application.port.in.FindResultUseCase;
 import com.ns.result.application.port.in.RegisterResultUseCase;
-import java.util.List;
-import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.axonframework.eventhandling.gateway.EventGateway;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+
+import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/v1/result")
@@ -30,10 +23,9 @@ public class ResultController {
 
     private final RegisterResultUseCase registerResultUseCase;
     private final FindResultUseCase findResultUseCase;
-    private final EventGateway eventGateway;
 
     @PostMapping("/test/event")
-    public Mono<ResponseEntity<String>> publishTestEvent() {
+    public Mono<GameFinishedEvent> publishTestEvent() {
         List<ClientRequest> blueTeam = List.of(
                 ClientRequest.builder()
                         .membershipId(18L)
@@ -98,10 +90,8 @@ public class ResultController {
                 .dateTime("2025-03-05T12:00:00Z")
                 .gameDuration(300)
                 .build();
-
-        return Mono.fromRunnable(() -> {
-            eventGateway.publish(event);
-        }).thenReturn(ResponseEntity.ok("테스트가 성공했는가?"));
+        // Mono.fromRunnable(() -> eventGateway.publish(event)).thenReturn()
+        return Mono.just(event);
     }
 
     @GetMapping("/list")

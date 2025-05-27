@@ -1,7 +1,7 @@
 package com.ns.membership.adapter.in.web;
 
-import com.ns.common.MessageEntity;
 import com.ns.common.utils.JwtTokenProvider;
+import com.ns.common.utils.MessageEntity;
 import com.ns.membership.application.port.in.FindUserUseCase;
 import com.ns.membership.application.port.in.ModifyUserUseCase;
 import com.ns.membership.application.port.in.RegisterUserUseCase;
@@ -33,7 +33,6 @@ public class UserController {
     private final RegisterUserUseCase registerUserUseCase;
     private final ModifyUserUseCase modifyUserUseCase;
     private final FindUserUseCase findUserUseCase;
-    private final JwtTokenProvider jwtTokenProvider;
 
     @PostMapping(path="/register-eda")
     Mono<ResponseEntity<MessageEntity>> createUser(@RequestBody UserCreateRequest request){

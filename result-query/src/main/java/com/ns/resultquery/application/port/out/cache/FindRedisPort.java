@@ -5,6 +5,6 @@ import com.ns.resultquery.adapter.axon.query.CountSumByMembership;
 import reactor.core.publisher.Mono;
 
 public interface FindRedisPort {
-    Mono<CountSumByChamp> findCountSumByChampInRange(String key);
-    Mono<CountSumByMembership> findCountSumByMembershipInRange(String key);
+    CountSumByChamp findCountSumByChampInRange(String key);
+    CountSumByMembership findCountSumByMembershipInRange(String key);
 }

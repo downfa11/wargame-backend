@@ -12,10 +12,12 @@ import com.ns.resultquery.application.port.out.InsertUserStatisticsPort;
 import com.ns.resultquery.domain.MembershipResultSumByUserName;
 import com.ns.resultquery.domain.ResultSumByChampName;
 import com.ns.resultquery.domain.dto.InsertResultCountDto;
+
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.axonframework.queryhandling.QueryHandler;
@@ -53,55 +55,52 @@ public class DynamoDBAdapter implements InsertUserStatisticsPort, InsertChampSta
     private final DynamoDBMapper dynamodbMapper;
 
 
-    public Mono<Void> insertResultCountIncreaseEventByChampName(Long champIndex, String champName, Long resultCount, Long winCount, Long loseCount) {
-        return Mono.fromRunnable(() -> {
+    public void insertResultCountIncreaseEventByChampName(Long champIndex, String champName, Long resultCount, Long winCount, Long loseCount) {
+        String datetime = LocalDate.now().format(DateTimeFormatter.ofPattern("yyMMdd"));
 
-            String datetime = LocalDate.now().format(DateTimeFormatter.ofPattern("yyMMdd"));
+        // raw event insert (Insert, put)
+        String pk = "#" + champIndex + "_" + champName + "_season" + CURRENT_SEASON + "_" + datetime;
+        String sk = "-1";
+        putResult(pk, sk, resultCount, winCount, loseCount);
 
-            // raw event insert (Insert, put)
-            String pk = "#" + champIndex + "_" + champName + "_season" + CURRENT_SEASON + "_" + datetime;
-            String sk = "-1";
-            putResult(pk, sk, resultCount, winCount, loseCount);
+        // 날짜별 판수 정보를 업데이트 (Query, Update)
+        String summaryPk = pk + "#summary";
+        String summarySk = "-1";
+        ResultSumByChampName resultSumByChampName = getResult(summaryPk, summarySk);
 
-            // 날짜별 판수 정보를 업데이트 (Query, Update)
-            String summaryPk = pk + "#summary";
-            String summarySk = "-1";
-            ResultSumByChampName resultSumByChampName = getResult(summaryPk, summarySk);
+        if (resultSumByChampName == null) {
+            putResult(summaryPk, summarySk, resultCount, winCount, loseCount);
+        } else {
+            Long result = resultSumByChampName.getResultCount();
+            result += resultCount;
 
-            if (resultSumByChampName == null) {
-                putResult(summaryPk, summarySk, resultCount, winCount, loseCount);
-            } else{
-                Long result = resultSumByChampName.getResultCount();
-                result += resultCount;
+            Long win = resultSumByChampName.getWinCount();
+            win += winCount;
 
-                Long win = resultSumByChampName.getWinCount();
-                win += winCount;
+            Long lose = resultSumByChampName.getLoseCount();
+            lose += loseCount;
 
-                Long lose = resultSumByChampName.getLoseCount();
-                lose += loseCount;
+            updateResult(summaryPk, summarySk, result, win, lose);
+        }
 
-                updateResult(summaryPk, summarySk, result, win, lose);
-            }
+        // 챔프별 정보
+        String summaryPk2 = champName + "_season" + CURRENT_SEASON;
+        String summarySk2 = "-1";
+        ResultSumByChampName resultSumByChampName2 = getResult(summaryPk2, summarySk2);
+        if (resultSumByChampName2 == null) {
+            putResult(summaryPk2, summarySk2, resultCount, winCount, loseCount);
+        } else {
+            Long result = resultSumByChampName.getResultCount();
+            result += resultCount;
 
-            // 챔프별 정보
-            String summaryPk2 = champName + "_season" + CURRENT_SEASON;
-            String summarySk2 = "-1";
-            ResultSumByChampName resultSumByChampName2 = getResult(summaryPk2, summarySk2);
-            if (resultSumByChampName2 == null) {
-                putResult(summaryPk2, summarySk2, resultCount, winCount, loseCount);
-            } else{
-                Long result = resultSumByChampName.getResultCount();
-                result += resultCount;
+            Long win = resultSumByChampName.getWinCount();
+            win += winCount;
 
-                Long win = resultSumByChampName.getWinCount();
-                win += winCount;
+            Long lose = resultSumByChampName.getLoseCount();
+            lose += loseCount;
 
-                Long lose = resultSumByChampName.getLoseCount();
-                lose += loseCount;
-
-                updateResult(summaryPk2, summarySk2, result, win, lose);
-            }
-        }).subscribeOn(Schedulers.boundedElastic()).then();
+            updateResult(summaryPk2, summarySk2, result, win, lose);
+        }
     }
 
     private void putResult(String pk, String sk, Long resultCount, Long winCount, Long loseCount) {
@@ -141,7 +140,7 @@ public class DynamoDBAdapter implements InsertUserStatisticsPort, InsertChampSta
                     .build();
 
             GetItemResponse response = dynamoDbClient.getItem(request);
-            if (response.hasItem()){
+            if (response.hasItem()) {
                 return dynamodbMapper.mapToResultStatsByChampName(response.item());
             } else {
                 return null;
@@ -233,11 +232,11 @@ public class DynamoDBAdapter implements InsertUserStatisticsPort, InsertChampSta
         }
 
         return CountSumByChamp.builder()
-                        .champName(champName)
-                        .champCount(resultSumByChampName.getResultCount())
-                        .winCount(resultSumByChampName.getWinCount())
-                        .loseCount(resultSumByChampName.getLoseCount())
-                        .build();
+                .champName(champName)
+                .champCount(resultSumByChampName.getResultCount())
+                .winCount(resultSumByChampName.getWinCount())
+                .loseCount(resultSumByChampName.getLoseCount())
+                .build();
     }
 
     public ResultSumByChampName getResultSumByChampName(String champName) {
@@ -247,34 +246,33 @@ public class DynamoDBAdapter implements InsertUserStatisticsPort, InsertChampSta
     }
 
 
-    public Mono<Void> insertResultCountIncreaseEventByUserName(Long membershipId, String username, InsertResultCountDto insertResultCountDto) {
+    public void insertResultCountIncreaseEventByUserName(Long membershipId, String username, InsertResultCountDto insertResultCountDto) {
         log.info("page0 :" + membershipId);
-        return Mono.fromRunnable(() -> {
 
-            log.info("page1 :" + insertResultCountDto);
 
-            String datetime = LocalDate.now().format(DateTimeFormatter.ofPattern("yyMMdd"));
+        log.info("page1 :" + insertResultCountDto);
 
-            // raw event insert (Insert, put)
-            String pk = "#" + membershipId + "_" + username + "_season" + CURRENT_SEASON + "_" + datetime;
-            String sk = "-1";
-            putMembershipResult(pk, sk, insertResultCountDto);
+        String datetime = LocalDate.now().format(DateTimeFormatter.ofPattern("yyMMdd"));
 
-            // 날짜별 판수 정보를 업데이트 (Query, Update)
-            String summaryPk = pk + "#summary";
-            String summarySk = "-1";
-            MembershipResultSumByUserName membershipResult = getMembershipResult(summaryPk, summarySk);
-            updateResult(membershipResult, summaryPk, summarySk, insertResultCountDto);
+        // raw event insert (Insert, put)
+        String pk = "#" + membershipId + "_" + username + "_season" + CURRENT_SEASON + "_" + datetime;
+        String sk = "-1";
+        putMembershipResult(pk, sk, insertResultCountDto);
 
-            log.info("page2 :" + insertResultCountDto);
+        // 날짜별 판수 정보를 업데이트 (Query, Update)
+        String summaryPk = pk + "#summary";
+        String summarySk = "-1";
+        MembershipResultSumByUserName membershipResult = getMembershipResult(summaryPk, summarySk);
+        updateResult(membershipResult, summaryPk, summarySk, insertResultCountDto);
 
-            // 챔프별 정보
-            String summaryPk2 = username + "_season" + CURRENT_SEASON;
-            String summarySk2 = "-1";
-            MembershipResultSumByUserName membershipResult2 = getMembershipResult(summaryPk2, summarySk2);
-            updateResult(membershipResult2, summaryPk2, summarySk2, insertResultCountDto);
+        log.info("page2 :" + insertResultCountDto);
 
-        }).subscribeOn(Schedulers.boundedElastic()).then();
+        // 챔프별 정보
+        String summaryPk2 = username + "_season" + CURRENT_SEASON;
+        String summarySk2 = "-1";
+        MembershipResultSumByUserName membershipResult2 = getMembershipResult(summaryPk2, summarySk2);
+        updateResult(membershipResult2, summaryPk2, summarySk2, insertResultCountDto);
+
     }
 
     private void updateResult(MembershipResultSumByUserName membershipResult, String pk, String sk, InsertResultCountDto insertResultCountDto) {
@@ -309,7 +307,7 @@ public class DynamoDBAdapter implements InsertUserStatisticsPort, InsertChampSta
             log.error("No data found for membership: " + userName);
         }
 
-        log.info("test : "+ resultSumByUserName);
+        log.info("test : " + resultSumByUserName);
 
         return CountSumByMembership.builder()
                 .username(userName)
@@ -338,7 +336,7 @@ public class DynamoDBAdapter implements InsertUserStatisticsPort, InsertChampSta
                     .build();
 
             GetItemResponse response = dynamoDbClient.getItem(request);
-            if (response.hasItem()){
+            if (response.hasItem()) {
                 return dynamodbMapper.mapToMembershipResultStatsByUserName(response.item());
             } else {
                 return null;

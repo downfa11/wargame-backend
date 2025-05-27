@@ -9,38 +9,34 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.data.redis.connection.ReactiveRedisConnectionFactory;
-import org.springframework.data.redis.core.ReactiveRedisOperations;
-import org.springframework.data.redis.core.ReactiveRedisTemplate;
-import org.springframework.data.redis.serializer.RedisSerializationContext;
+import org.springframework.data.redis.connection.RedisConnectionFactory;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 @Configuration
 @RequiredArgsConstructor
 @Slf4j
 public class RedisConfig {
-    private final ReactiveRedisConnectionFactory redisConnectionFactory;
+    private final RedisConnectionFactory redisConnectionFactory;
     private final ObjectMapper objectMapper;
 
+    private <V> RedisTemplate<String, V> createCustomTemplate(ObjectMapper objectMapper, TypeReference<V> typeRef) {
+        RedisTemplate<String, V> template = new RedisTemplate<>();
+        template.setConnectionFactory(redisConnectionFactory);
+        template.setKeySerializer(new StringRedisSerializer());
+        template.setValueSerializer(new CustomRedisSerializer<>(objectMapper, typeRef));
+        template.afterPropertiesSet();
+        return template;
+    }
+
     @Bean
-    public ReactiveRedisOperations<String, CountSumByChamp> champRedisTemplate() {
+    public RedisTemplate<String, CountSumByChamp> champRedisTemplate() {
         return createCustomTemplate(objectMapper, new TypeReference<>() {});
     }
 
     @Bean
-    public ReactiveRedisOperations<String, CountSumByMembership> membershipRedisTemplate() {
+    public RedisTemplate<String, CountSumByMembership> membershipRedisTemplate() {
         return createCustomTemplate(objectMapper, new TypeReference<>() {});
     }
 
-
-    private <V> ReactiveRedisOperations<String, V> createCustomTemplate(ObjectMapper objectMapper, TypeReference<V> typeRef) {
-        RedisSerializationContext.RedisSerializationContextBuilder<String, V> builder = RedisSerializationContext.newSerializationContext(new StringRedisSerializer());
-
-        RedisSerializationContext<String, V> context =
-                builder.key(new StringRedisSerializer())
-                        .value(new CustomRedisSerializer<>(objectMapper, typeRef))
-                        .build();
-
-        return new ReactiveRedisTemplate<>(redisConnectionFactory, context);
-    }
 }

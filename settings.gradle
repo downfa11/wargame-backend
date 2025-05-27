@@ -1,2 +1,3 @@
-rootProject.name = 'wargame'
-include 'common','membership','task','feed','match','result','result-query','behavior-batch'
+rootProject.name = 'wargame-server'
+
+include 'common','membership','task','feed','match','result','result-query','player','behavior-batch'

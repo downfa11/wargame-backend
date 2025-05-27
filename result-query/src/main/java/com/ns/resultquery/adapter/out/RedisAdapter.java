@@ -7,43 +7,46 @@ import com.ns.resultquery.application.port.out.cache.FindRedisPort;
 import com.ns.resultquery.application.port.out.cache.PushRedisPort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.redis.core.ReactiveRedisOperations;
-import reactor.core.publisher.Mono;
-
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 
 @Slf4j
 @PersistanceAdapter
 @RequiredArgsConstructor
 public class RedisAdapter implements PushRedisPort, FindRedisPort {
 
-    private final ReactiveRedisOperations<String, CountSumByChamp> champRedisTemplate;
-    private final ReactiveRedisOperations<String, CountSumByMembership> membershipRedisTemplate;
+    private final RedisTemplate<String, CountSumByChamp> champRedisTemplate;
+    private final RedisTemplate<String, CountSumByMembership> membershipRedisTemplate;
 
     @Override
-    public Mono<CountSumByChamp> pushCountSumByChamp(String key, CountSumByChamp countSumByChamp) {
-        return champRedisTemplate.opsForValue()
-                .set(key, countSumByChamp)
-                .then(Mono.just(countSumByChamp));
+    public CountSumByChamp pushCountSumByChamp(String key, CountSumByChamp countSumByChamp) {
+        ValueOperations<String, CountSumByChamp> valueOps = champRedisTemplate.opsForValue();
+        valueOps.set(key, countSumByChamp);
+        log.info("Pushed CountSumByChamp to Redis with key: {}", key);
+        return countSumByChamp;
     }
 
     @Override
-    public Mono<CountSumByMembership> pushCountSumByMembership(String key, CountSumByMembership countSumByMembership) {
-        return membershipRedisTemplate.opsForValue()
-                .set(key, countSumByMembership)
-                .then(Mono.just(countSumByMembership));
+    public CountSumByMembership pushCountSumByMembership(String key, CountSumByMembership countSumByMembership) {
+        ValueOperations<String, CountSumByMembership> valueOps = membershipRedisTemplate.opsForValue();
+        valueOps.set(key, countSumByMembership);
+        log.info("Pushed CountSumByMembership to Redis with key: {}", key);
+        return countSumByMembership;
     }
 
     @Override
-    public Mono<CountSumByChamp> findCountSumByChampInRange(String key) {
-        return champRedisTemplate.opsForValue()
-                .get(key)
-                .doOnTerminate(() -> log.info("findCountSumByChampInRange: {}", key));
+    public CountSumByChamp findCountSumByChampInRange(String key) {
+        ValueOperations<String, CountSumByChamp> valueOps = champRedisTemplate.opsForValue();
+        CountSumByChamp result = valueOps.get(key);
+        log.info("Found CountSumByChamp in Redis for key: {}", key);
+        return result;
     }
 
     @Override
-    public Mono<CountSumByMembership> findCountSumByMembershipInRange(String key) {
-        return membershipRedisTemplate.opsForValue()
-                .get(key)
-                .doOnTerminate(() -> log.info("findCountSumByMembershipInRange: {}", key));
+    public CountSumByMembership findCountSumByMembershipInRange(String key) {
+        ValueOperations<String, CountSumByMembership> valueOps = membershipRedisTemplate.opsForValue();
+        CountSumByMembership result = valueOps.get(key);
+        log.info("Found CountSumByMembership in Redis for key: {}", key);
+        return result;
     }
 }

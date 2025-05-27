@@ -1,5 +1,6 @@
 package com.ns.resultquery.adapter;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.*;
 
 import com.ns.resultquery.adapter.axon.QueryResultSumByChampName;
@@ -9,7 +10,6 @@ import com.ns.resultquery.adapter.axon.query.CountSumByChamp;
 import com.ns.resultquery.adapter.axon.query.CountSumByMembership;
 import com.ns.resultquery.adapter.out.persistence.FindStatisticsAdapter;
 import java.util.List;
-
 import java.util.concurrent.CompletableFuture;
 import org.axonframework.queryhandling.QueryGateway;
 import org.junit.jupiter.api.BeforeEach;
@@ -18,17 +18,15 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import reactor.core.publisher.Mono;
-import reactor.test.StepVerifier;
 
 @ExtendWith(MockitoExtension.class)
 class FindStatisticsAdapterTest {
+
     private CountSumByChamp champData;
     private CountSumByMembership membershipData;
 
     @Mock QueryGateway queryGateway;
     @InjectMocks FindStatisticsAdapter findStatisticsAdapter;
-
 
     @BeforeEach
     void init() {
@@ -48,7 +46,6 @@ class FindStatisticsAdapterTest {
                 .build();
     }
 
-
     @Test
     void 챔프의_이름으로_통계_쿼리를_전달하는_메서드() {
         // given
@@ -57,12 +54,10 @@ class FindStatisticsAdapterTest {
                 .thenReturn(CompletableFuture.completedFuture(champData));
 
         // when
-        Mono<CountSumByChamp> result = findStatisticsAdapter.queryToResultSumByChampName(champName);
+        CountSumByChamp result = findStatisticsAdapter.queryToResultSumByChampName(champName);
 
         // then
-        StepVerifier.create(result)
-                .expectNext(champData)
-                .verifyComplete();
+        assertEquals(champData, result);
     }
 
     @Test
@@ -71,12 +66,11 @@ class FindStatisticsAdapterTest {
         String userName = "player";
         when(queryGateway.query(any(QueryResultSumByUserName.class), eq(CountSumByMembership.class)))
                 .thenReturn(CompletableFuture.completedFuture(membershipData));
+
         // when
-        Mono<CountSumByMembership> result = findStatisticsAdapter.queryToResultByUserName(userName);
+        CountSumByMembership result = findStatisticsAdapter.queryToResultByUserName(userName);
 
         // then
-        StepVerifier.create(result)
-                .expectNext(membershipData)
-                .verifyComplete();
+        assertEquals(membershipData, result);
     }
 }

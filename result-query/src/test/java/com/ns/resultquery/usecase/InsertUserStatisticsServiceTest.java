@@ -1,14 +1,5 @@
 package com.ns.resultquery.usecase;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
 import com.ns.resultquery.application.port.out.InsertChampStatisticsPort;
 import com.ns.resultquery.application.port.out.InsertUserStatisticsPort;
 import com.ns.resultquery.application.service.InsertUserStatisticsService;
@@ -21,8 +12,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import reactor.core.publisher.Mono;
-import reactor.test.StepVerifier;
+
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class InsertUserStatisticsServiceTest {
@@ -71,20 +63,17 @@ class InsertUserStatisticsServiceTest {
                 .loseCount(4L)
                 .build();
 
-        when(insertChampStatisticsPort.insertResultCountIncreaseEventByChampName(
+        doNothing().when(insertChampStatisticsPort).insertResultCountIncreaseEventByChampName(
                 eventDto.getChampIndex(),
                 eventDto.getChampName(),
                 eventDto.getResultCount(),
                 eventDto.getWinCount(),
-                eventDto.getLoseCount()))
-                .thenReturn(Mono.empty());
+                eventDto.getLoseCount());
 
         // when
-        Mono<Void> result = insertUserStatisticsService.insertResultCountIncreaseEventByChampName(eventDto);
+        insertUserStatisticsService.insertResultCountIncreaseEventByChampName(eventDto);
 
         // then
-        StepVerifier.create(result).verifyComplete();
-
         verify(insertChampStatisticsPort, times(1))
                 .insertResultCountIncreaseEventByChampName(
                         eventDto.getChampIndex(),
@@ -97,14 +86,13 @@ class InsertUserStatisticsServiceTest {
     @Test
     void 게임종료_이벤트_발행시_사용자별_통계를_업데이트하는_메서드() {
         // given
-        when(insertUserStatisticsPort.insertResultCountIncreaseEventByUserName(anyLong(), anyString(), any()))
-                .thenReturn(Mono.empty());
+        doNothing().when(insertUserStatisticsPort)
+                .insertResultCountIncreaseEventByUserName(anyLong(), anyString(), any());
+
         // when
-        Mono<Void> result = insertUserStatisticsService.insertResultCountIncreaseEventByUserName(eventDto);
+        insertUserStatisticsService.insertResultCountIncreaseEventByUserName(eventDto);
 
         // then
-        StepVerifier.create(result).verifyComplete();
-
         verify(insertUserStatisticsPort, times(1))
                 .insertResultCountIncreaseEventByUserName(eq(eventDto.getMembershipId()), eq(eventDto.getUserName()), any(InsertResultCountDto.class));
     }
