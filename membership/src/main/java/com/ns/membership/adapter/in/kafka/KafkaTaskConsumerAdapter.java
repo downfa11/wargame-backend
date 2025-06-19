@@ -114,7 +114,7 @@ public class KafkaTaskConsumerAdapter implements ApplicationRunner {
     private SubTask createSubTaskMatchUserName(Long membershipId, String nickname){
         return createSubTask("MatchUserName",
                 String.valueOf(membershipId),
-                TaskType.match,
+                TaskType.membership,
                 TaskStatus.success,
                 nickname);
     }
@@ -146,7 +146,7 @@ public class KafkaTaskConsumerAdapter implements ApplicationRunner {
     private SubTask createSubTaskPostUserName(Long membershipId, String nickname){
         return createSubTask("PostUserName",
                 String.valueOf(membershipId),
-                TaskType.post,
+                TaskType.membership,
                 TaskStatus.success,
                 nickname);
     }
@@ -176,7 +176,7 @@ public class KafkaTaskConsumerAdapter implements ApplicationRunner {
     private SubTask createSubTaskCommentUserName(Long membershipId, String nickname){
         return createSubTask("CommentUserName",
                 String.valueOf(membershipId),
-                TaskType.post,
+                TaskType.membership,
                 TaskStatus.success,
                 nickname);
     }

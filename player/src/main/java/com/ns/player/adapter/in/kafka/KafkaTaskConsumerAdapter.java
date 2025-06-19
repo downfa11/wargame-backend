@@ -17,6 +17,7 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.kafka.core.reactive.ReactiveKafkaConsumerTemplate;
 import reactor.core.publisher.Mono;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -41,6 +42,10 @@ public class KafkaTaskConsumerAdapter implements ApplicationRunner {
     public void run(ApplicationArguments args){
         doTaskResponseConsumerTemplate();
         doTaskRequestConsumerTemplate();
+
+        Mono.delay(Duration.ofSeconds(2))
+                .doOnNext(ti -> sendWarmupMessage())
+                .subscribe();
     }
 
     private void doTaskResponseConsumerTemplate(){
@@ -51,7 +56,7 @@ public class KafkaTaskConsumerAdapter implements ApplicationRunner {
 
                     for(var subtask : task.getSubTaskList()){
                         mapSubTaskToMembership(task.getTaskID(), subtask);
-                        log.info("TaskResponseConsumerTemplate received : "+subtask);
+                        log.info("TaskResponseConsumerTemplate received : "+subtask.getSubTaskName());
                     }
                     r.receiverOffset().acknowledge();
                 })
@@ -63,6 +68,9 @@ public class KafkaTaskConsumerAdapter implements ApplicationRunner {
         switch (subtask.getSubTaskName()) {
             case "ReceivedResult":
                 sendCommandPort.sendReceivedGameFinishedEvent(subtask);
+                break;
+            case "InitSubTask":
+                log.info("WarmUp Kafka Response Consumer Successfully.");
                 break;
             case "MatchUserHasCodeByMembershipId":
                 handleMatchUserHasCode(taskId, subtask);
@@ -102,7 +110,7 @@ public class KafkaTaskConsumerAdapter implements ApplicationRunner {
     }
 
     private SubTask createSubTaskMatchPlayerQuery(String membershipId, PlayerQuery playerQuery){
-        return createSubTask("MatchPlayerQuery", String.valueOf(membershipId), SubTask.TaskType.match, SubTask.TaskStatus.success, playerQuery);
+        return createSubTask("MatchPlayerQuery", String.valueOf(membershipId), SubTask.TaskType.player, SubTask.TaskStatus.success, playerQuery);
     }
 
 
@@ -131,7 +139,7 @@ public class KafkaTaskConsumerAdapter implements ApplicationRunner {
     private SubTask createSubTaskMatchPlayerEloByMembershipId(String membershipId, Long elo){
         return createSubTask("MatchPlayerEloByMembershipId",
                 String.valueOf(membershipId),
-                SubTask.TaskType.match,
+                SubTask.TaskType.player,
                 SubTask.TaskStatus.success,
                 elo);
     }
@@ -166,7 +174,7 @@ public class KafkaTaskConsumerAdapter implements ApplicationRunner {
     private SubTask createSubTaskMatchUserHasCodeByMembershipId(String membershipId, Boolean hasCode) {
         return createSubTask("MatchUserHasCodeByMembershipId",
                 String.valueOf(membershipId),
-                SubTask.TaskType.match,
+                SubTask.TaskType.player,
                 SubTask.TaskStatus.success,
                 hasCode);
     }
@@ -176,7 +184,16 @@ public class KafkaTaskConsumerAdapter implements ApplicationRunner {
                 .receive()
                 .doOnNext(record -> {
                     try {
-                        log.info("received: " + record.value());
+                        Task task = record.value();
+                        String taskName = task.getTaskName();
+
+                        if (!task.getSubTaskList().isEmpty() &&
+                                "InitSubTask".equals(task.getSubTaskList().get(0).getSubTaskName())) {
+                            log.info("WarmUp Kafka Request Consumer Successfully.");
+                        }
+                        else log.info("received: " + taskName);
+
+
                         taskConsumerService.handleTaskResponse(record.value());
                         record.receiverOffset().acknowledge();
                     } catch (Exception e) {
@@ -187,6 +204,18 @@ public class KafkaTaskConsumerAdapter implements ApplicationRunner {
                 .doOnError(e -> log.error("Error receiving: " + e))
                 .subscribe();
     }
+
+    private Mono<Void> sendWarmupMessage() {
+        String dummyTaskId = "init-kafka-consumer-" + System.currentTimeMillis();
+        List<SubTask> subTasks = List.of(createSubTask("InitSubTask", null, SubTask.TaskType.player, SubTask.TaskStatus.success, "warmup"));
+        Task warmupTask = createTask(dummyTaskId, "InitTask", "0", subTasks);
+
+        return Mono.when(
+                taskProducerPort.sendTask("task.player.response", warmupTask),
+                taskProducerPort.sendTask("task.player.request", warmupTask)
+        );
+    }
+
 
 }
 

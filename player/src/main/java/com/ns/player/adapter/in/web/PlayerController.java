@@ -6,9 +6,7 @@ import com.ns.common.task.SubTask;
 import com.ns.player.adapter.axon.command.GameFinishedCommand;
 import com.ns.player.adapter.axon.query.QueryPlayer;
 import com.ns.player.adapter.out.persistence.Player;
-import com.ns.player.application.port.in.FindPlayerUseCase;
-import com.ns.player.application.port.in.RegisterPlayerUseCase;
-import com.ns.player.application.port.in.UpdatePlayerUseCase;
+import com.ns.player.application.port.in.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.axonframework.commandhandling.gateway.CommandGateway;
@@ -19,7 +17,7 @@ import reactor.core.publisher.Mono;
 import java.util.List;
 
 import static com.ns.common.task.SubTask.TaskStatus.success;
-import static com.ns.common.task.SubTask.TaskType.result;
+import static com.ns.common.task.SubTask.TaskType.player;
 
 @Slf4j
 @RestController
@@ -60,7 +58,7 @@ public class PlayerController {
                 .build();
 
         SubTask subTask = SubTask.builder()
-                .taskType(result)
+                .taskType(player)
                 .status(success)
                 .data(command)
                 .build();
@@ -78,8 +76,18 @@ public class PlayerController {
         return findPlayerUseCase.findAll();
     }
 
-    @GetMapping("/player/{membershipId}")
+    @GetMapping("/id/{membershipId}")
     public Mono<QueryPlayer> findByMembershipId(@PathVariable String membershipId){
         return findPlayerUseCase.queryToPlayerByMembershipId(membershipId);
+    }
+
+    @GetMapping("/nickname/{nickname}")
+    public Mono<PlayerInfo> findByNickname(@PathVariable String nickname){
+        return findPlayerUseCase.queryToPlayerByNickname(nickname);
+    }
+
+    @GetMapping("/rank")
+    public Flux<RankPlayer> findRankerTopN(@RequestParam Integer limit){
+        return findPlayerUseCase.findTopRankedPlayers(limit);
     }
 }

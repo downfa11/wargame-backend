@@ -16,7 +16,7 @@ public class SubTask {
     private Object data;
 
     public enum TaskType{
-        membership, post, match, result
+        membership, post, match, result, player
     }
     private TaskType taskType;
 

@@ -154,7 +154,7 @@ public class RedisMatchAdapter implements RegisterMatchQueuePort, CancelMatchQue
     }
 
     private SubTask createSubTaskMatchCodeUpdate(Long memberId, String spaceId){
-        return createSubTask("MatchCodeUpdate", String.valueOf(memberId), SubTask.TaskType.membership, SubTask.TaskStatus.ready, spaceId);
+        return createSubTask("MatchCodeUpdate", String.valueOf(memberId), SubTask.TaskType.match, SubTask.TaskStatus.ready, spaceId);
     }
 
     @Override

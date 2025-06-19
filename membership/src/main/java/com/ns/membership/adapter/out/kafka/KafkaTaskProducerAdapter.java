@@ -60,7 +60,7 @@ public class KafkaTaskProducerAdapter implements TaskProducerPort {
     private SubTask createSubPostByMembershipId(Long membershipId) {
         return createSubTask("PostByMembershipId",
                 String.valueOf(membershipId),
-                SubTask.TaskType.post,
+                SubTask.TaskType.membership,
                 SubTask.TaskStatus.ready,
                 membershipId);
     }
