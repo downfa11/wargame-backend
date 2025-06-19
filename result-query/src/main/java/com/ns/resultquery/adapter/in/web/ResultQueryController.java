@@ -7,6 +7,8 @@ import com.ns.resultquery.adapter.axon.query.CountSumByChamp;
 import com.ns.resultquery.adapter.axon.query.CountSumByMembership;
 import com.ns.resultquery.application.port.in.FindStatisticsUseCase;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
@@ -20,22 +22,39 @@ public class ResultQueryController {
     private final FindStatisticsUseCase findStatisticsUseCase;
 
     @GetMapping(path = "/query/champ/{champName}")
-    public Map<String, String> getQueryToResultSumByChampName(@PathVariable String champName) {
+    public ResponseEntity<Map<String, String>> getQueryToResultSumByChampName(@PathVariable String champName) {
         try {
             CountSumByChamp resultSum = findStatisticsUseCase.findStatisticsByChampion(champName);
-            return getResultSumByChampName(resultSum);
+            return ResponseEntity.ok(getResultSumByChampName(resultSum));
         } catch (Exception e) {
-            return Collections.singletonMap("error", RETRIEVE_DATA_ERROR_MESSAGE + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Collections.singletonMap("error", RETRIEVE_DATA_ERROR_MESSAGE + e.getMessage()));
+        }
+    }
+
+    @GetMapping(path = "/query/champs")
+    public ResponseEntity<List<Map<String, String>>> getQueryToResultSum() {
+        try {
+            List<CountSumByChamp> resultSum = findStatisticsUseCase.findStatisticsByAllChampionInCurrentSeason();
+            List<Map<String, String>> body = resultSum.stream()
+                    .map(this::getResultSumByChampName)
+                    .collect(Collectors.toList());
+            return ResponseEntity.ok(body);
+        } catch (Exception e) {
+            Map<String, String> errorBody = Map.of("error", RETRIEVE_DATA_ERROR_MESSAGE + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(List.of(errorBody));
         }
     }
 
     @GetMapping(path = "/query/user/{userName}")
-    public Map<String, Object> getQueryToResultSumByUserName(@PathVariable String userName) {
+    public ResponseEntity<Map<String, Object>> getQueryToResultSumByUserName(@PathVariable String userName) {
         try {
             CountSumByMembership resultSum = findStatisticsUseCase.findStatisticsByUserName(userName);
-            return getResultSumByUserName(resultSum);
+            return ResponseEntity.ok(getResultSumByUserName(resultSum));
         } catch (Exception e) {
-            return Collections.singletonMap("error", RETRIEVE_DATA_ERROR_MESSAGE + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Collections.singletonMap("error", RETRIEVE_DATA_ERROR_MESSAGE + e.getMessage()));
         }
     }
 
@@ -81,4 +100,6 @@ public class ResultQueryController {
         double percent = entireCount > 0 ? (double) winCount / entireCount * 100 : 0.0;
         return String.format("%.1f", percent);
     }
+    
+    
 }
