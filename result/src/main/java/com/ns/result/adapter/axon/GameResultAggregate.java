@@ -1,9 +1,9 @@
-package com.ns.player.adapter.axon;
+package com.ns.result.adapter.axon;
 
 import static org.axonframework.modelling.command.AggregateLifecycle.apply;
 
 import com.ns.common.GameFinishedEvent;
-import com.ns.player.adapter.axon.command.GameFinishedCommand;
+import com.ns.result.adapter.axon.command.GameFinishedCommand;
 import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.axonframework.commandhandling.CommandHandler;
