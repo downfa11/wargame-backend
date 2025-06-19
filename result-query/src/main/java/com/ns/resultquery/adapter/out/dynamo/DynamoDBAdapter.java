@@ -1,6 +1,7 @@
 package com.ns.resultquery.adapter.out.dynamo;
 
 import com.ns.common.anotation.PersistanceAdapter;
+import com.ns.resultquery.adapter.axon.QueryResultSumByAllChamp;
 import com.ns.resultquery.adapter.axon.QueryResultSumByChampName;
 import com.ns.resultquery.adapter.axon.QueryResultSumByUserName;
 import com.ns.resultquery.adapter.axon.query.ChampStat;
@@ -15,7 +16,9 @@ import com.ns.resultquery.domain.dto.InsertResultCountDto;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import lombok.RequiredArgsConstructor;
@@ -29,19 +32,7 @@ import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
-import software.amazon.awssdk.services.dynamodb.model.AttributeAction;
-import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
-import software.amazon.awssdk.services.dynamodb.model.AttributeValueUpdate;
-import software.amazon.awssdk.services.dynamodb.model.ComparisonOperator;
-import software.amazon.awssdk.services.dynamodb.model.Condition;
-import software.amazon.awssdk.services.dynamodb.model.DynamoDbException;
-import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
-import software.amazon.awssdk.services.dynamodb.model.GetItemResponse;
-import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
-import software.amazon.awssdk.services.dynamodb.model.QueryRequest;
-import software.amazon.awssdk.services.dynamodb.model.QueryResponse;
-import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
-import software.amazon.awssdk.services.dynamodb.model.UpdateItemResponse;
+import software.amazon.awssdk.services.dynamodb.model.*;
 
 @Slf4j
 @PersistanceAdapter
@@ -49,7 +40,9 @@ import software.amazon.awssdk.services.dynamodb.model.UpdateItemResponse;
 public class DynamoDBAdapter implements InsertUserStatisticsPort, InsertChampStatisticsPort {
     private static final String CHAMP_TABLE_NAME = "wargame-champ-query";
     private static final String MEMBERSHIP_TABLE_NAME = "wargame-membership-query";
-    private static final String CURRENT_SEASON = "1";
+
+    @Value("${season.current:1}")
+    private String CURRENT_SEASON;
 
     private final DynamoDbClient dynamoDbClient;
     private final DynamoDBMapper dynamodbMapper;
@@ -59,7 +52,7 @@ public class DynamoDBAdapter implements InsertUserStatisticsPort, InsertChampSta
         String datetime = LocalDate.now().format(DateTimeFormatter.ofPattern("yyMMdd"));
 
         // raw event insert (Insert, put)
-        String pk = "#" + champIndex + "_" + champName + "_season" + CURRENT_SEASON + "_" + datetime;
+        String pk = "#" + champIndex + "_" + champName + "_" + datetime;
         String sk = "-1";
         putResult(pk, sk, resultCount, winCount, loseCount);
 
@@ -84,7 +77,7 @@ public class DynamoDBAdapter implements InsertUserStatisticsPort, InsertChampSta
         }
 
         // 챔프별 정보
-        String summaryPk2 = champName + "_season" + CURRENT_SEASON;
+        String summaryPk2 = champName;
         String summarySk2 = "-1";
         ResultSumByChampName resultSumByChampName2 = getResult(summaryPk2, summarySk2);
         if (resultSumByChampName2 == null) {
@@ -118,7 +111,7 @@ public class DynamoDBAdapter implements InsertUserStatisticsPort, InsertChampSta
             attrMap.put("loseCount", AttributeValue.builder().n(loseStr).build());
 
             PutItemRequest request = PutItemRequest.builder()
-                    .tableName(CHAMP_TABLE_NAME)
+                    .tableName(CHAMP_TABLE_NAME+"-"+CURRENT_SEASON)
                     .item(attrMap)
                     .build();
 
@@ -135,7 +128,7 @@ public class DynamoDBAdapter implements InsertUserStatisticsPort, InsertChampSta
             attrMap.put("SK", AttributeValue.builder().s(sk).build());
 
             GetItemRequest request = GetItemRequest.builder()
-                    .tableName(CHAMP_TABLE_NAME)
+                    .tableName(CHAMP_TABLE_NAME+"-"+CURRENT_SEASON)
                     .key(attrMap)
                     .build();
 
@@ -165,7 +158,7 @@ public class DynamoDBAdapter implements InsertUserStatisticsPort, InsertChampSta
 
 
             UpdateItemRequest updateItemRequest = UpdateItemRequest.builder()
-                    .tableName(CHAMP_TABLE_NAME)
+                    .tableName(CHAMP_TABLE_NAME+"-"+CURRENT_SEASON)
                     .key(attrMap)
                     .attributeUpdates(
                             new HashMap<String, AttributeValueUpdate>() {{
@@ -211,7 +204,7 @@ public class DynamoDBAdapter implements InsertUserStatisticsPort, InsertChampSta
                     .build());
 
             QueryRequest request = QueryRequest.builder()
-                    .tableName(CHAMP_TABLE_NAME)
+                    .tableName(CHAMP_TABLE_NAME+"-"+CURRENT_SEASON)
                     .keyConditions(attrMap)
                     .build();
 
@@ -239,8 +232,46 @@ public class DynamoDBAdapter implements InsertUserStatisticsPort, InsertChampSta
                 .build();
     }
 
+    @QueryHandler
+    public List<CountSumByChamp> queryToChampAll(QueryResultSumByAllChamp resultSum) {
+        List<CountSumByChamp> champStats = new ArrayList<>();
+
+        if(!resultSum.getCurrentSeason().equals(CURRENT_SEASON)){
+            log.error("현재 시즌이 아닙니다. 일관성 오류: {}", resultSum.getCurrentSeason());
+            throw new IllegalArgumentException("현재 시즌이 아닙니다. 일관성 오류");
+        }
+
+        try {
+            ScanRequest scanRequest = ScanRequest.builder()
+                    .tableName(CHAMP_TABLE_NAME + "-" + CURRENT_SEASON)
+                    .filterExpression("SK = :sk")
+                    .expressionAttributeValues(Map.of(":sk", AttributeValue.builder().s("-1").build()))
+                    .build();
+
+            ScanResponse response = dynamoDbClient.scan(scanRequest);
+
+            for (Map<String, AttributeValue> item : response.items()) {
+                String champName = item.get("PK").s();
+
+                ResultSumByChampName result = dynamodbMapper.mapToResultStatsByChampName(item);
+
+                champStats.add(CountSumByChamp.builder()
+                        .champName(champName)
+                        .champCount(result.getResultCount())
+                        .winCount(result.getWinCount())
+                        .loseCount(result.getLoseCount())
+                        .build());
+            }
+
+        } catch (DynamoDbException e) {
+            log.error("getAllChampStats Error: {}", e.getMessage());
+        }
+
+        return champStats;
+    }
+
     public ResultSumByChampName getResultSumByChampName(String champName) {
-        String pk = champName + "_season" + CURRENT_SEASON;
+        String pk = champName;
         String sk = "-1";
         return getResult(pk, sk);
     }
@@ -255,7 +286,7 @@ public class DynamoDBAdapter implements InsertUserStatisticsPort, InsertChampSta
         String datetime = LocalDate.now().format(DateTimeFormatter.ofPattern("yyMMdd"));
 
         // raw event insert (Insert, put)
-        String pk = "#" + membershipId + "_" + username + "_season" + CURRENT_SEASON + "_" + datetime;
+        String pk = "#" + membershipId + "_" + username + "_" + datetime;
         String sk = "-1";
         putMembershipResult(pk, sk, insertResultCountDto);
 
@@ -268,7 +299,7 @@ public class DynamoDBAdapter implements InsertUserStatisticsPort, InsertChampSta
         log.info("page2 :" + insertResultCountDto);
 
         // 챔프별 정보
-        String summaryPk2 = username + "_season" + CURRENT_SEASON;
+        String summaryPk2 = username;
         String summarySk2 = "-1";
         MembershipResultSumByUserName membershipResult2 = getMembershipResult(summaryPk2, summarySk2);
         updateResult(membershipResult2, summaryPk2, summarySk2, insertResultCountDto);
@@ -319,7 +350,7 @@ public class DynamoDBAdapter implements InsertUserStatisticsPort, InsertChampSta
     }
 
     public MembershipResultSumByUserName getMembershipResultSumByUserName(String champName) {
-        String pk = champName + "_season" + CURRENT_SEASON;
+        String pk = champName;
         String sk = "-1";
         return getMembershipResult(pk, sk);
     }
@@ -331,7 +362,7 @@ public class DynamoDBAdapter implements InsertUserStatisticsPort, InsertChampSta
             attrMap.put("SK", AttributeValue.builder().s(sk).build());
 
             GetItemRequest request = GetItemRequest.builder()
-                    .tableName(MEMBERSHIP_TABLE_NAME)
+                    .tableName(MEMBERSHIP_TABLE_NAME+"-"+CURRENT_SEASON)
                     .key(attrMap)
                     .build();
 
@@ -374,7 +405,7 @@ public class DynamoDBAdapter implements InsertUserStatisticsPort, InsertChampSta
 
 
             PutItemRequest request = PutItemRequest.builder()
-                    .tableName(MEMBERSHIP_TABLE_NAME)
+                    .tableName(MEMBERSHIP_TABLE_NAME+"-"+CURRENT_SEASON)
                     .item(attrMap)
                     .build();
 
@@ -402,7 +433,7 @@ public class DynamoDBAdapter implements InsertUserStatisticsPort, InsertChampSta
             champStatMap.put("champLose", AttributeValue.builder().n(String.valueOf(champLose)).build());
 
             UpdateItemRequest updateItemRequest = UpdateItemRequest.builder()
-                    .tableName(MEMBERSHIP_TABLE_NAME)
+                    .tableName(MEMBERSHIP_TABLE_NAME+"-"+CURRENT_SEASON)
                     .key(attrMap)
                     .attributeUpdates(
                             new HashMap<String, AttributeValueUpdate>() {{
