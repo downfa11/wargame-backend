@@ -6,8 +6,12 @@ import com.ns.player.application.port.out.RegisterPlayerPort;
 import com.ns.player.application.port.out.UpdatePlayerPort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+
+import java.time.LocalDateTime;
 
 @Slf4j
 @PersistanceAdapter
@@ -33,6 +37,12 @@ public class PlayerPersistenceAdapter implements RegisterPlayerPort, UpdatePlaye
                 .flatMap(u -> {
                     u.setElo(newElo);
                     u.setCode(""); // if game is ended, Player's code blank.
+                    u.setLastGameTime(LocalDateTime.now());
+
+                    if (u.getTier() != Tier.RANKER) {
+                        u.setTier(Tier.fromElo(newElo));
+                    }
+
                     return playerRepository.save(u);
                 });
     }
@@ -49,6 +59,13 @@ public class PlayerPersistenceAdapter implements RegisterPlayerPort, UpdatePlaye
 
     @Override
     public Mono<Player> findByMembershipId(String membershipId) { return playerRepository.findByMembershipId(membershipId); }
+
+    @Override
+    public Flux<Player> findTopRankedPlayers(int limit) {
+        Pageable pageable = PageRequest.of(0, limit);
+        return playerRepository.findTopPlayersByElo(pageable);
+    }
+
     @Override
     public Flux<Player> findAll() { return playerRepository.findAll(); }
 

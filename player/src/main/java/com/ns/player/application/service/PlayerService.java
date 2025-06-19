@@ -5,9 +5,8 @@ import com.ns.common.anotation.UseCase;
 import com.ns.player.adapter.axon.command.UpdateEloCommand;
 import com.ns.player.adapter.axon.query.QueryPlayer;
 import com.ns.player.adapter.out.persistence.Player;
-import com.ns.player.application.port.in.FindPlayerUseCase;
-import com.ns.player.application.port.in.RegisterPlayerUseCase;
-import com.ns.player.application.port.in.UpdatePlayerUseCase;
+import com.ns.player.adapter.out.persistence.Tier;
+import com.ns.player.application.port.in.*;
 import com.ns.player.application.port.out.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -62,4 +61,26 @@ public class PlayerService implements RegisterPlayerUseCase, UpdatePlayerUseCase
     public Mono<QueryPlayer> queryToPlayerByMembershipId(String membershipId) {
         return sendQueryPort.sendPlayerQuery(membershipId);
     }
+
+    @Override
+    public Mono<PlayerInfo> queryToPlayerByNickname(String nickname) {
+        return sendQueryPort.sendPlayerInfo(nickname);
+    }
+
+    @Override
+    public Flux<RankPlayer> findTopRankedPlayers(int limit) {
+        return findPlayerPort.findTopRankedPlayers(limit)
+                .index() // (index, player)
+                .map(tuple -> {
+                    long index = tuple.getT1();
+                    Player player = tuple.getT2();
+                    return RankPlayer.builder()
+                            .rank(index + 1)
+                            .nickname(player.getNickname())
+                            .tier(player.getTier().getName())
+                            .elo(player.getElo())
+                            .build();
+                });
+    }
+
 }
