@@ -6,15 +6,7 @@ import com.ns.common.anotation.PersistanceAdapter;
 import com.ns.common.task.SubTask;
 import com.ns.common.task.Task;
 import com.ns.match.application.port.out.task.TaskConsumerPort;
-import java.time.Duration;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-
 import com.ns.match.application.port.out.task.TaskProducerPort;
-import com.ns.match.dto.MatchResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.ApplicationArguments;
@@ -24,8 +16,10 @@ import org.springframework.kafka.core.reactive.ReactiveKafkaProducerTemplate;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import static com.ns.common.task.TaskUseCase.createSubTask;
-import static com.ns.common.task.TaskUseCase.createTask;
+import java.time.Duration;
+import java.util.Objects;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
 @PersistanceAdapter
@@ -42,20 +36,6 @@ public class KafkaTaskAdapter implements ApplicationRunner, TaskConsumerPort, Ta
 
     @Override
     public void run(ApplicationArguments args) {
-        sendTask("task.match.request",
-                Task.builder()
-                        .taskID(UUID.randomUUID().toString())
-                        .taskName("create application")
-                        .build())
-                .subscribe();
-        
-        sendTask("task.match.response",
-                Task.builder()
-                        .taskID(UUID.randomUUID().toString())
-                        .taskName("create application")
-                        .build())
-                .subscribe();
-
         this.taskRequestConsumerTemplate
                 .receive()
                 .doOnNext(record -> {
@@ -101,7 +81,7 @@ public class KafkaTaskAdapter implements ApplicationRunner, TaskConsumerPort, Ta
                 .map(this::handlePlayerQuery)
                 .filter(Objects::nonNull)
                 .next()
-                .timeout(Duration.ofSeconds(3))
+                .timeout(Duration.ofSeconds(1))
                 .switchIfEmpty(Mono.error(new RuntimeException("Timeout waitForUserResponseTaskResult for taskId " + taskId)));
     }
 

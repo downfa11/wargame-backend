@@ -32,7 +32,7 @@ public class TaskConsumerService implements TaskConsumerPort {
                     return String.valueOf(subTask.getData());
                 })
                 .next()
-                .timeout(Duration.ofSeconds(3))
+                .timeout(Duration.ofSeconds(1))
                 .switchIfEmpty(Mono.error(new RuntimeException("Timeout waitForGetUserNameTaskFeed for taskId: " + taskId)));
     }
 
@@ -47,7 +47,7 @@ public class TaskConsumerService implements TaskConsumerPort {
                     return String.valueOf(subTask.getData());
                 })
                 .next()
-                .timeout(Duration.ofSeconds(3))
+                .timeout(Duration.ofSeconds(1))
                 .switchIfEmpty(Mono.error(new RuntimeException("Timeout waitForUserPostsTaskComment for taskId " + taskId)));
     }
 

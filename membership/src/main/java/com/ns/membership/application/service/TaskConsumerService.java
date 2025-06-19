@@ -38,7 +38,7 @@ public class TaskConsumerService implements TaskConsumerPort {
                 .take(1)
                 .map(this::convertToPostSummaries)
                 .next()
-                .timeout(Duration.ofSeconds(3))
+                .timeout(Duration.ofSeconds(1))
                 .switchIfEmpty(Mono.error(new RuntimeException("Timeout waitForUserPostsTaskResult for taskId " + taskId)));
     }
 
