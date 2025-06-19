@@ -10,6 +10,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 
+import java.util.List;
+
 @Slf4j
 @PersistanceAdapter
 @RequiredArgsConstructor
@@ -27,6 +29,16 @@ public class RedisAdapter implements PushRedisPort, FindRedisPort {
     }
 
     @Override
+    public List<CountSumByChamp> pushStatisticsByAllChampionInCurrentSeason(String key, List<CountSumByChamp> countSumByChamps) {
+        for (CountSumByChamp champ : countSumByChamps) {
+            String champKey = champ.getChampName();
+            champRedisTemplate.opsForHash().put(key, champKey, champ);
+        }
+        log.info("Pushed {} champs into Redis Hash key {}", countSumByChamps.size(), key);
+        return countSumByChamps;
+    }
+
+    @Override
     public CountSumByMembership pushCountSumByMembership(String key, CountSumByMembership countSumByMembership) {
         ValueOperations<String, CountSumByMembership> valueOps = membershipRedisTemplate.opsForValue();
         valueOps.set(key, countSumByMembership);
@@ -40,6 +52,15 @@ public class RedisAdapter implements PushRedisPort, FindRedisPort {
         CountSumByChamp result = valueOps.get(key);
         log.info("Found CountSumByChamp in Redis for key: {}", key);
         return result;
+    }
+
+    @Override
+    public List<CountSumByChamp> findStatisticsByAllChampionInCurrentSeason(String key) {
+        List<Object> values = champRedisTemplate.opsForHash().values(key);
+        return values.stream()
+                .filter(CountSumByChamp.class::isInstance)
+                .map(CountSumByChamp.class::cast)
+                .toList();
     }
 
     @Override
