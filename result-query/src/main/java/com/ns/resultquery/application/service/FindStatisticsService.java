@@ -9,6 +9,8 @@ import com.ns.resultquery.application.port.out.cache.FindRedisPort;
 import com.ns.resultquery.application.port.out.cache.PushRedisPort;
 import lombok.RequiredArgsConstructor;
 
+import java.util.List;
+
 @UseCase
 @RequiredArgsConstructor
 public class FindStatisticsService implements FindStatisticsUseCase {
@@ -27,6 +29,20 @@ public class FindStatisticsService implements FindStatisticsUseCase {
 
         CountSumByChamp result = findStatisticsPort.queryToResultSumByChampName(champName);
         pushRedisPort.pushCountSumByChamp(key, result);
+        return result;
+    }
+
+    @Override
+    public List<CountSumByChamp> findStatisticsByAllChampionInCurrentSeason() {
+        String key = "statistics:champs:season:current";
+
+        List<CountSumByChamp> cached = findRedisPort.findStatisticsByAllChampionInCurrentSeason(key);
+        if (cached != null) {
+            return cached;
+        }
+
+        List<CountSumByChamp> result = findStatisticsPort.findStatisticsByAllChampionInCurrentSeason();
+        pushRedisPort.pushStatisticsByAllChampionInCurrentSeason(key, result);
         return result;
     }
 
