@@ -8,5 +8,7 @@ import reactor.core.publisher.Mono;
 
 public interface FindPlayerUseCase {
     Mono<QueryPlayer> queryToPlayerByMembershipId(String membershipId);
+    Mono<PlayerInfo> queryToPlayerByNickname(String nickname);
+    Flux<RankPlayer> findTopRankedPlayers(int limit);
     Flux<Player> findAll();
 }

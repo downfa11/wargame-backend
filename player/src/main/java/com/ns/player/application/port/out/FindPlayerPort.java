@@ -7,5 +7,6 @@ import reactor.core.publisher.Mono;
 
 public interface FindPlayerPort {
     Mono<Player> findByMembershipId(String membershipId);
+    Flux<Player> findTopRankedPlayers(int limit);
     Flux<Player> findAll();
 }

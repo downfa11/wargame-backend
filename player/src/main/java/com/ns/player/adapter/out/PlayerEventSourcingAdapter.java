@@ -7,8 +7,10 @@ import com.ns.common.task.SubTask;
 import com.ns.common.CreatePlayerCommand;
 import com.ns.player.adapter.axon.command.GameFinishedCommand;
 import com.ns.player.adapter.axon.command.UpdateEloCommand;
+import com.ns.player.adapter.axon.query.FindPlayerAggregateInfo;
 import com.ns.player.adapter.axon.query.FindPlayerAggregateQuery;
 import com.ns.player.adapter.axon.query.QueryPlayer;
+import com.ns.player.application.port.in.PlayerInfo;
 import com.ns.player.application.port.out.SendCommandPort;
 import com.ns.player.application.port.out.SendQueryPort;
 import lombok.RequiredArgsConstructor;
@@ -51,5 +53,10 @@ public class PlayerEventSourcingAdapter implements SendCommandPort, SendQueryPor
     @Override
     public Mono<QueryPlayer> sendPlayerQuery(String membershipId) {
         return Mono.fromFuture(() -> queryGateway.query(new FindPlayerAggregateQuery(membershipId), QueryPlayer.class));
+    }
+
+    @Override
+    public Mono<PlayerInfo> sendPlayerInfo(String nickname) {
+        return Mono.fromFuture(() -> queryGateway.query(new FindPlayerAggregateInfo(nickname), PlayerInfo.class));
     }
 }
