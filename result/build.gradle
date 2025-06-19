@@ -8,6 +8,10 @@ plugins {
 group = 'com.ns.result'
 version = '0.0.1'
 
+ext{
+    axonVersion = "4.10.1"
+}
+
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(21)
@@ -51,6 +55,13 @@ dependencies {
 
     //thymeleaf
     implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
+
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+
+    //Axon Framework
+    implementation group: 'org.axonframework', name: 'axon-configuration', version: "$axonVersion"
+    implementation group: 'org.axonframework', name: 'axon-spring-boot-starter', version: "$axonVersion"
+
 }
 
 tasks.named('bootBuildImage') {

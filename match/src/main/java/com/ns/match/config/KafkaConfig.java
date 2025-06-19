@@ -32,8 +32,14 @@ public class KafkaConfig {
     @Value("${task.request.consumer.group}")
     String requestConsumerGroup;
 
+    @Value("${task.response.consumer.group}")
+    String responseConsumerGroup;
+
     @Value("${task.request.topic}")
     String taskRequestTopic;
+
+    @Value("${task.response.topic}")
+    String taskResponseTopic;
 
 
     @Bean
@@ -68,4 +74,6 @@ public class KafkaConfig {
 
         return new ReactiveKafkaConsumerTemplate<>(receiverOptions);
     }
+
+
 }

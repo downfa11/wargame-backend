@@ -22,6 +22,10 @@ public class ClientRequest {
     private int death;
     private int assist;
     private int gold;
+
+    private int damage;
+    private int cs;
+
     private int level;
     private int maxhp;
     private int maxmana;
