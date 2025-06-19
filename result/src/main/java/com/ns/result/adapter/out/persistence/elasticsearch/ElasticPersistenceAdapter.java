@@ -82,6 +82,6 @@ public class ElasticPersistenceAdapter implements RegisterResultPort, DeleteResu
                                     }
                                     return Flux.empty();
                                 })
-                );
+                ).onErrorResume(e -> Flux.empty());
     }
 }
