@@ -1,13 +1,14 @@
-package com.ns.player.adapter.axon.command;
+package com.ns.result.adapter.axon.command;
 
 import com.ns.common.ClientRequest;
 import com.ns.common.utils.SelfValidating;
-import java.util.List;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.axonframework.modelling.command.TargetAggregateIdentifier;
+
+import java.util.List;
 
 @Getter
 @Builder  // todo. test를 위해 잠시 열어둠, Player 서비스와 Result 서비스간 GameFinishedCommand가 동일해야함
