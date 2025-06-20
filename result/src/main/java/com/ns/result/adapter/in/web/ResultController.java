@@ -24,6 +24,26 @@ public class ResultController {
     private final RegisterResultUseCase registerResultUseCase;
     private final FindResultUseCase findResultUseCase;
 
+    @GetMapping("/list")
+    public Flux<Result> getResultList(){ return findResultUseCase.getResultList(); }
+
+    @GetMapping("/search/name/{name}")
+    public Flux<MatchDto> getGameResultsByName(@PathVariable String name, @RequestParam int offset) {
+        return findResultUseCase.getGameResultsByName(name, offset)
+                .map(MatchDto::from);
+    }
+
+    @GetMapping("/search/id/{membershipId}")
+    public Flux<MatchDto> getGameResultsByMembershipId(@PathVariable Long membershipId,  @RequestParam int offset) {
+        return findResultUseCase.getGameResultsByMembershipId(membershipId, offset)
+                .map(MatchDto::from);
+    }
+
+    @PostMapping("/temp")
+    public Mono<MatchDto> createResultTemp(){
+        return registerResultUseCase.createResultTemp().map(MatchDto::from);
+    }
+
     @PostMapping("/test/event")
     public Mono<GameFinishedEvent> publishTestEvent() {
         List<ClientRequest> blueTeam = List.of(
@@ -93,24 +113,5 @@ public class ResultController {
         // Mono.fromRunnable(() -> eventGateway.publish(event)).thenReturn()
         return Mono.just(event);
     }
-
-    @GetMapping("/list")
-    public Flux<Result> getResultList(){ return findResultUseCase.getResultList(); }
-
-    @GetMapping("/search/name/{name}")
-    public Flux<Result> getGameResultsByName(@PathVariable String name, @RequestParam int offset) {
-        return findResultUseCase.getGameResultsByName(name, offset);
-    }
-
-    @GetMapping("/search/id/{membershipId}")
-    public Flux<Result> getGameResultsByMembershipId(@PathVariable Long membershipId,  @RequestParam int offset) {
-        return findResultUseCase.getGameResultsByMembershipId(membershipId, offset);
-    }
-
-    @PostMapping("/temp")
-    public Mono<Result> createResultTemp(){
-        return registerResultUseCase.createResultTemp();
-    }
-
 }
 

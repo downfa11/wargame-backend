@@ -14,7 +14,9 @@ public class ResultMapper {
                 .winTeam(saveResult.getWinTeam())
                 .loseTeam(saveResult.getLoseTeam())
                 .dateTime(saveResult.getDateTime())
-                .gameDuration(saveResult.getGameDuration()).build();
+                .gameDuration(saveResult.getGameDuration())
+                .timelineData(saveResult.getTimelineData())
+                .build();
     }
 
     public static Result mapToResultDocument(GameFinishedEvent event) {
@@ -29,6 +31,7 @@ public class ResultMapper {
                 .redTeams(event.getRedTeams())
                 .dateTime(event.getDateTime())
                 .gameDuration(event.getGameDuration())
+                .timelineData(event.getTimelineData())
                 .build();
     }
 }

@@ -2,10 +2,10 @@ package com.ns.result.adapter.out.persistence.elasticsearch;
 
 import com.ns.common.ClientRequest;
 import java.util.List;
-import lombok.AllArgsConstructor;
+
+import com.ns.common.TimelineData;
 import lombok.Builder;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
@@ -31,4 +31,7 @@ public class Result {
 
     private String dateTime;
     private int gameDuration;
+
+    @Field(type = FieldType.Nested, includeInParent = true)
+    private List<TimelineData> timelineData;
 }
