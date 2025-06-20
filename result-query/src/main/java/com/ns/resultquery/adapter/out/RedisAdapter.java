@@ -10,6 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 
+import java.time.Duration;
 import java.util.List;
 
 @Slf4j
@@ -23,7 +24,7 @@ public class RedisAdapter implements PushRedisPort, FindRedisPort {
     @Override
     public CountSumByChamp pushCountSumByChamp(String key, CountSumByChamp countSumByChamp) {
         ValueOperations<String, CountSumByChamp> valueOps = champRedisTemplate.opsForValue();
-        valueOps.set(key, countSumByChamp);
+        valueOps.set(key, countSumByChamp, Duration.ofDays(1));
         log.info("Pushed CountSumByChamp to Redis with key: {}", key);
         return countSumByChamp;
     }
@@ -34,6 +35,7 @@ public class RedisAdapter implements PushRedisPort, FindRedisPort {
             String champKey = champ.getChampName();
             champRedisTemplate.opsForHash().put(key, champKey, champ);
         }
+        champRedisTemplate.expire(key, Duration.ofDays(1));
         log.info("Pushed {} champs into Redis Hash key {}", countSumByChamps.size(), key);
         return countSumByChamps;
     }
@@ -41,7 +43,7 @@ public class RedisAdapter implements PushRedisPort, FindRedisPort {
     @Override
     public CountSumByMembership pushCountSumByMembership(String key, CountSumByMembership countSumByMembership) {
         ValueOperations<String, CountSumByMembership> valueOps = membershipRedisTemplate.opsForValue();
-        valueOps.set(key, countSumByMembership);
+        valueOps.set(key, countSumByMembership, Duration.ofHours(1));
         log.info("Pushed CountSumByMembership to Redis with key: {}", key);
         return countSumByMembership;
     }

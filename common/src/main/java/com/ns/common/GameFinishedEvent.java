@@ -24,4 +24,6 @@ public class GameFinishedEvent {
 
     private String dateTime;
     private int gameDuration;
+
+    private List<TimelineData> timelineData;
 }
