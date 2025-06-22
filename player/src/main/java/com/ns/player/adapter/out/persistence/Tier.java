@@ -23,7 +23,6 @@ public enum Tier {
         if (elo <= 1200) return SILVER;
         if (elo <= 1600) return GOLD;
         if (elo <= 2000) return PLATINUM;
-        if (elo <= 2400) return DIAMOND;
-        return UNRANKED;
+        return DIAMOND;
     }
 }
