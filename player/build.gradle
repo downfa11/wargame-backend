@@ -49,6 +49,10 @@ dependencies {
     //r2dbc
     implementation 'org.springframework.boot:spring-boot-starter-data-r2dbc'
     implementation 'io.asyncer:r2dbc-mysql:1.0.2'
+
+    //Redisson
+    implementation 'org.redisson:redisson-spring-boot-starter:3.23.2'
+
 }
 
 tasks.named('bootBuildImage') {

@@ -48,6 +48,15 @@ public class PlayerPersistenceAdapter implements RegisterPlayerPort, UpdatePlaye
     }
 
     @Override
+    public Mono<Player> updateRankerTier(String membershipId, Tier tier) {
+        return playerRepository.findByMembershipId(membershipId)
+                .flatMap(u -> {
+                    u.setTier(tier);
+                    return playerRepository.save(u);
+                });
+    }
+
+    @Override
     public Mono<Player> updatePlayerCode(String membershipId, String newCode) {
         return playerRepository.findByMembershipId(membershipId)
                 .flatMap(u -> {
