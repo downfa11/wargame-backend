@@ -41,6 +41,20 @@ public class KafkaConfig {
     @Value("${task.response.topic}")
     String taskResponseTopic;
 
+    @Value("${spring.kafka.properties.sasl.mechanism}")
+    String saslMechanism;
+
+    @Value("${spring.kafka.properties.sasl.jaas.config}")
+    String saslJaasConfig;
+
+    @Value("${spring.kafka.properties.security.protocol}")
+    String securityProtocol;
+
+    @Value("${spring.kafka.properties.session.timeout.ms}")
+    String sessionTimeoutMs;
+
+    @Value("${spring.kafka.client.id}")
+    String clientId;
 
     @Bean
     public ReactiveKafkaProducerTemplate<String, Task> TaskProducerTemplate() {
@@ -54,6 +68,11 @@ public class KafkaConfig {
         producerProps.put(ProducerConfig.RETRIES_CONFIG, 3); // default = 0
         producerProps.put(ProducerConfig.RETRY_BACKOFF_MS_CONFIG, 100); // retry interval
 
+        producerProps.put("security.protocol", securityProtocol);
+        producerProps.put("sasl.mechanism", saslMechanism);
+        producerProps.put("sasl.jaas.config", saslJaasConfig);
+        producerProps.put("client.id", clientId+ "-producer");
+
         return new ReactiveKafkaProducerTemplate<>(SenderOptions.create(producerProps));
     }
 
@@ -65,9 +84,15 @@ public class KafkaConfig {
         consumerProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
         consumerProps.put(JsonDeserializer.TRUSTED_PACKAGES, "*");
         consumerProps.put(JsonDeserializer.VALUE_DEFAULT_TYPE, Task.class.getName());
-        consumerProps.put(ConsumerConfig.GROUP_ID_CONFIG, requestConsumerGroup);
         consumerProps.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest");
         consumerProps.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
+        consumerProps.put(ConsumerConfig.GROUP_ID_CONFIG, requestConsumerGroup);
+
+        consumerProps.put("security.protocol", securityProtocol);
+        consumerProps.put("sasl.mechanism", saslMechanism);
+        consumerProps.put("sasl.jaas.config", saslJaasConfig);
+        consumerProps.put("session.timeout.ms", sessionTimeoutMs);
+        consumerProps.put("client.id", clientId+ "-request-consumer");
 
         ReceiverOptions<String, Task> receiverOptions = ReceiverOptions.<String, Task>create(consumerProps)
                 .subscription(Collections.singleton(taskRequestTopic));
