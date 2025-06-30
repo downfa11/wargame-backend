@@ -3,6 +3,7 @@ package com.ns.result.adapter.out.persistence.elasticsearch;
 import static com.ns.result.adapter.out.persistence.elasticsearch.ResultMapper.mapToResultDocument;
 
 import com.ns.common.ClientRequest;
+import com.ns.common.CreateResultEvent;
 import com.ns.common.GameFinishedEvent;
 import com.ns.common.anotation.PersistanceAdapter;
 import com.ns.result.application.port.out.cache.FindRedisPort;
@@ -29,11 +30,11 @@ public class ElasticPersistenceAdapter implements RegisterResultPort, DeleteResu
     private final FindRedisPort findRedisPort;
 
     @Override
-    public Mono<Result> saveResult(GameFinishedEvent gameFinishedEvent) {
-        return Flux.fromIterable(gameFinishedEvent.getBlueTeams())
-                .concatWith(Flux.fromIterable(gameFinishedEvent.getRedTeams()))
+    public Mono<Result> saveResult(CreateResultEvent createResultEvent) {
+        return Flux.fromIterable(createResultEvent.getBlueTeams())
+                .concatWith(Flux.fromIterable(createResultEvent.getRedTeams()))
                 .flatMap(clientRequest -> savePlayer(clientRequest))
-                .then(resultRepository.save(mapToResultDocument(gameFinishedEvent)));
+                .then(resultRepository.save(mapToResultDocument(createResultEvent)));
     }
 
     private Mono<Void> savePlayer(ClientRequest clientRequest) {

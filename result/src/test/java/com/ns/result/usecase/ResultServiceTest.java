@@ -1,15 +1,6 @@
 package com.ns.result.usecase;
 
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.anyInt;
-import static org.mockito.Mockito.anyLong;
-import static org.mockito.Mockito.anyString;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
 import com.ns.common.ClientRequest;
 import com.ns.common.GameFinishedEvent;
 import com.ns.result.adapter.out.persistence.elasticsearch.Result;
@@ -18,7 +9,6 @@ import com.ns.result.application.port.out.cache.PushRedisPort;
 import com.ns.result.application.port.out.search.FindResultPort;
 import com.ns.result.application.port.out.search.RegisterResultPort;
 import com.ns.result.application.service.ResultService;
-import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -28,6 +18,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
+
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class ResultServiceTest {

@@ -1,25 +1,13 @@
 package com.ns.result.adapter.out.persistence.elasticsearch;
 
+import com.ns.common.CreateResultEvent;
 import com.ns.common.GameFinishedEvent;
 import org.springframework.stereotype.Component;
 
 @Component
 public class ResultMapper {
-    public static GameFinishedEvent mapToResultReqeustEvent(Result saveResult){
-        return new GameFinishedEvent()
-                .builder()
-                .spaceId(saveResult.getSpaceId())
-                .blueTeams(saveResult.getBlueTeams())
-                .redTeams(saveResult.getRedTeams())
-                .winTeam(saveResult.getWinTeam())
-                .loseTeam(saveResult.getLoseTeam())
-                .dateTime(saveResult.getDateTime())
-                .gameDuration(saveResult.getGameDuration())
-                .timelineData(saveResult.getTimelineData())
-                .build();
-    }
 
-    public static Result mapToResultDocument(GameFinishedEvent event) {
+    public static Result mapToResultDocument(CreateResultEvent event) {
         return Result.builder()
                 .spaceId(event.getSpaceId())
                 .state("success")

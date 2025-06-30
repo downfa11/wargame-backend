@@ -2,6 +2,7 @@ package com.ns.result.application.service;
 
 
 import com.ns.common.ClientRequest;
+import com.ns.common.CreateResultEvent;
 import com.ns.common.GameFinishedEvent;
 import com.ns.common.anotation.UseCase;
 import com.ns.common.task.SubTask;
@@ -61,8 +62,8 @@ public class ResultService implements RegisterResultUseCase, FindResultUseCase {
 
 
     @Override
-    public Mono<Result> saveResult(GameFinishedEvent gameFinishedEvent) {
-        return registerResultPort.saveResult(gameFinishedEvent);
+    public Mono<Result> saveResult(CreateResultEvent createResultEvent) {
+        return registerResultPort.saveResult(createResultEvent);
     }
 
     public Mono<Boolean> deleteResult(String spaceId){
@@ -83,21 +84,22 @@ public class ResultService implements RegisterResultUseCase, FindResultUseCase {
         String winningTeam = random.nextBoolean() ? "Blue" : "Red";
         String losingTeam = winningTeam.equals("Blue") ? "Red" : "Blue";
 
-        GameFinishedEvent dummyResult = GameFinishedEvent.builder()
-                .spaceId("dummy-space-id")
-                .state("success")
-                .channel(random.nextInt(10))
-                .room(random.nextInt(10))
-                .winTeam(winningTeam)
-                .loseTeam(losingTeam)
-                .blueTeams(List.of(bluePlayer1, bluePlayer2))
-                .redTeams(List.of(redPlayer1, redPlayer2))
-                .dateTime(String.valueOf(LocalDateTime.now()))
-                .gameDuration(random.nextInt(7200))
-                .build();
+        CreateResultEvent dummyResult = new CreateResultEvent(
+                "dummy-space-id",
+                winningTeam,
+                losingTeam,
+                List.of(bluePlayer1, bluePlayer2),
+                List.of(redPlayer1, redPlayer2),
+                String.valueOf(LocalDateTime.now()),
+                random.nextInt(7200),
+                random.nextInt(10),
+                random.nextInt(10),
+                List.of()
+        );
 
         return saveResult(dummyResult);
     }
+
 
     private ClientRequest createRandomClientRequest(Long membershipId, Long champIndex, String team, String userName) {
         Random random = new Random();

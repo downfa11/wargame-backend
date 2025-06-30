@@ -1,6 +1,7 @@
 package com.ns.result.adapter;
 
 import com.ns.common.ClientRequest;
+import com.ns.common.CreateResultEvent;
 import com.ns.common.GameFinishedEvent;
 import com.ns.result.adapter.out.persistence.elasticsearch.*;
 
@@ -20,6 +21,8 @@ import reactor.test.StepVerifier;
 
 import static org.mockito.Mockito.*;
 import static org.mockito.Mockito.when;
+import static org.springframework.data.redis.connection.RedisGeoCommands.GeoCommandArgs.GeoCommandFlag.any;
+import static reactor.core.publisher.Mono.when;
 
 @ExtendWith(MockitoExtension.class)
 public class ElasticPersistenceAdapterTest {
@@ -28,7 +31,8 @@ public class ElasticPersistenceAdapterTest {
     @Mock private PlayerRepository playerRepository;
     @InjectMocks private ElasticPersistenceAdapter elasticPersistenceAdapter;
 
-    private GameFinishedEvent gameFinishedEvent;
+    private CreateResultEvent createResultEvent;
+
     private Result result;
 
     @BeforeEach
@@ -62,18 +66,8 @@ public class ElasticPersistenceAdapterTest {
                 .gameDuration(300)
                 .build();
 
-        gameFinishedEvent = GameFinishedEvent.builder()
-                .spaceId("dummy-space-id")
-                .state("success")
-                .channel(1)
-                .room(1)
-                .winTeam("Blue")
-                .loseTeam("Red")
-                .blueTeams(List.of(bluePlayer1))
-                .redTeams(List.of(redPlayer1))
-                .dateTime("2025-02-25T12:00:00")
-                .gameDuration(300)
-                .build();
+        createResultEvent = new CreateResultEvent("dummy-space-id", "Blue", "Red",
+                List.of(bluePlayer1), List.of(redPlayer1), "2025-02-25T12:00:00", 300, 1, 1, List.of());
     }
 
     @Test
@@ -83,7 +77,7 @@ public class ElasticPersistenceAdapterTest {
         when(playerRepository.save(any(Player.class))).thenReturn(Mono.empty());
 
         // when
-        Mono<Result> savedResult = elasticPersistenceAdapter.saveResult(gameFinishedEvent);
+        Mono<Result> savedResult = elasticPersistenceAdapter.saveResult(createResultEvent);
 
         // then
         StepVerifier.create(savedResult)
