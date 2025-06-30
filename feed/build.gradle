@@ -56,7 +56,7 @@ bootJar {
 
 docker {
     println(tasks.bootJar.outputs.files)
-    name project.name
+    name "downfa11/"+project.name
     dockerfile file('../Dockerfile')
     files tasks.bootJar.outputs.files
     buildArgs(['JAR_FILE':tasks.bootJar.outputs.files.singleFile.name])
