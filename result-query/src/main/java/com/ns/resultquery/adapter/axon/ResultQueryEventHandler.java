@@ -21,7 +21,7 @@ import java.util.List;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class GameResultEventHandler {
+public class ResultQueryEventHandler {
     private final InsertUserStatisticsUseCase insertUserStatisticsUseCase;
     private final InsertChampStatisticsUseCase insertChampStatisticsUseCase;
     private final EventGateway eventGateway; // todo. hexagonal migration
