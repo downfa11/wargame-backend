@@ -1,46 +1,10 @@
 services:
 
-  kafka:
-    image: bitnami/kafka:3.7.0
-    container_name: kafka
-    ports:
-      - '9092:9092'
-      - '9093:9093'
-      - '9094:9094'
-    environment:
-      - KAFKA_CFG_BROKER_ID=0
-      - KAFKA_CFG_NODE_ID=0
-      - KAFKA_KRAFT_CLUSTER_ID=kraft-cluster
-      - KAFKA_CFG_PROCESS_ROLES=controller,broker
-      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@kafka:9093
-      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
-      - KAFKA_CFG_LISTENERS=PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093,EXTERNAL://0.0.0.0:9094
-      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092,EXTERNAL://localhost:9094
-      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT
-      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=PLAINTEXT
-      - ALLOW_PLAINTEXT_LISTENER=yes
-      - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=true
-    networks:
-      - wargame_network
-
-
-
-  kafka-ui:
-    image: provectuslabs/kafka-ui
-    container_name: kafka-ui
-    ports:
-      - '8989:8080'
-    environment:
-      - KAFKA_CLUSTERS_0_NAME=kakfa-local
-      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:9092 # kafka-0:9092,kafka-1:9092,kafka-2:9092
-      - DYNAMIC_CONFIG_ENABLED=true
-    networks:
-      - wargame_network
-
   mysql:
     image: mysql:8.0
+    container_name: mysql
     networks:
-      - wargame_network
+      - application_network
     volumes:
       - ./data/mysql/data:/var/lib/mysql
       - ./data/mysql/initdb.d:/docker-entrypoint-initdb.d
@@ -60,77 +24,196 @@ services:
         "--sql-mode=",
         "--max_connections=200"
       ]
+    cpus: "0.5"
 
   redis:
     image: redis:6.2
+    container_name: redis
     networks:
-      - wargame_network
+      - application_network
     ports:
       - "6379:6379"
     environment:
       - REDIS_PASSWORD=1116
+    mem_limit: 100m
+    cpus: "0.25"
 
   axon-server:
     container_name: axon-server
     image: axoniq/axonserver:latest-jdk-17-nonroot
     networks:
-      - wargame_network
+      - application_network
     ports:
       - "8024:8024"
       - "8124:8124"
     volumes:
-      - axonserver-data:/axonserver/data
-      - axonserver-events:/axonserver/events
-      - axonserver-config:/axonserver/config:ro
+      - ./axon-server-se/data:/axonserver/data
+      - ./axon-server-se/events:/axonserver/events
+      - ./axon-server-se/config:/axonserver/config:ro
+    mem_limit: 500m
+    cpus: "0.5"
 
-#  elasticsearch:
-#    image: elasticsearch:8.11.0
-#    container_name: elasticsearch
+  membership:
+    image: downfa11/membership:latest
+    container_name: membership
+    networks:
+      - application_network
+    ports:
+      - "8082:8080"
+    environment:
+      - SPRING_R2DBC_URL=r2dbc:mysql://mysql:3306/wargame
+      - SPRING_R2DBC_USERNAME=mysqluser
+      - SPRING_R2DBC_PASSWORD=mysqlpw
+      - KAFKA_CLUSTERS_BOOTSTRAPSERVERS=${KAFKA_BOOTSTRAP_SERVERS}
+      - SPRING_KAFKA_PROPERTIES_SECURITY_PROTOCOL=SASL_SSL
+      - SPRING_KAFKA_PROPERTIES_SASL_MECHANISM=PLAIN
+      - SPRING_KAFKA_PROPERTIES_SASL_JAAS_CONFIG=org.apache.kafka.common.security.plain.PlainLoginModule required username='${CONFLUENT_USERNAME}' password='${CONFLUENT_PASSWORD}';
+      - SPRING_KAFKA_PROPERTIES_SESSION_TIMEOUT_MS=45000
+      - SPRING_KAFKA_CLIENT_ID=membership
+      - LOGGING_TOPIC=logging.backend.topic
+      - TASK_REQUEST_TOPIC=task.membership.request
+      - TASK_RESPONSE_TOPIC=task.membership.response
+      - TASK_REQUEST_CONSUMER_GROUP=membership-request-consumer-group
+      - TASK_RESPONSE_CONSUMER_GROUP=membership-response-consumer-group
+      - AXON_AXONSERVER_SERVERS=axon-server:8124
+      - AXON_SERIALIZER_EVENTS=jackson
+      - AXON_SERIALIZER_MESSAGES=jackson
+      - AXON_SERIALIZER_GENERAL=jackson
+      - SPRING_MAIL_HOST=smtp.gmail.com
+      - SPRING_MAIL_PORT=587
+      - SPRING_MAIL_USERNAME=
+      - SPRING_MAIL_PASSWORD=
+      - SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH=true
+      - SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE=true
+      - SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_REQUIRED=true
+      - SPRING_MAIL_PROPERTIES_MAIL_SMTP_CONNECTIONTIMEOUT=5000
+      - SPRING_MAIL_PROPERTIES_MAIL_SMTP_TIMEOUT=5000
+      - SPRING_MAIL_PROPERTIES_MAIL_SMTP_WRITETIMEOUT=5000
+      - SPRING_MAIL_AUTH_CODE_EXPIRATION_MILLIS=1800000
+    mem_limit: 256m
+    cpus: "0.3"
+
+  player:
+    image: downfa11/player:latest
+    container_name: player
+    networks:
+      - application_network
+    ports:
+      - "8083:8080"
+    environment:
+      - SPRING_R2DBC_URL=r2dbc:mysql://mysql:3306/wargame
+      - SPRING_R2DBC_USERNAME=mysqluser
+      - SPRING_R2DBC_PASSWORD=mysqlpw
+      - SPRING_DATA_REDIS_HOST=redis
+      - SPRING_DATA_REDIS_PORT=6379
+      - SPRING_DATA_REDIS_PASSWORD=1116
+      - KAFKA_CLUSTERS_BOOTSTRAPSERVERS=${KAFKA_BOOTSTRAP_SERVERS}
+      - SPRING_KAFKA_PROPERTIES_SECURITY_PROTOCOL=SASL_SSL
+      - SPRING_KAFKA_PROPERTIES_SASL_MECHANISM=PLAIN
+      - SPRING_KAFKA_PROPERTIES_SASL_JAAS_CONFIG=org.apache.kafka.common.security.plain.PlainLoginModule required username='${CONFLUENT_USERNAME}' password='${CONFLUENT_PASSWORD}';
+      - SPRING_KAFKA_PROPERTIES_SESSION_TIMEOUT_MS=45000
+      - SPRING_KAFKA_CLIENT_ID=player
+      - TASK_REQUEST_TOPIC=task.player.request
+      - TASK_RESPONSE_TOPIC=task.player.response
+      - TASK_REQUEST_CONSUMER_GROUP=player-request-consumer-group
+      - TASK_RESPONSE_CONSUMER_GROUP=player-response-consumer-group
+      - LOGGING_TOPIC=logging.backend.topic
+      - AXON_AXONSERVER_SERVERS=axon-server:8124
+      - AXON_SERIALIZER_EVENTS=jackson
+      - AXON_SERIALIZER_MESSAGES=jackson
+      - AXON_SERIALIZER_GENERAL=jackson
+    mem_limit: 256m
+    cpus: "0.3"
+
+#  match:
+#    image: downfa11/match:latest
+#    container_name: match
 #    networks:
-#      - wargame_network
-#    environment:
-#      - node.name=elasticsearch
-#      - discovery.type=single-node
-#      - cluster.name=docker-cluster
-#      - bootstrap.memory_lock=true
-#      - "ES_JAVA_OPTS=-Xms256m -Xmx256m"
-#      - xpack.security.enabled=false # false for dev
-#    ulimits:
-#      memlock:
-#        soft: -1
-#        hard: -1
-#    volumes:
-#      - ./data/elasticsearch:/usr/share/elasticsearch/data
+#      - application_network
 #    ports:
-#      - "9300:9300"
-#      - "9200:9200"
-
-    #  kibana:
-    #    image: kibana:8.11.0
-    #    container_name: kibana
-    #    networks:
-    #      - wargame_network
-    #    environment:
-    #      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
-    #    depends_on:
-    #      - elasticsearch
-    #    ports:
-    #      - "5601:5601"
-    #
-    #  logstash:
-    #    image: logstash:8.11.0
-    #    container_name: logstash
-    #    networks:
-    #      - wargame_network
-    #    volumes:
-    #      - ./logstash.conf:/usr/share/logstash/pipeline/logstash.conf
-    #    environment:
-    #      - XPACK_MONITORING_ENABLED=false
-    #    depends_on:
-    #      - elasticsearch
-    #    ports:
-    #      - "5044:5044"  # Beats input
-    #      - "9600:9600"  # Monitoring API
+#      - "8081:8080"
+#    environment:
+#      - SPRING_DATA_REDIS_HOST=${DNS_ADDRESS}
+#      - SPRING_DATA_REDIS_PORT=6379
+#      - SPRING_DATA_REDIS_PASSWORD=1116
+#      - SPRING_REDIS_REACTIVE_ENABLED=true
+#      - KAFKA_CLUSTERS_BOOTSTRAPSERVERS=${KAFKA_BOOTSTRAP_SERVERS}
+#      - SPRING_KAFKA_PROPERTIES_SECURITY_PROTOCOL=SASL_SSL
+#      - SPRING_KAFKA_PROPERTIES_SASL_MECHANISM=PLAIN
+#      - SPRING_KAFKA_PROPERTIES_SASL_JAAS_CONFIG=org.apache.kafka.common.security.plain.PlainLoginModule required username='${CONFLUENT_USERNAME}' password='${CONFLUENT_PASSWORD}';
+#      - SPRING_KAFKA_PROPERTIES_SESSION_TIMEOUT_MS=45000
+#      - SPRING_KAFKA_CLIENT_ID=match
+#      - TASK_REQUEST_TOPIC=task.match.request
+#      - TASK_RESPONSE_TOPIC=task.match.response
+#      - TASK_REQUEST_CONSUMER_GROUP=match-request-consumer-group
+#      - TASK_RESPONSE_CONSUMER_GROUP=match-response-consumer-group
+#      - LOGGING_TOPIC=logging.backend.topic
+#      - AXON_AXONSERVER_SERVERS=ec2-13-125-8
+#
+#  result:
+#    image: downfa11/result:latest
+#    container_name: result
+#    networks:
+#      - application_network
+#    ports:
+#      - "8084:8080"
+#    environment:
+#      - KAFKA_CLUSTERS_BOOTSTRAPSERVERS=${KAFKA_BOOTSTRAP_SERVERS}
+#      - SPRING_KAFKA_PROPERTIES_SECURITY_PROTOCOL=SASL_SSL
+#      - SPRING_KAFKA_PROPERTIES_SASL_MECHANISM=PLAIN
+#      - SPRING_KAFKA_PROPERTIES_SASL_JAAS_CONFIG=org.apache.kafka.common.security.plain.PlainLoginModule required username='${CONFLUENT_USERNAME}' password='${CONFLUENT_PASSWORD}';
+#      - SPRING_KAFKA_PROPERTIES_SESSION_TIMEOUT_MS=45000
+#      - SPRING_KAFKA_CLIENT_ID=result
+#      - LOGGING_TOPIC=logging.backend.topic
+#      - TASK_REQUEST_TOPIC=task.result.request
+#      - TASK_RESPONSE_TOPIC=task.result.response
+#      - TASK_REQUEST_CONSUMER_GROUP=result-request-consumer-group
+#      - TASK_RESPONSE_CONSUMER_GROUP=result-response-consumer-group
+#      - SPRING_DATA_ELASTICSEARCH_CLIENT_REACTIVE_ENDPOINTS=http://elasticsearch:9200
+#      - SPRING_ELASTICSEARCH_REST_URIS=http://elasticsearch:9200
+#      - SPRING_DATA_REDIS_HOST=redis
+#      - SPRING_DATA_REDIS_PORT=6379
+#      - SPRING_DATA_REDIS_PASSWORD=1116
+#      - SPRING_REDIS_REACTIVE_ENABLED=true
+#      - AXON_AXONSERVER_SERVERS=axon-server:8124
+#      - AXON_SERIALIZER_EVENTS=jackson
+#      - AXON_SERIALIZER_MESSAGES=jackson
+#      - AXON_SERIALIZER_GENERAL=jackson
+#    mem_limit: 256m
+#    cpus: "0.3"
+#
+#  result-query:
+#    image: downfa11/result-query:latest
+#    container_name: result-query
+#    networks:
+#      - application_network
+#    ports:
+#      - "8085:8080"
+#    environment:
+#      - AXON_AXONSERVER_SERVERS=axon-server:8124
+#      - AXON_SERIALIZER_EVENTS=jackson
+#      - AXON_SERIALIZER_MESSAGES=jackson
+#      - AXON_SERIALIZER_GENERAL=jackson
+#      - DYNAMODB_ACCESSKEY=${DYNAMODB_ACCESSKEY}
+#      - DYNAMODB_SECRETKEY=${DYNAMODB_SECRETKEY}
+#      - SPRING_DATASOURCE_URL=jdbc:mysql://${DNS_ADDRESS}:3306/wargame
+#      - SPRING_DATASOURCE_USERNAME=mysqluser
+#      - SPRING_DATASOURCE_PASSWORD=mysqlpw
+#      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+#      - SPRING_DATA_REDIS_HOST=redis
+#      - SPRING_DATA_REDIS_PORT=6379
+#      - SPRING_DATA_REDIS_PASSWORD=1116
+#      - SPRING_REDIS_REACTIVE_ENABLED=true
+#      - KAFKA_CLUSTERS_BOOTSTRAPSERVERS=${KAFKA_BOOTSTRAP_SERVERS}
+#      - SPRING_KAFKA_PROPERTIES_SECURITY_PROTOCOL=SASL_SSL
+#      - SPRING_KAFKA_PROPERTIES_SASL_MECHANISM=PLAIN
+#      - SPRING_KAFKA_PROPERTIES_SASL_JAAS_CONFIG=org.apache.kafka.common.security.plain.PlainLoginModule required username='${CONFLUENT_USERNAME}' password='${CONFLUENT_PASSWORD}';
+#      - SPRING_KAFKA_PROPERTIES_SESSION_TIMEOUT_MS=45000
+#      - SPRING_KAFKA_CLIENT_ID=result-query
+#      - LOGGING_TOPIC=logging.backend.topic
+#      - SEASON_CURRENT=1
+#    mem_limit: 256m
+#    cpus: "0.3"
 
 #  feed:
 #    image: feed:latest
@@ -144,7 +227,12 @@ services:
 #      - SPRING_R2DBC_URL=r2dbc:mysql://mysql:3306/wargame
 #      - SPRING_R2DBC_USERNAME=mysqluser
 #      - SPRING_R2DBC_PASSWORD=mysqlpw
-#      - KAFKA_CLUSTERS_BOOTSTRAPSERVERS=kafka:9092 # kafka-0:9092,kafka-1:9092,kafka-2:9092
+#      - KAFKA_CLUSTERS_BOOTSTRAPSERVERS=${KAFKA_BOOTSTRAP_SERVERS}
+#      - SPRING_KAFKA_PROPERTIES_SECURITY_PROTOCOL=SASL_SSL
+#      - SPRING_KAFKA_PROPERTIES_SASL_MECHANISM=PLAIN
+#      - SPRING_KAFKA_PROPERTIES_SASL_JAAS_CONFIG=org.apache.kafka.common.security.plain.PlainLoginModule required username='${CONFLUENT_USERNAME}' password='${CONFLUENT_PASSWORD}';
+#      - SPRING_KAFKA_PROPERTIES_SESSION_TIMEOUT_MS=45000
+#      - SPRING_KAFKA_CLIENT_ID=feed
 #      - LOGGING_TOPIC=logging.backend.topic
 #      - TASK_REQUEST_TOPIC=task.post.request
 #      - TASK_RESPONSE_TOPIC=task.post.response
@@ -157,227 +245,7 @@ services:
 #    mem_limit: 256m
 #    cpus: "0.5"
 
-  match:
-    image: match:latest
-    networks:
-      - wargame_network
-    ports:
-      - "8081:8080"
-    depends_on:
-      - redis
-    environment:
-      - KAFKA_CLUSTERS_BOOTSTRAPSERVERS=kafka:9092 # kafka-0:9092,kafka-1:9092,kafka-2:9092
-      - TASK_REQUEST_TOPIC=task.match.request
-      - TASK_REQUEST_CONSUMER_GROUP=match-request-consumer-group
-      - SPRING_DATA_REDIS_HOST=redis
-      - SPRING_DATA_REDIS_PORT=6379
-      - SPRING_DATA_REDIS_PASSWORD=1116
-      - SPRING_REDIS_REACTIVE_ENABLED=true
-      - WAITING_VALUE_MAXALLOW=3
-      - SCHEDULER_ENABLED=true
-      - SPRING_VAR_MATCHEXPIRETIME=3600
-      - SPRING_VAR_NICKNAMEEXPIRETIME=3600
-      - LOGGING_TOPIC=logging.backend.topic
-      - AXON_AXONSERVER_SERVERS=axon-server:8124
-      - AXON_SERIALIZER_EVENTS=jackson
-      - AXON_SERIALIZER_MESSAGES=jackson
-      - AXON_SERIALIZER_GENERAL=jackson
-    mem_limit: 256m
-    cpus: "0.5"
-
-  membership:
-    image: membership:latest
-    networks:
-      - wargame_network
-    ports:
-      - "8082:8080"
-    depends_on:
-      - mysql
-      - axon-server
-    environment:
-      - AXON_AXONSERVER_SERVERS=axon-server:8124
-      - AXON_SERIALIZER_EVENTS=jackson
-      - AXON_SERIALIZER_MESSAGES=jackson
-      - AXON_SERIALIZER_GENERAL=jackson
-      - SPRING_R2DBC_URL=r2dbc:mysql://mysql:3306/wargame
-      - SPRING_R2DBC_USERNAME=mysqluser
-      - SPRING_R2DBC_PASSWORD=mysqlpw
-      - KAFKA_CLUSTERS_BOOTSTRAPSERVERS=kafka:9092 # kafka-0:9092,kafka-1:9092,kafka-2:9092
-      - LOGGING_TOPIC=logging.backend.topic
-      - TASK_REQUEST_TOPIC=task.membership.request
-      - TASK_RESPONSE_TOPIC=task.membership.response
-      - TASK_REQUEST_CONSUMER_GROUP=membership-request-consumer-group
-      - TASK_RESPONSE_CONSUMER_GROUP=membership-response-consumer-group
-      - SPRING_CLOUD_VAULT_TOKEN=
-      - SPRING_CLOUD_VAULT_SCHEME=http
-      - SPRING_CLOUD_VAULT_HOST=
-      - SPRING_CLOUD_VAULT_PORT=8200
-      - SPRING_MAIL_HOST=smtp.gmail.com
-      - SPRING_MAIL_PORT=587
-      - SPRING_MAIL_USERNAME=
-      - SPRING_MAIL_PASSWORD=
-      - SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH=true
-      - SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE=true
-      - SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_REQUIRED=true
-      - SPRING_MAIL_PROPERTIES_MAIL_SMTP_CONNECTIONTIMEOUT=5000
-      - SPRING_MAIL_PROPERTIES_MAIL_SMTP_TIMEOUT=5000
-      - SPRING_MAIL_PROPERTIES_MAIL_SMTP_WRITETIMEOUT=5000
-      - SPRING_MAIL_AUTH_CODE_EXPIRATION_MILLIS=1800000
-    mem_limit: 256m
-    cpus: "0.5"
-
-  player:
-    image: player:latest
-    networks:
-      - wargame_network
-    ports:
-      - "8083:8080"
-    depends_on:
-      - axon-server
-    environment:
-      - KAFKA_CLUSTERS_BOOTSTRAPSERVERS=kafka:9092 # kafka-0:9092,kafka-1:9092,kafka-2:9092
-      - LOGGING_TOPIC=logging.backend.topic
-      - TASK_REQUEST_TOPIC=task.player.request
-      - TASK_RESPONSE_TOPIC=task.player.response
-      - TASK_REQUEST_CONSUMER_GROUP=player-request-consumer-group
-      - TASK_RESPONSE_CONSUMER_GROUP=player-response-consumer-group
-      - AXON_AXONSERVER_SERVERS=axon-server:8124
-      - AXON_SERIALIZER_EVENTS=jackson
-      - AXON_SERIALIZER_MESSAGES=jackson
-      - AXON_SERIALIZER_GENERAL=jackson
-      - SPRING_R2DBC_URL=r2dbc:mysql://mysql:3306/wargame
-      - SPRING_R2DBC_USERNAME=mysqluser
-      - SPRING_R2DBC_PASSWORD=mysqlpw
-    mem_limit: 256m
-    cpus: "0.5"
-
-#  result:
-#    image: result:latest
-#    networks:
-#      - wargame_network
-#    ports:
-#      - "8084:8080"
-#    depends_on:
-#      - axon-server
-#      - elasticsearch
-#    environment:
-#      - KAFKA_CLUSTERS_BOOTSTRAPSERVERS=kafka:9092 # kafka-0:9092,kafka-1:9092,kafka-2:9092
-#      - LOGGING_TOPIC=logging.backend.topic
-#      - TASK_REQUEST_TOPIC=task.result.request
-#      - TASK_RESPONSE_TOPIC=task.result.response
-#      - TASK_REQUEST_CONSUMER_GROUP=result-request-consumer-group
-#      - TASK_RESPONSE_CONSUMER_GROUP=result-response-consumer-group
-#      - SPRING_DATA_ELASTICSEARCH_CLIENT_REACTIVE_ENDPOINTS=elasticsearch:9200
-#      - SPRING_ELASTICSEARCH_REST_URIS=http://elasticsearch:9200
-#      - SPRING_DATA_REDIS_HOST=redis
-#      - SPRING_DATA_REDIS_PORT=6379
-#      - SPRING_DATA_REDIS_PASSWORD=1116
-#      - SPRING_REDIS_REACTIVE_ENABLED=true
-#      - AXON_AXONSERVER_SERVERS=axon-server:8124
-#      - AXON_SERIALIZER_EVENTS=jackson
-#      - AXON_SERIALIZER_MESSAGES=jackson
-#      - AXON_SERIALIZER_GENERAL=jackson
-#    mem_limit: 256m
-#    cpus: "0.5"
-#
-#  result-query:
-#    image: result-query:latest
-#    networks:
-#      - wargame_network
-#    ports:
-#      - "8085:8080"
-#    depends_on:
-#      - axon-server
-#    environment:
-#      - AXON_AXONSERVER_SERVERS=axon-server:8124
-#      - AXON_SERIALIZER_EVENTS=jackson
-#      - AXON_SERIALIZER_MESSAGES=jackson
-#      - AXON_SERIALIZER_GENERAL=jackson
-#      - DYNAMODB_ACCESSKEY=
-#      - DYNAMODB_SECRETKEY=
-#      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/wargame
-#      - SPRING_DATASOURCE_USERNAME=mysqluser
-#      - SPRING_DATASOURCE_PASSWORD=mysqlpw
-#      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
-#      - SPRING_DATA_REDIS_HOST=redis
-#      - SPRING_DATA_REDIS_PORT=6379
-#      - SPRING_DATA_REDIS_PASSWORD=1116
-#      - SPRING_REDIS_REACTIVE_ENABLED=true
-#      - KAFKA_CLUSTERS_BOOTSTRAPSERVERS=kafka:9092 # kafka-0:9092,kafka-1:9092,kafka-2:9092
-#      - LOGGING_TOPIC=logging.backend.topic
-#    mem_limit: 256m
-#    cpus: "0.5"
-
-#  prometheus:
-#    image: prom/prometheus
-#    networks:
-#      - wargame_network
-#    volumes:
-#      - ./prometheus/volume:/prometheus
-#      - ./prometheus/config:/etc/prometheus
-#    ports:
-#      - 9090:9090
-#    command:
-#      - '--config.file=/etc/prometheus/prometheus.yml'
-#
-#  node_exporter:
-#    image: prom/node-exporter
-#    networks:
-#      - wargame_network
-#    ports:
-#      - 9100:9100
-#
-#  alertmanager:
-#    image: prom/alertmanager
-#    networks:
-#      - wargame_network
-#    volumes:
-#      - ./prometheus/config:/etc/alertmanager
-#    ports:
-#      - 9093:9093
-#    command:
-#      - '--config.file=/etc/alertmanager/alertmanager.yml'
-#
-#  grafana:
-#    image: grafana/grafana
-#    networks:
-#      - wargame_network
-#    volumes:
-#      - ./grafana/volume:/var/lib/grafana
-#    ports:
-#      - 3000:3000
-#    user: root
-
-
-volumes:
-  elastic:
-    driver: local
-    driver_opts:
-      o: bind
-      type: none
-      device: ./data/elasticsearch
-
-  axonserver-data:
-    driver: local
-    driver_opts:
-      o: bind
-      type: none
-      device: /axon-server-se/data
-
-  axonserver-events:
-    driver: local
-    driver_opts:
-      o: bind
-      type: none
-      device: /axon-server-se/events
-
-  axonserver-config:
-    driver: local
-    driver_opts:
-      o: bind
-      type: none
-      device: /axon-server-se/config
 
 networks:
-  wargame_network:
+  application_network:
     driver: bridge

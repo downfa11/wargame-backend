@@ -2721,3 +2721,4 @@ data/mysql/data/wargame/images.ibd
 data/mysql/data/wargame/players.ibd
 data/mysql/data/wargame/posts.ibd
 data/mysql/data/wargame/users.ibd
+.env

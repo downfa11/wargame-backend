@@ -1,0 +1,175 @@
+services:
+
+  mysql:
+    image: mysql:8.0
+    container_name: mysql
+    networks:
+      - core_network
+    volumes:
+      - ./data/mysql/data:/var/lib/mysql
+      - ./data/mysql/initdb.d:/docker-entrypoint-initdb.d
+    ports:
+      - "3306:3306"
+    environment:
+      - TZ=Asia/Seoul
+      - MYSQL_DATABASE=wargame
+      - MYSQL_ROOT_PASSWORD=rootpassword
+      - MYSQL_USER=mysqluser
+      - MYSQL_PASSWORD=mysqlpw
+    command:
+      [
+        "--default-time-zone=Asia/Seoul",
+        "--character-set-server=utf8mb4",
+        "--collation-server=utf8mb4_unicode_ci",
+        "--sql-mode=",
+        "--max_connections=200"
+      ]
+    cpus: "0.5"
+
+#  kafka:
+#    image: bitnami/kafka:3.7.0
+#    container_name: kafka
+#    ports:
+#      - '9092:9092'
+#      - '9093:9093'
+#      - '9094:9094'
+#    environment:
+#      - KAFKA_CFG_BROKER_ID=0
+#      - KAFKA_CFG_NODE_ID=0
+#      - KAFKA_KRAFT_CLUSTER_ID=kraft-cluster
+#      - KAFKA_CFG_PROCESS_ROLES=controller,broker
+#      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@kafka:9093
+#      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+#      - KAFKA_CFG_LISTENERS=PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093,EXTERNAL://0.0.0.0:9094
+#      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092,EXTERNAL://localhost:9094
+#      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT
+#      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+#      - ALLOW_PLAINTEXT_LISTENER=yes
+#      - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=true
+#    networks:
+#      - core_network
+#    mem_limit: 512m
+#    cpus: "1"
+
+#  kafka-ui:
+#    image: provectuslabs/kafka-ui
+#    container_name: kafka-ui
+#    ports:
+#      - '8989:8080'
+#    environment:
+#      - KAFKA_CLUSTERS_0_NAME=kakfa-local
+#      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=${DNS_ADDRESS}:9092 # kafka-0:9092,kafka-1:9092,kafka-2:9092
+#      - DYNAMIC_CONFIG_ENABLED=true
+
+#  redis:
+#    image: redis:6.2
+#    container_name: redis
+#    networks:
+#      - core_network
+#    ports:
+#      - "6379:6379"
+#    environment:
+#      - REDIS_PASSWORD=1116
+#    mem_limit: 100m
+#    cpus: "0.25"
+#
+#  axon-server:
+#    container_name: axon-server
+#    image: axoniq/axonserver:latest-jdk-17-nonroot
+#    networks:
+#      - core_network
+#    ports:
+#      - "8024:8024"
+#      - "8124:8124"
+#    volumes:
+#      - ./axonserver-data:/axonserver/data
+#      - ./axonserver-events:/axonserver/events
+#      - ./axonserver-config:/axonserver/config:ro
+#    mem_limit: 500m
+#    cpus: "0.5"
+#
+#  elasticsearch:
+#    image: elasticsearch:8.11.0
+#    container_name: elasticsearch
+#    networks:
+#      - core_network
+#    environment:
+#      - node.name=elasticsearch
+#      - discovery.type=single-node
+#      - cluster.name=docker-cluster
+#      - bootstrap.memory_lock=true
+#      - "ES_JAVA_OPTS=-Xms256m -Xmx256m"
+#      - xpack.security.enabled=false
+#    ulimits:
+#      memlock:
+#        soft: -1
+#        hard: -1
+#    volumes:
+#      - ./data/elasticsearch:/usr/share/elasticsearch/data
+#    ports:
+#      - "9300:9300"
+#      - "9200:9200"
+
+#  kibana:
+#    image: kibana:8.11.0
+#    container_name: kibana
+#    networks:
+#      - wargame_network
+#    environment:
+#      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+#    depends_on:
+#      - elasticsearch
+#    ports:
+#       - "5601:5601"
+#    mem_limit: 256m
+#    cpus: "0.5"
+#
+#  logstash:
+#    image: logstash:8.11.0
+#    container_name: logstash
+#    networks:
+#      - wargame_network
+#    volumes:
+#      - ./logstash.conf:/usr/share/logstash/pipeline/logstash.conf
+#    environment:
+#      - XPACK_MONITORING_ENABLED=false
+#    depends_on:
+#      - elasticsearch
+#    ports:
+#      - "5044:5044"  # Beats input
+#      - "9600:9600"  # Monitoring API
+#    mem_limit: 512m
+#    cpus: "0.5"
+
+volumes:
+  axonserver-data:
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: /axon-server-se/data
+
+  axonserver-events:
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: /axon-server-se/events
+
+  axonserver-config:
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: /axon-server-se/config
+
+  elastic:
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: ./data/elasticsearch
+
+networks:
+  core_network:
+    driver: bridge
